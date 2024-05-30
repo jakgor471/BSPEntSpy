@@ -11,7 +11,7 @@ import entspy.JTBEditor;
 import entspy.JTBRenderer;
 import entspy.KeyValLinkModel;
 import entspy.MapInfo;
-import entspy.TERenderer;
+import entspy.LERenderer;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
@@ -110,7 +110,7 @@ public class Entspy {
         DefaultListSelectionModel selmodel = new DefaultListSelectionModel();
         selmodel.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         entList.setSelectionModel(selmodel);
-       
+        entList.setCellRenderer(new LERenderer());
 
         this.frame.setTitle("Entspy - " + this.filename);
         JMenu filemenu = new JMenu("File");
@@ -290,10 +290,10 @@ public class Entspy {
         entbut.add(delent);
         entcpl.add((Component)entbut, "South");
         JButton findent = new JButton("Find Next");
-        findent.setToolTipText("Find entity");
+        findent.setToolTipText("Find entity, hold Shift to add to selection");
         findent.setMnemonic(114);
         JButton findall = new JButton("Find all");
-        findall.setToolTipText("Select all matching entities");
+        findall.setToolTipText("Select all matching entities, hold Shift to add to selection");
         findall.setMnemonic(114);
         JTextField findtext = new JTextField();
         findtext.setToolTipText("Text to search for");
@@ -310,17 +310,17 @@ public class Entspy {
         updent.addActionListener(new ActionListener(){
 
             public void actionPerformed(ActionEvent e) {
-                //Entspy.this.root = Entspy.this.m.getTree();
-                //Entspy.this.entList.setModel(new DefaultTreeModel(Entspy.this.root));
             	entList.setModel(new EntspyListModel(m.el));
             }
         });
         delent.addActionListener(new ActionListener(){
 
-            public void actionPerformed(ActionEvent e) {            	
+            public void actionPerformed(ActionEvent e) {     
+            	ArrayList<Entity> toremove = new ArrayList<Entity>();
             	for(int i : Entspy.this.entList.getSelectedIndices()) {
-            		Entspy.this.m.el.remove(i);
+            		toremove.add(m.el.get(i));
             	}
+            	m.el.removeAll(toremove);
             	
                 Entspy.this.entList.setModel(new EntspyListModel(Entspy.this.m.el));
                 Entspy.this.m.dirty = true;
@@ -749,7 +749,6 @@ public class Entspy {
     }
 
     public Entity getSelectedEntity() {
-        //return (DefaultMutableTreeNode)this.entList.getLastSelectedPathComponent();
     	int index = entList.getSelectedIndex();
     	
     	if(index < 0 || index >= m.el.size())
@@ -778,22 +777,37 @@ public class Entspy {
         public void actionPerformed(ActionEvent ae) {
             boolean found = false;
             String ftext = this.textf.getText();
-            String searchKey = null;
             if (ftext.equals("")) {
                 return;
             }
             
             int i = 0;
-            for(i = entList.getSelectedIndex() + 1; i < ((EntspyListModel)entList.getModel()).entities.size(); ++i) {
-            	if(((EntspyListModel)entList.getModel()).entities.get(i).ismatch(ftext, searchKey)) {
+            for(i = entList.getMaxSelectionIndex() + 1; i < ((EntspyListModel)entList.getModel()).entities.size(); ++i) {
+            	if(((EntspyListModel)entList.getModel()).entities.get(i).ismatch(ftext)) {
             		found = true;
             		break;
             	}
             }
             
             if(found) {
-            	entList.setSelectedIndex(i);
-            	entList.ensureIndexIsVisible(i);
+            	ArrayList<Integer> selected = new ArrayList<Integer>();
+            	
+            	if((ae.getModifiers() & ActionEvent.SHIFT_MASK) == 1) {
+	            	for(int j : entList.getSelectedIndices()) {
+	            		selected.add(j);
+	            	}
+            	}
+            	
+            	selected.add(i);
+            	
+            	int[] indices = new int[selected.size()];
+            	
+        		for(int j = 0; j < selected.size(); ++j) {
+            		indices[j] = selected.get(j);
+            	}
+            	
+            	entList.setSelectedIndices(indices);
+            	entList.ensureIndexIsVisible(indices[indices.length - 1]);
             }
         }
     }
@@ -805,14 +819,33 @@ public class Entspy {
         }
 
         public void actionPerformed(ActionEvent ae) {
-            boolean found = false;
             String ftext = this.textf.getText();
-            String searchKey = null;
+            if (ftext.equals("")) {
+                return;
+            }
             
-            if(ftext.equals(""))
-            	return;
+            ArrayList<Integer> indices = new ArrayList<Integer>();
+            for(int i = 0; i < ((EntspyListModel)entList.getModel()).entities.size(); ++i) {
+            	if(((EntspyListModel)entList.getModel()).entities.get(i).ismatch(ftext)) {
+            		indices.add(i);
+            	}
+            }
             
-            //for(Entspy.this.tree.get)
+            if((ae.getModifiers() & ActionEvent.SHIFT_MASK) == 1) {
+            	for(int j : entList.getSelectedIndices()) {
+            		indices.add(j);
+            	}
+        	}
+            
+            if(indices.size() > 0) {
+            	int[] arr = new int[indices.size()];
+            	
+            	for(int i = 0; i < indices.size(); ++i) {
+            		arr[i] = indices.get(i);
+            	}
+            	
+            	entList.setSelectedIndices(arr);
+            }
         }
     }
 
@@ -853,15 +886,11 @@ public class Entspy {
 		}
 
 		@Override
-		public void addListDataListener(ListDataListener l) {
-			// TODO Auto-generated method stub
-			
+		public void addListDataListener(ListDataListener l) {			
 		}
 
 		@Override
 		public void removeListDataListener(ListDataListener l) {
-			// TODO Auto-generated method stub
-			
 		}
     	
     }

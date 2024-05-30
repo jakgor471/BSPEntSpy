@@ -5,6 +5,7 @@ package entspy;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Entity {
@@ -155,21 +156,26 @@ public class Entity {
         }
         this.setnames();
     }
-
-    public boolean ismatch(String text, String findKey) {
-    	String lower = text.toLowerCase();
+    
+    public boolean ismatch(List<String> keys, List<String> values) {
+    	if(values.size() < keys.size())
+    		return false;
     	
-    	if(findKey != null) {
-    		if(kvmap.containsKey(findKey)) {
-				int index = kvmap.get(findKey);
+    	for(int i = 0; i < keys.size(); ++i) {
+    		if(kvmap.containsKey(keys.get(i))) {
+				int index = kvmap.get(keys.get(i));
     			
-    			if(index < value.size() && index >= 0) {
-    				return value.get(index).toLowerCase().indexOf(lower) > -1;
+    			if(index < value.size() && index >= 0 && value.get(index).toLowerCase().indexOf(values.get(i)) == -1) {
+    				return false;
     			}
     		}
-    		
-    		return false;
     	}
+    	
+    	return true;
+    }
+
+    public boolean ismatch(String text) {
+    	String lower = text.toLowerCase();
     	
     	for(String key : key) {
     		if(kvmap.containsKey(key)) {
@@ -183,9 +189,6 @@ public class Entity {
     		}
     	}
     	
-        /*if (this.toString().toLowerCase().indexOf(text.toLowerCase()) == -1) {
-            return false;
-        }*/
         return false;
     }
 }
