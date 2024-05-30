@@ -13,6 +13,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.swing.BorderFactory;
+import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -38,6 +39,7 @@ public class ClassPropertyPanel extends JPanel {
 	private JTextField classTextField;
 	private JTextField originTextField;
 	private JTextField keyTextField;
+	private JButton gotoEnt;
 	private JTextField valueTextField;
 	private JLabel valueLabel;
 	private KeyValueListener classnameListener;
@@ -50,16 +52,10 @@ public class ClassPropertyPanel extends JPanel {
 	private JTable kvtable;
 	private KVTableRenderer kvrenderer;
 	private JButton addkv;
-	private JButton cpykv;
+	private JButton dupkv;
 	private JButton delkv;
 	private JButton help;
 	private JButton apply;
-	
-	private OutputModel outputModel;
-	private JTable outputTable;
-	private JButton addio;
-	private JButton cpyio;
-	private JButton delio;
 	
 	private ArrayList<Entity> editingEntities;
 	private ArrayList<KVEntry> outputs;
@@ -68,6 +64,7 @@ public class ClassPropertyPanel extends JPanel {
 	private ArrayList<KVEntry> deletedOutputs;
 	private HashMap<String, KVEntry> kvMap;
 	private ActionListener onApply;
+	private ActionListener onGoto;
 	
 	private boolean smartEdit;
 	private boolean addDefaultParameters;
@@ -156,8 +153,9 @@ public class ClassPropertyPanel extends JPanel {
 			public void valueChanged(ListSelectionEvent e) {
 				int selected = kvtable.getSelectedRow();
 				boolean enable = !(selected < 0 || selected >= keyvalues.size());
-				cpykv.setEnabled(enable);
+				dupkv.setEnabled(enable);
 				delkv.setEnabled(enable);
+				gotoEnt.setEnabled(enable);
 				
 				if(enable && keyvalues.get(selected) != keyListener.kv)
 					applyKVChanges();
@@ -165,6 +163,8 @@ public class ClassPropertyPanel extends JPanel {
 		});
 		
 		valueLabel = new JLabel("Value:", 4);
+		
+		FlowLayout bottomFlowLayout = new FlowLayout(FlowLayout.LEADING);
 		
 		grid.add(new JLabel("Key:", 4));
 		grid.add(keyTextField);
@@ -177,21 +177,39 @@ public class ClassPropertyPanel extends JPanel {
 		
 		paramsPanel.add(keyvalPanel, "Center");
 		
-		FlowLayout bottomFlowLayout = new FlowLayout(FlowLayout.LEADING);
 		bottomFlowLayout.setVgap(10);
 		JPanel bottomLeftPanel = new JPanel(bottomFlowLayout);
 		addkv = new JButton("Add");
 		addkv.setToolTipText("Add an entity property");
 		bottomLeftPanel.add(addkv);
 		addkv.setEnabled(true);
-		cpykv = new JButton("Copy");
-		cpykv.setToolTipText("Copy the selected property");
-		bottomLeftPanel.add(cpykv);
-		cpykv.setEnabled(false);
+		dupkv = new JButton("Duplicate");
+		dupkv.setToolTipText("Duplicate the selected property");
+		bottomLeftPanel.add(dupkv);
+		dupkv.setEnabled(false);
 		delkv = new JButton("Delete");
 		delkv.setToolTipText("Delete the selected property");
 		bottomLeftPanel.add(delkv);
 		delkv.setEnabled(false);
+		
+		gotoEnt = new JButton("Go to");
+		gotoEnt.setEnabled(false);
+		gotoEnt.setToolTipText("Go to entity");
+		gotoEnt.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				if(onGoto != null) {
+					String entname = valueTextField.getText();
+					String[] split = entname.split("\\s*,\\s*");
+					
+					if(split.length > 0)
+						entname = split[0];
+					
+					onGoto.actionPerformed(new GotoEvent(this, ae.getID(), entname));
+				}
+			}
+		});
+		bottomLeftPanel.add(Box.createHorizontalStrut(10));
+		bottomLeftPanel.add(gotoEnt);
 		
 		FlowLayout bottomRightFlow = new FlowLayout(FlowLayout.TRAILING);
 		bottomRightFlow.setVgap(10);
@@ -239,7 +257,7 @@ public class ClassPropertyPanel extends JPanel {
 				kvtable.scrollRectToVisible(kvtable.getCellRect(lastrow, 0, true));
 			}
 		});
-		cpykv.addActionListener(new ActionListener() {
+		dupkv.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent ae) {
 				int selected = kvtable.getSelectedRow();
@@ -292,104 +310,6 @@ public class ClassPropertyPanel extends JPanel {
 		tabs.addTab("Parameters", paramsPanel);
 		/*=== END OF MAIN PARAMETERS PANEL ===*/
 		
-		/*OUTPUTS PANEL*/
-		outputModel = new OutputModel();
-		outputTable = new JTable(outputModel);
-		outputTable.getColumnModel().getColumn(0).setPreferredWidth(175);
-		outputTable.getColumnModel().getColumn(1).setPreferredWidth(175);
-		outputTable.getColumnModel().getColumn(2).setPreferredWidth(175);
-		outputTable.getColumnModel().getColumn(3).setPreferredWidth(40);
-		outputTable.getColumnModel().getColumn(4).setPreferredWidth(40);
-		outputTable.getColumnModel().getColumn(5).setPreferredWidth(40);
-		outputTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-		outputTable.getTableHeader().setReorderingAllowed(false);
-		
-		outputTable.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
-			@Override
-			public void valueChanged(ListSelectionEvent e) {
-				int selected = outputTable.getSelectedRow();
-				
-				boolean enable = !(selected < 0 || selected >= outputs.size());
-				cpyio.setEnabled(enable);
-				delio.setEnabled(enable);
-				
-				applyIOChanges();
-			}
-		});
-		
-		JPanel bottomLeftIOPanel = new JPanel(bottomFlowLayout);
-		addio = new JButton("Add");
-		addio.setToolTipText("Add an entity property");
-		bottomLeftIOPanel.add(addio);
-		addio.setEnabled(true);
-		cpyio = new JButton("Copy");
-		cpyio.setToolTipText("Copy the selected property");
-		bottomLeftIOPanel.add(cpyio);
-		cpyio.setEnabled(false);
-		delio = new JButton("Delete");
-		delio.setToolTipText("Delete the selected property");
-		bottomLeftIOPanel.add(delio);
-		delio.setEnabled(false);
-		
-		addio.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent ae) {
-				KVEntry newIO = new KVEntry();
-				newIO.key = "";
-				newIO.value = "";
-				outputs.add(newIO);
-				
-				int lastrow = keyvalues.size() - 1;
-				outputModel.fireTableDataChanged();
-				outputTable.changeSelection(lastrow, 0, false, false);
-				outputTable.scrollRectToVisible(outputTable.getCellRect(lastrow, 0, true));
-			}
-		});
-		cpyio.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent ae) {
-				int selected = outputTable.getSelectedRow();
-				
-				if(selected < 0 || selected >= outputs.size())
-					return;
-				
-				KVEntry entry = outputs.get(selected);
-				KVEntry newIO = new KVEntry();
-				newIO.key = entry.key;			
-				newIO.value = entry.value;
-				newIO.different = false;
-				newIO.renamed = true;
-				newIO.edited = true;
-				
-				outputs.add(++selected, newIO);
-				
-				outputModel.fireTableDataChanged();
-				
-				outputTable.changeSelection(selected, 0, false, false);
-				outputTable.scrollRectToVisible(outputTable.getCellRect(selected, 0, true));
-			}
-		});
-		delio.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent ae) {
-				int selected = outputTable.getSelectedRow();
-				
-				if(selected < 0 || selected >= outputs.size())
-					return;
-				
-				KVEntry entry = outputs.get(selected);
-				outputs.remove(selected);
-				
-				if(entry.uniqueId != null)
-					deletedOutputs.add(entry);
-				
-				outputModel.fireTableDataChanged();
-				outputTable.clearSelection();
-			}
-		});
-		
-		JPanel outputPanel = new JPanel(new BorderLayout());
-		outputPanel.add(new JScrollPane(outputTable), "Center");
-		outputPanel.add(bottomLeftIOPanel, "South");
-		tabs.addTab("Outputs", outputPanel);
-		/*=== END OF OUTPUTS PANEL ===*/
 		tabs.addTab("Flags", new JPanel());
 		
 		this.add(tabs, "Center");
@@ -398,8 +318,8 @@ public class ClassPropertyPanel extends JPanel {
 	
 	public void applyKVChanges() {
 		if(keyListener.keyChanged()) {
-			//while(kvMap.containsKey(keyListener.kv.key) && smartEdit)
-			//	fixDuplicateKey(keyListener.kv);
+			while(kvMap.containsKey(keyListener.kv.key) && editingEntities.size() > 1)
+				fixDuplicateKey(keyListener.kv);
 			kvMap.remove(keyListener.oldKey);
 			kvMap.put(keyListener.kv.key, keyListener.kv);
 		}
@@ -437,12 +357,6 @@ public class ClassPropertyPanel extends JPanel {
 		refreshClassOriginInfo();
 	}
 	
-	public void applyIOChanges() {
-		if(outputTable.isEditing())
-			outputTable.getCellEditor().stopCellEditing();
-		
-	}
-	
 	public void setSmartEdit(boolean smartedit) {
 		smartEdit = smartedit;
 		if(fgdContent != null && smartedit && classname != null)
@@ -452,7 +366,6 @@ public class ClassPropertyPanel extends JPanel {
 		
 		//kvrenderer.shouldDifferentiateColors(smartEdit && addDefaultParameters);
 		kvModel.fireTableDataChanged();
-		outputModel.fireTableDataChanged();
 	}
 	
 	public void shouldAddDefaultParameters(boolean should) {
@@ -539,15 +452,6 @@ public class ClassPropertyPanel extends JPanel {
 			
 			for(int i = 0; i < e.size(); ++i) {
 				KeyValLink kvl = e.keyvalues.get(i);
-				/*if(fgdent != null && fgdent.outmap.containsKey(kvl.key)) {
-					KVEntry kv = new KVEntry();
-					kv.key = kvl.key;
-					kv.value = kvl.value;
-					kv.uniqueId = kvl.uniqueId;
-					
-					outputs.add(kv);
-					continue;
-				}*/
 				KVEntry entry = kvMap.get(kvl.key);
 				
 				if(entry == null || editingEntities.size() <= 1) {
@@ -588,7 +492,6 @@ public class ClassPropertyPanel extends JPanel {
 			keyvalues.add(0, name);
 		}
 		
-		outputModel.set(outputs);
 		kvModel.set(keyvalues);
 		
 		boolean enable = editingEntities.size() > 0;
@@ -614,22 +517,40 @@ public class ClassPropertyPanel extends JPanel {
 	
 	public void apply() {
 		applyKVChanges();
-		applyIOChanges();
 		
 		ArrayList<KVEntry> edited = new ArrayList<KVEntry>();
 		ArrayList<KVEntry> renamed = new ArrayList<KVEntry>();
 		
-		for(KVEntry e : keyvalues) {
-			if(e.edited)
-				edited.add(e);
-			if(e.renamed)
-				renamed.add(e);
+		if(editingEntities.size() <= 1) {
+			for(KVEntry e : keyvalues) {
+				//single entity edit
+				if(e.edited || e.renamed)
+					edited.add(e);
+			}
+		} else {
+			for(KVEntry e : keyvalues) {
+				//multi entity edit
+				if(e.edited)
+					edited.add(e);
+				if(e.renamed)
+					renamed.add(e);
+			}
 		}
 		
 		for(Entity e : editingEntities) {
 			if(editingEntities.size() <= 1) {
+				//single entity edit
 				for(KVEntry entry : deletedKv) {
 					e.delKeyValById(entry.uniqueId);
+				}
+				
+				for(KVEntry entry : edited) {
+					entry.uniqueId = e.setKeyVal(entry.uniqueId, entry.key, entry.value);
+				}
+			} else {
+				//multi entity edit
+				for(KVEntry entry : deletedKv) {
+					e.delKeyVal(entry.key);
 				}
 				
 				for(KVEntry entry : renamed) {
@@ -637,10 +558,7 @@ public class ClassPropertyPanel extends JPanel {
 				}
 				
 				for(KVEntry entry : edited) {
-					if(entry.uniqueId == null) {
-						entry.uniqueId = e.addKeyVal(entry.key, entry.value);
-					} else
-						e.setKeyVal(entry.key, entry.value);
+					e.setKeyVal(entry.key, entry.value);
 				}
 			}
 			
@@ -655,6 +573,10 @@ public class ClassPropertyPanel extends JPanel {
 	
 	public void addApplyListener(ActionListener ls) {
 		onApply = ls;
+	}
+	
+	public void addGotoListener(ActionListener ls) {
+		onGoto = ls;
 	}
 	
 	public void removeApplyListener() {
@@ -775,6 +697,15 @@ public class ClassPropertyPanel extends JPanel {
 
 		public void changedUpdate(DocumentEvent e) {
 		}
+	}
+	
+	public static class GotoEvent extends ActionEvent{
+		public String entname;
+		public GotoEvent(Object source, int id, String entname) {
+			super(source, id, "goto");
+			this.entname = entname;
+		}
+		
 	}
 	
 	protected static class KVEntry{

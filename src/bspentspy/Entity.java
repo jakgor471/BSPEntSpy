@@ -11,6 +11,7 @@ public class Entity {
 	String classname;
 	String targetname;
 	String origin;
+	public HashMap<String, Integer> duplicates = new HashMap<String, Integer>();
 	public HashMap<String, Integer> kvmap = new HashMap<String, Integer>();
 	public HashMap<Integer, Integer> uniqueKvmap = new HashMap<Integer, Integer>();
 	public ArrayList<KeyValLink> keyvalues = new ArrayList<KeyValLink>();
@@ -64,18 +65,29 @@ public class Entity {
 		addKeyVal(k, v);
 	}
 	
-	public void setKeyVal(int uniqueId, String v) {
-		if (uniqueKvmap.containsKey(uniqueId)) {
-			keyvalues.get(uniqueKvmap.get(uniqueId)).value = v;
+	public int setKeyVal(Integer uniqueId, String key, String v) {
+		if (uniqueId != null && uniqueKvmap.containsKey(uniqueId)) {
+			KeyValLink kvl = keyvalues.get(uniqueKvmap.get(uniqueId));
+			kvl.value = v;
+			
+			if(!kvl.key.equals(key))
+				changeKey(uniqueId, key);
+			
 			setnames();
-			return;
+			return uniqueId;
 		}
+		
+		return addKeyVal(key, v);
 	}
 
 	public int addKeyVal(String k, String v) {
 		KeyValLink kv = new KeyValLink();
 		kv.key = k;
 		kv.value = v;
+		
+		if(kvmap.containsKey(k)) {
+			duplicates.put(k, duplicates.getOrDefault(k, 0) + 1);
+		}
 
 		kvmap.put(k, keyvalues.size());
 
@@ -94,7 +106,31 @@ public class Entity {
 	public void delKeyVal(String k) {
 		if (!kvmap.containsKey(k))
 			return;
-		delKeyVal(kvmap.get(k));
+	
+		if(duplicates.getOrDefault(k, 0) > 0) {
+			duplicates.remove(k);
+			
+			for(int i = 0; i < size(); ++i) {
+				if(keyvalues.get(i).key.equals(k)) {
+					keyvalues.remove(i--);
+				}
+			}
+			
+			rehash();
+		} else {
+			delKeyVal(kvmap.get(k));
+		}
+	}
+	
+	public void rehash() {
+		kvmap.clear();
+		uniqueKvmap.clear();
+		
+		for(int i = 0; i < size(); ++i) {
+			KeyValLink kvl = keyvalues.get(i);
+			kvmap.put(kvl.key, i);
+			uniqueKvmap.put(kvl.uniqueId, i);
+		}
 	}
 	
 	public void delKeyValById(int uniqueId) {
@@ -104,17 +140,29 @@ public class Entity {
 	}
 
 	public void changeKey(String from, String to) {
-		if (!kvmap.containsKey(from))
+		if (!kvmap.containsKey(from)) {
+			addKeyVal(to, "");
 			return;
-
+		}
+		
 		int index = kvmap.get(from);
 		keyvalues.get(index).key = to;
 		kvmap.remove(from);
 		kvmap.put(to, index);
+		
+		if(duplicates.getOrDefault(from, 0) > 0) {
+			duplicates.put(to, duplicates.get(from));
+			duplicates.remove(from);
+			
+			for(KeyValLink kvl : keyvalues) {
+				if(kvl.key.equals(from))
+					kvl.key = to;
+			}
+		}
 	}
 	
-	public void changeKey(int uniqueId, String to) {
-		if (!uniqueKvmap.containsKey(uniqueId))
+	public void changeKey(Integer uniqueId, String to) {
+		if (uniqueId == null || !uniqueKvmap.containsKey(uniqueId))
 			return;
 
 		int index = uniqueKvmap.get(uniqueId);
@@ -127,9 +175,10 @@ public class Entity {
 		if (i < 0 || i >= this.size()) {
 			return;
 		}
-
-		kvmap.remove(keyvalues.get(i).key);
-		uniqueKvmap.remove(keyvalues.get(i).uniqueId);
+		
+		KeyValLink toRemove = keyvalues.get(i);
+		kvmap.remove(toRemove.key);
+		uniqueKvmap.remove(toRemove.uniqueId);
 
 		for (int j = i + 1; j < keyvalues.size(); ++j) {
 			kvmap.put(keyvalues.get(j).key, j - 1);

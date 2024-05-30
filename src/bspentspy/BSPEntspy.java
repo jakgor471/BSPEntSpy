@@ -64,6 +64,7 @@ import javax.swing.event.ListDataListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
+import bspentspy.ClassPropertyPanel.GotoEvent;
 import bspentspy.Lexer.LexerException;
 import util.Cons;
 import util.SwingWorker;
@@ -574,6 +575,8 @@ public class BSPEntspy {
 
 			@Override
 			public void valueChanged(ListSelectionEvent ev) {
+				if(ev.getValueIsAdjusting())
+					return;
 				int[] selected = entList.getSelectedIndices();
 				
 				boolean enable = selected.length > 0;
@@ -589,13 +592,14 @@ public class BSPEntspy {
 				 * then the changes are applied automatically
 				 */
 				HashSet<Entity> newSelection = new HashSet<Entity>();
-				boolean shouldApply = true;
+				boolean shouldApply = selected.length > 0;
 				for(int i : selected) {
 					Entity e = m.el.get(i);
 					newSelection.add(e);
 					
-					if(shouldApply)
-						shouldApply = !previouslySelected.contains(e);
+					if(previouslySelected.contains(e)) {
+						shouldApply = false;
+					}
 				}
 				previouslySelected = newSelection;
 				if(shouldApply) {
@@ -616,6 +620,30 @@ public class BSPEntspy {
 				int[] selected = entList.getSelectedIndices();
 				entList.setModel(new EntspyListModel(m.getData()));
 				entList.setSelectedIndices(selected);
+			}
+		});
+		
+		rightEntPanel.addGotoListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				GotoEvent ge = (GotoEvent)e;
+				String name = ge.entname.trim();
+				
+				boolean found = false;
+				int j = 0;
+				for(int i = 0; i < 2 && !found; ++i) {
+					for(; j < m.el.size(); ++j) {
+						if(m.el.get(j).targetname.equals(name)) {
+							entList.setSelectedIndex(j);
+							found = true;
+							break;
+						}
+					}
+					j = entList.getSelectedIndex() + 1;
+				}
+				
+				if(!found) {
+					JOptionPane.showMessageDialog(frame, "Couldn't find entity named '" + name + "'.");
+				}
 			}
 		});
 		
@@ -983,7 +1011,7 @@ public class BSPEntspy {
 
 		public void actionPerformed(ActionEvent ae) {
 			boolean found = false;
-			String ftext = this.textf.getText().strip();
+			String ftext = this.textf.getText().trim();
 			if (ftext.equals("")) {
 				return;
 			}
@@ -1078,7 +1106,7 @@ public class BSPEntspy {
 		}
 
 		public void actionPerformed(ActionEvent ae) {
-			String ftext = this.textf.getText().strip();
+			String ftext = this.textf.getText().trim();
 			if (ftext.equals("")) {
 				return;
 			}
