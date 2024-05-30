@@ -83,7 +83,7 @@ public class BSPEntspy {
 	HashSet<Entity> previouslySelected = new HashSet<Entity>();
 	
 	static ImageIcon esIcon = new ImageIcon(JTBRenderer.class.getResource("/images/newicons/entspy.png"));
-	public static final String entspyTitle = "BSPEntSpy v2.0";
+	public static final String entspyTitle = "BSPEntSpy v1.0";
 
 	public int exec() throws IOException {
 		preferences = Preferences.userRoot().node(getClass().getName());
@@ -298,11 +298,16 @@ public class BSPEntspy {
 		findcombo.setFont(new Font(cfont.getName(), 0, cfont.getSize() - 1));
 		findcombo.setToolTipText("Entity that links to this entity");
 		findpanel.add(findcombo);
-		final JTBRenderer findbutton = new JTBRenderer();
+		final JButton findbutton = new JButton("Go to");
 		findbutton.setToolTipText("Go to linking entity");
 		findpanel.add(findbutton);
 		findbutton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
+				Entity jump = ((Entity)findmodel.getSelectedItem());
+				
+				int ind = m.el.indexOf(jump);
+				entList.setSelectedIndex(ind);
+				entList.ensureIndexIsVisible(ind);
 			}
 		});
 		findlabel.setEnabled(false);
@@ -585,6 +590,9 @@ public class BSPEntspy {
 				cpyent.setEnabled(enable);
 				exportEntity.setEnabled(enable);
 				cpToClipEnt.setEnabled(enable);
+				findbutton.setEnabled(selected.length == 1);
+				findcombo.setEnabled(selected.length == 1);
+				findmodel.removeAllElements();
 				
 				/*
 				 * Emulates hammer editor behaviour. If a new selection is made
@@ -611,6 +619,10 @@ public class BSPEntspy {
 					rightEntPanel.addEntity(m.el.get(i), false);
 				}
 				rightEntPanel.gatherKeyValues();
+				
+				if(selected.length <= 1) {
+					setfindlist(m.el.get(selected[0]), findmodel);
+				}
 			}
 
 		});
@@ -661,7 +673,7 @@ public class BSPEntspy {
 		return 0;
 	}
 
-	public boolean setfindlist(Entity sel, DefaultComboBoxModel model) {
+	public boolean setfindlist(Entity sel, DefaultComboBoxModel<Entity> model) {
 		model.removeAllElements();
 		loop1: for (int i = 0; i < this.m.el.size(); ++i) {
 			Entity lent = this.m.el.get(i);
