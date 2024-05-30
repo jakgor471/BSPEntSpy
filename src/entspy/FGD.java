@@ -2,13 +2,10 @@ package entspy;
 
 //By jakgor471
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.concurrent.Callable;
 import entspy.FGDEntry.*;
 
@@ -32,10 +29,6 @@ public class FGD {
 			FGDToken tok = lexer.getToken();
 			if(tok.isAt()) {
 				lexer.consume();
-				
-				if(lexer.line > 673) {
-					int x = 0;
-				}
 
 				tok = lexer.expect(TokenType.ident);
 				if(tok.value.equals("mapsize")) {
