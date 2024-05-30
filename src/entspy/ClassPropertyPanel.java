@@ -5,6 +5,8 @@ import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -50,6 +52,7 @@ public class ClassPropertyPanel extends JPanel {
 	private ArrayList<KVEntry> deletedKv;
 	private HashMap<String, KVEntry> kvMap;
 	private ActionListener onApply;
+	private boolean smartEdit;
 	
 	public FGD fgdContent;
 	
@@ -59,6 +62,7 @@ public class ClassPropertyPanel extends JPanel {
 		deletedKv = new ArrayList<KVEntry>();
 		kvMap = new HashMap<String, KVEntry>();
 		fgdContent = null;
+		smartEdit = false;
 		
 		BorderLayout panelBLayout = new BorderLayout();
 		panelBLayout.setVgap(5);
@@ -102,7 +106,6 @@ public class ClassPropertyPanel extends JPanel {
 		
 		JPanel kveditPanel = new JPanel(gridLayout);
 		
-		//TODO: Renaming seems to not work :c
 		ActionListener kvListener = new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				applyKVChanges();
@@ -128,7 +131,13 @@ public class ClassPropertyPanel extends JPanel {
 		table.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
 			@Override
 			public void valueChanged(ListSelectionEvent e) {
-				applyKVChanges();
+				int selected = table.getSelectedRow();
+				
+				if(selected < 0 || selected >= keyvalues.size())
+					return;
+				
+				if(keyvalues.get(selected) != keyListener.kv)
+					applyKVChanges();
 			}
 		});
 		
@@ -147,7 +156,7 @@ public class ClassPropertyPanel extends JPanel {
 		addkv = new JButton("Add");
 		addkv.setToolTipText("Add an entity property");
 		bottomLeftPanel.add(addkv);
-		addkv.setEnabled(false);
+		addkv.setEnabled(true);
 		cpykv = new JButton("Copy");
 		cpykv.setToolTipText("Copy the selected property");
 		bottomLeftPanel.add(cpykv);
@@ -218,17 +227,14 @@ public class ClassPropertyPanel extends JPanel {
 				KVEntry entry = keyvalues.get(selected);
 				KVEntry newkv = new KVEntry();
 				
-				Pattern reg = Pattern.compile("(.*?)_(\\d+)");
-				Matcher match = reg.matcher(entry.key);
+				newkv.key = entry.key;
 				
-				if(match.matches()) {
-					newkv.key = match.group(1) + "_" + (Integer.valueOf(match.group(2)) + 1);
-				} else {
-					newkv.key = entry.key + "_1";
-				}
+				while(kvMap.containsKey(newkv.key))
+					fixDuplicateKey(newkv);
 				
 				newkv.value = entry.value;
 				newkv.different = false;
+				newkv.renamed = true;
 				newkv.edited = true;
 				
 				kvMap.put(newkv.key, newkv);
@@ -259,23 +265,31 @@ public class ClassPropertyPanel extends JPanel {
 	
 	public void applyKVChanges() {
 		if(keyListener.keyChanged()) {
+			while(kvMap.containsKey(keyListener.kv.key))
+				fixDuplicateKey(keyListener.kv);
 			kvMap.remove(keyListener.oldKey);
 			kvMap.put(keyListener.kv.key, keyListener.kv);
 		}
 		
 		int selectedIndex = table.getSelectedRow();
 		if(selectedIndex < 0 || selectedIndex >= keyvalues.size()) {
-			keyListener.kv = null;
-			valueListener.kv = null;
+			keyListener.setKey(null);
+			valueListener.setKey(null);
 			keyTextField.setEnabled(false);
 			keyTextField.setText("");
 			valueTextField.setText("");
 			valueTextField.setEnabled(false);
 			valueLabel.setText("Value: ");
+			
+			cpykv.setEnabled(false);
+			delkv.setEnabled(false);
 			return;
 		}
-		keyListener.kv = null;
-		valueListener.kv = null;
+		
+		cpykv.setEnabled(true);
+		delkv.setEnabled(true);
+		keyListener.setKey(null);
+		valueListener.setKey(null);
 		keyTextField.setEnabled(true);
 		valueTextField.setEnabled(true);
 		
@@ -288,12 +302,15 @@ public class ClassPropertyPanel extends JPanel {
 		else
 			valueLabel.setText("Value:");
 		
-		keyListener.setKey(entry.key);
-		valueListener.kv = kvMap.get(entry.key);
+		keyListener.setKey(entry);
+		valueListener.setKey(entry);
+		
+		refreshClassOriginInfo();
 	}
 	
 	public void setSmartEdit(boolean smartedit) {
-		if(fgdContent != null && smartedit)
+		smartEdit = smartedit;
+		if(fgdContent != null && smartedit && classname != null)
 			kvModel.fgdContent = fgdContent.getFGDClass(classname.value);
 		else
 			kvModel.fgdContent = null;
@@ -320,17 +337,50 @@ public class ClassPropertyPanel extends JPanel {
 	}
 	
 	public void addEntity(Entity e, boolean refresh) {
-		if(editingEntities.size() < 1) {
-			setEntity(e);
-			return;
-		}
-		
 		editingEntities.add(e);
 		
 		if(refresh)
 			gatherKeyValues();
 	}
 	
+	public void refreshClassOriginInfo() {
+		origin = kvMap.get("origin");
+		if(origin != null) {
+			keyvalues.remove(origin);
+			originListener.kv = null;
+			originTextField.setText(origin.getValue());
+			originTextField.setEnabled(true);
+			originListener.setKey(origin);
+		} else {
+			originListener.kv = null;
+			originTextField.setText("");
+			originTextField.setEnabled(false);
+		}
+		
+		classname = kvMap.get("classname");
+		if(classname != null) {
+			keyvalues.remove(classname);
+			classnameListener.kv = null;
+			classTextField.setText(classname.getValue());
+			
+			if(!classname.different) {
+				classnameListener.setKey(classname);
+				classTextField.setEnabled(true);
+				
+				if(fgdContent != null && smartEdit)
+					kvModel.fgdContent = fgdContent.getFGDClass(classname.value);
+			} else {
+				classTextField.setEnabled(false);
+				kvModel.fgdContent = null;
+			}
+		} else {
+			classnameListener.setKey(null);
+			classTextField.setText("");
+			classTextField.setEnabled(false);
+		}
+	}
+	
+	//TODO: add default fgd values, add an option for that etc.
 	public void gatherKeyValues() {
 		keyvalues.clear();
 		deletedKv.clear();
@@ -357,55 +407,42 @@ public class ClassPropertyPanel extends JPanel {
 			}
 		}
 		
-		kvModel.set(keyvalues);
-		
-		if(origin != null) {
-			originListener.kv = null;
-			originTextField.setText(origin.getValue());
-			originTextField.setEnabled(true);
-			originListener.setKey("origin");
-		} else {
-			originListener.kv = null;
-			originTextField.setText("");
-			originTextField.setEnabled(false);
-		}
-		
-		if(classname != null) {
-			classnameListener.kv = null;
-			classTextField.setText(classname.getValue());
-			
-			if(!classname.different) {
-				classnameListener.setKey("classname");
-				classTextField.setEnabled(true);
-				
-				if(fgdContent != null)
-					kvModel.fgdContent = fgdContent.getFGDClass(classname.value);
-			} else {
-				classTextField.setEnabled(false);
-				kvModel.fgdContent = null;
+		Collections.sort(keyvalues, new Comparator<KVEntry>(){
+			public int compare(KVEntry o1, KVEntry o2) {								
+				return o1.key.compareToIgnoreCase(o2.key);
 			}
-		} else {
-			classnameListener.kv = null;
-			classTextField.setText("");
-			classTextField.setEnabled(false);
+		});
+		
+		KVEntry name = kvMap.get("targetname");
+		if(name != null) {
+			keyvalues.remove(name);
+			keyvalues.add(0, name);
 		}
+		
+		refreshClassOriginInfo();
+		kvModel.set(keyvalues);
 		
 		boolean enable = editingEntities.size() > 0;
 		apply.setEnabled(enable);
 		help.setEnabled(enable);
-		
-		enable = keyvalues.size() > 0;
-		addkv.setEnabled(enable);
-		delkv.setEnabled(enable);
-		cpykv.setEnabled(enable);
 	}
 	
 	public void clearEntities(){
 		editingEntities.clear();
+		keyvalues.clear();
+		deletedKv.clear();
+		kvMap.clear();
+		
+		cpykv.setEnabled(false);
+		delkv.setEnabled(false);
+		keyTextField.setText("");
+		keyTextField.setEnabled(false);
+		valueTextField.setText("");
+		valueTextField.setEnabled(false);
 		
 		classname = null;
 		origin = null;
-		gatherKeyValues();
+		refreshClassOriginInfo();
 	}
 	
 	public void apply() {
@@ -418,8 +455,11 @@ public class ClassPropertyPanel extends JPanel {
 		}
 		
 		for(KVEntry e : keyvalues) {
-			if(e.renamed)
+			if(e.renamed) {
 				renamed.add(e);
+				if(e.originalKey == null)
+					edited.add(e);
+			}
 		}
 		
 		for(Entity e : editingEntities) {
@@ -439,6 +479,8 @@ public class ClassPropertyPanel extends JPanel {
 				e.setKeyVal("classname", classname.value);
 			if(origin != null && origin.edited)
 				e.setKeyVal("origin", origin.value);
+			
+			e.setnames();
 		}
 	}
 	
@@ -467,17 +509,22 @@ public class ClassPropertyPanel extends JPanel {
 		entry.key = key;
 		entry.value = value;
 		
-		if(key.equals("classname")) {
-			classname = entry;
-		} else if(key.equals("origin")) {
-			origin = entry;
-		} else
-			keyvalues.add(entry);
-		
+		keyvalues.add(entry);
 		entry.originalKey = key;
 		kvMap.put(key, entry);
 		
 		return entry;
+	}
+	
+	private void fixDuplicateKey(KVEntry newkv) {
+		Pattern reg = Pattern.compile("(.*?)#(\\d+)");
+		Matcher match = reg.matcher(newkv.key);
+		
+		if(match.matches()) {
+			newkv.key = match.group(1) + "#" + (Integer.valueOf(match.group(2)) + 1);
+		} else {
+			newkv.key = newkv.key + "#1";
+		}
 	}
 	
 	class TextListen implements DocumentListener {
@@ -497,14 +544,21 @@ public class ClassPropertyPanel extends JPanel {
 			oldKey = keyname;
 		}
 		
-		public void setKey(String keyname) {
-			this.kv = kvMap.get(keyname);
-			oldKey = keyname;
+		public void setKey(KVEntry kv) {
+			this.kv = kv;
+			
+			if(kv == null) {
+				oldKey = null;
+				return;
+			}
+			oldKey = kv.key;
 		}
 		
 		public boolean keyChanged() {
-			if(oldKey == null || kv == null)
+			if(!key || kv == null)
 				return false;
+			if(oldKey == null)
+				return true;
 			
 			return !oldKey.equals(kv.key);
 		}
@@ -539,7 +593,7 @@ public class ClassPropertyPanel extends JPanel {
 	}
 	
 	protected static class KVEntry{
-		public String originalKey = "";
+		public String originalKey = null;
 		public String key = "";
 		public String value = "";
 

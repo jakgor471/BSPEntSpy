@@ -161,13 +161,18 @@ public class Entspy {
 		final ClassPropertyPanel rightEntPanel = new ClassPropertyPanel();
 		rightEntPanel.fgdContent = fgdFile;
 		
+		boolean shouldSmartEdit = fgdFile != null && preferences.getBoolean("SmartEdit", false);
+		rightEntPanel.setSmartEdit(shouldSmartEdit);
+		
 		JMenu optionmenu = new JMenu("Options");
 		JCheckBoxMenuItem msmartEditOption = new JCheckBoxMenuItem("Smart Edit");
 		msmartEditOption.setToolTipText("If FGD file is loaded Smart Edit can be enabled. See more in Help");
 		msmartEditOption.setEnabled(fgdFile != null);
+		msmartEditOption.setState(shouldSmartEdit);
 		msmartEditOption.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				rightEntPanel.setSmartEdit(msmartEditOption.getState());
+				preferences.putBoolean("SmartEdit", msmartEditOption.getState());
 			}
 		});
 		
@@ -590,7 +595,9 @@ public class Entspy {
 		
 		rightEntPanel.addApplyListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				entList.setSelectedIndices(entList.getSelectedIndices());
+				int[] selected = entList.getSelectedIndices();
+				entList.setModel(new EntspyListModel(m.getData()));
+				entList.setSelectedIndices(selected);
 			}
 		});
 		
