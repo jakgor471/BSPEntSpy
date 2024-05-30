@@ -271,9 +271,9 @@ public class Entspy {
 		rightEntPanel.add((Component) grid, "North");
 		
 		JPanel keyvalPanel = new JPanel();
-		final KeyValLinkModel tablemodel = new KeyValLinkModel();
-		tablemodel.setMapping(this.entList);
-		this.table = new JTable(tablemodel);
+		final KeyValLinkModel kvOldModel = new KeyValLinkModel();
+		kvOldModel.setMapping(this.entList);
+		this.table = new JTable(kvOldModel);
 		this.table.setSelectionMode(0);
 		
 		TableColumn keycol = this.table.getColumn("Value");
@@ -480,7 +480,7 @@ public class Entspy {
 					int i = entList.getMaxSelectionIndex();
 					
 					if(i < 0)
-						i = Math.max(0, m.el.size() - 1);
+						i = Math.max(m.el.size() - 1, 0);
 					
 					for(Entity e : ents) {
 						m.el.add(++i, e);
@@ -616,7 +616,7 @@ public class Entspy {
 					classTextField.setEnabled(true);
 					originTextField.setText(selEnt.origin);
 					originTextField.setEnabled(true);
-					Entspy.this.settable(selEnt, tablemodel);
+					Entspy.this.settable(selEnt, kvOldModel);
 
 					delent.setEnabled(true);
 					cpyent.setEnabled(true);
@@ -644,7 +644,7 @@ public class Entspy {
 					classTextField.setEnabled(false);
 					originTextField.setText(" ");
 					originTextField.setEnabled(false);
-					Entspy.this.settable(Entspy.this.blank, tablemodel);
+					Entspy.this.settable(Entspy.this.blank, kvOldModel);
 					findlabel.setEnabled(false);
 					findbutton.setEnabled(false);
 					findcombo.setEnabled(false);
@@ -661,7 +661,7 @@ public class Entspy {
 			public void actionPerformed(ActionEvent ae) {
 				Entity selEnt = Entspy.this.getSelectedEntity();
 				selEnt.addKeyVal("", "");
-				Entspy.this.settable(selEnt, tablemodel);
+				Entspy.this.settable(selEnt, kvOldModel);
 				int lastrow = selEnt.size() - 1;
 				Entspy.this.table.changeSelection(lastrow, 0, false, false);
 				Entspy.this.table.editCellAt(lastrow, 0);
@@ -680,8 +680,8 @@ public class Entspy {
 				}
 				selEnt.addKeyVal(selEnt.keys.get(selrow), selEnt.values.get(selrow));
 				selEnt.setnames();
-				Entspy.this.settable(selEnt, tablemodel);
-				tablemodel.reselect();
+				Entspy.this.settable(selEnt, kvOldModel);
+				kvOldModel.reselect();
 				int lastrow = selEnt.size() - 1;
 				Entspy.this.table.changeSelection(lastrow, 1, false, false);
 				Entspy.this.table.editCellAt(lastrow, 1);
@@ -700,10 +700,10 @@ public class Entspy {
 				}
 				selEnt.delKeyVal(selrow);
 				selEnt.setnames();
-				tablemodel.setlinklisteners();
+				kvOldModel.setlinklisteners();
 				
-				if(tablemodel.getRowCount() > 0) {
-					selrow = Math.min(selrow, tablemodel.getRowCount() - 1);
+				if(kvOldModel.getRowCount() > 0) {
+					selrow = Math.min(selrow, kvOldModel.getRowCount() - 1);
 					table.setRowSelectionInterval(selrow, selrow);
 				}
 				
