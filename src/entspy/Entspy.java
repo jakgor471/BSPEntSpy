@@ -17,6 +17,7 @@ import java.awt.event.KeyEvent;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -29,6 +30,7 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
@@ -422,7 +424,7 @@ public class Entspy {
 					preferences.put("LastFolder", f.getParent());
 					
 					JOptionPane.showMessageDialog(frame, ents.size() + " entities successfuly imported from " + f, "Info", JOptionPane.INFORMATION_MESSAGE);
-				} catch(Exception e) {
+				} catch(Exception | LexerException e) {
 					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 				}
 				
@@ -481,13 +483,15 @@ public class Entspy {
 					
 					if(i < 0)
 						i = Math.max(m.el.size() - 1, 0);
+					if(i > 0)
+						++i;
 					
 					for(Entity e : ents) {
-						m.el.add(++i, e);
+						m.el.add(i++, e);
 					}
 					
 					entList.setModel(new EntspyListModel(m.getData()));
-				} catch(Exception e) {
+				} catch(Exception | LexerException e) {
 					JOptionPane.showMessageDialog(frame, "Could not parse data from clipboard!\n" + e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 				}
 				
@@ -1023,43 +1027,30 @@ public class Entspy {
 		return m.el.get(index);
 	}
 	
-	public ArrayList<Entity> loadEntsFromReader(Reader in) throws Exception {
-		BufferedReader r = new BufferedReader(in);
-		ArrayList<Entity> ents = new ArrayList<Entity>();
+	public ArrayList<Entity> loadEntsFromReader(Reader in) throws Exception, LexerException {
+		VMF temp = new VMF();
 		
-		Entity e = null;
-		String line = r.readLine();
-		int lineIndex = 1;
+		final HashSet<String> ignoredClasses = new HashSet<String>();
+		//these entity classes get removed during VBSP, these should not be present in final BSP file
+		ignoredClasses.add("prop_static");
+		ignoredClasses.add("prop_detail");
+		ignoredClasses.add("func_instance");
+		ignoredClasses.add("prop_detail_sprite");
+		ignoredClasses.add("env_cubemap");
+		ignoredClasses.add("info_lighting");
+		ignoredClasses.add("func_detail");
+		ignoredClasses.add("func_ladder");
+		ignoredClasses.add("func_viscluster");
 		
-		Pattern p = Pattern.compile("\\s*\"(.*?)\"\\s*\"(.*?)\"");
-		while(line != null) {
-			if(line.startsWith("{")) {
-				if(e != null) throw new Exception("Error! Unexpected '{' at line " + lineIndex + "!");
-				e = new Entity();
-			} else if(line.startsWith("}")) {
-				e.setnames();
-				ents.add(e);
-				
-				e = null;
-			} else {
-				if(e == null) throw new Exception("Error at line " + lineIndex);
-				
-				Matcher match = p.matcher(line);
-				if(match.find()) {
-					e.kvmap.put(match.group(1), e.values.size());
-					e.keys.add(match.group(1));
-					e.values.add(match.group(2));
-					e.links.add(null);
-				}
+		temp.loadFromReader(in, "clipboard");
+		
+		for(int i = 0; i < temp.ents.size(); ++i) {
+			if(ignoredClasses.contains(temp.ents.get(i).classname)) {
+				temp.ents.remove(i--);
 			}
-			
-			++lineIndex;
-			line = r.readLine();
 		}
 		
-		if(e != null) throw new Exception("Unexpected EOF!");
-		
-		return ents;
+		return temp.ents;
 	}
 	
 	public void writeEntsToWriter(List<Entity> ents, Writer out) throws IOException {
@@ -1072,7 +1063,7 @@ public class Entspy {
 		w.flush();
 	}
 	
-	public static void main(String[] args) throws Exception {
+	public static void main(String[] args) throws Exception {		
 		UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 		Entspy inst = new Entspy();
 		inst.exec();

@@ -31,18 +31,18 @@ public class FGD {
 			if(tok.isAt()) {
 				lexer.consume();
 
-				tok = lexer.expect(TokenType.ident);
+				tok = lexer.expect(BasicTokenType.ident);
 				if(tok.value.equals("mapsize")) {
 					lexer.consume();
-					lexer.expect(TokenType.symbol, "(");
+					lexer.expect(BasicTokenType.symbol, "(");
 					lexer.consume();
 					mapMin = Double.valueOf(parseNumber(lexer));
 					lexer.consume();
-					lexer.expect(TokenType.symbol, ",");
+					lexer.expect(BasicTokenType.symbol, ",");
 					lexer.consume();
 					mapMax = Double.valueOf(parseNumber(lexer));
 					lexer.consume();
-					lexer.expect(TokenType.symbol, ")");
+					lexer.expect(BasicTokenType.symbol, ")");
 					lexer.consume();
 					
 					continue;
@@ -50,7 +50,7 @@ public class FGD {
 				
 				if(tok.value.equals("include")) {
 					lexer.consume();
-					lexer.expect(TokenType.string);
+					lexer.expect(BasicTokenType.string);
 					
 					onInclude.fileToLoad = lexer.getToken().value;
 					try {
@@ -84,7 +84,7 @@ public class FGD {
 		loadedFgds.add(fgdName);
 	}
 	
-	private static ArrayList<String> parseCommaList(FGDLexer lexer, TokenType type) throws LexerException{
+	private static ArrayList<String> parseCommaList(FGDLexer lexer, BasicTokenType type) throws LexerException{
 		FGDToken tok = lexer.expect();
 		ArrayList<String> list = new ArrayList<String>();
 		while(tok != null && (tok.type == type || tok.isComma())) {
@@ -107,19 +107,19 @@ public class FGD {
 			if(tok.isIdent()) {
 				if(tok.value.equals("base")) {					
 					lexer.consume();
-					lexer.expect(TokenType.symbol, "(");
+					lexer.expect(BasicTokenType.symbol, "(");
 					lexer.consume();
 					
-					baseclasses = parseCommaList(lexer, TokenType.ident);
+					baseclasses = parseCommaList(lexer, BasicTokenType.ident);
 					
-					lexer.expect(TokenType.symbol, ")");
+					lexer.expect(BasicTokenType.symbol, ")");
 					lexer.consume();
 				} else {
 					lexer.consume();
 					if(lexer.getToken().isOpenParen()) {
 						lexer.consume();
 						while(lexer.getToken() != null && !lexer.getToken().isCloseParen()) {lexer.consume();}
-						lexer.expect(TokenType.symbol, ")");
+						lexer.expect(BasicTokenType.symbol, ")");
 						lexer.consume();
 					}
 				}
@@ -134,14 +134,14 @@ public class FGD {
 	private static InputOutput parseInputOutput(FGDLexer lexer) throws LexerException{
 		InputOutput io = new InputOutput();
 		
-		lexer.expect(TokenType.ident);
+		lexer.expect(BasicTokenType.ident);
 		io.name = lexer.getToken().value;
 		lexer.consume();
 		
-		lexer.expect(TokenType.symbol, "(");
+		lexer.expect(BasicTokenType.symbol, "(");
 		lexer.consume();
 		
-		String type = lexer.expect(TokenType.ident).value.toLowerCase();
+		String type = lexer.expect(BasicTokenType.ident).value.toLowerCase();
 		if(!FGDEntry.isValidDataType(type)) {
 			type = "string";
 		};
@@ -149,7 +149,7 @@ public class FGD {
 		io.setDataType(type);
 		lexer.consume();
 		
-		lexer.expect(TokenType.symbol, ")");
+		lexer.expect(BasicTokenType.symbol, ")");
 		lexer.consume();
 		
 		if(lexer.getToken().isColon()) {
@@ -161,7 +161,7 @@ public class FGD {
 	}
 	
 	private static ArrayList<PropChoicePair> parseChoices(FGDLexer lexer) throws LexerException{
-		lexer.expect(TokenType.symbol, "[");
+		lexer.expect(BasicTokenType.symbol, "[");
 		lexer.consume();
 		
 		ArrayList<PropChoicePair> choices = new ArrayList<PropChoicePair>();
@@ -175,7 +175,7 @@ public class FGD {
 			}
 			lexer.consume();
 			
-			lexer.expect(TokenType.symbol, ":");
+			lexer.expect(BasicTokenType.symbol, ":");
 			lexer.consume();
 			
 			choice.name = lexer.expect().value;
@@ -190,7 +190,7 @@ public class FGD {
 			choices.add(choice);
 		}
 		
-		lexer.expect(TokenType.symbol, "]");
+		lexer.expect(BasicTokenType.symbol, "]");
 		lexer.consume();
 		
 		return choices;
@@ -199,20 +199,20 @@ public class FGD {
 	private static Property parseProperty(FGDLexer lexer) throws LexerException {
 		Property prop = null;
 		
-		String name = lexer.expect(TokenType.ident).value;
+		String name = lexer.expect(BasicTokenType.ident).value;
 		lexer.consume();
 		
-		lexer.expect(TokenType.symbol, "(");
+		lexer.expect(BasicTokenType.symbol, "(");
 		lexer.consume();
 		
-		String type = lexer.expect(TokenType.ident).value.toLowerCase(); //flags are uppercase, whaat?
+		String type = lexer.expect(BasicTokenType.ident).value.toLowerCase(); //flags are uppercase, whaat?
 		
 		if(!FGDEntry.isValidDataType(type)) {
 			type = "string";
 		}
 		
 		lexer.consume();
-		lexer.expect(TokenType.symbol, ")");
+		lexer.expect(BasicTokenType.symbol, ")");
 		lexer.consume();
 		
 		if(lexer.expect().isIdent() && lexer.getToken().value.equals("readonly"))
@@ -224,7 +224,7 @@ public class FGD {
 		
 		if(lexer.expect().isColon()) {
 			lexer.consume();
-			displayname = lexer.expect(TokenType.string).value;
+			displayname = lexer.expect(BasicTokenType.string).value;
 			lexer.consume();
 		}
 		
@@ -252,7 +252,7 @@ public class FGD {
 		}else if(type.equals("flags") || type.equals("choices")) {
 			prop = new PropertyChoices();
 			
-			lexer.expect(TokenType.symbol, "=");
+			lexer.expect(BasicTokenType.symbol, "=");
 			lexer.consume();
 			
 			((PropertyChoices)prop).choices = parseChoices(lexer); 
@@ -271,7 +271,7 @@ public class FGD {
 	private static FGDEntry parseClass(FGDLexer lexer, FGD fgdData) throws LexerException {
 		FGDEntry newClass = new FGDEntry();
 		
-		if(!FGDEntry.isValidClass(lexer.expect(TokenType.ident).value)) throw new LexerException(lexer, "Unknown class type '" + lexer.getToken().value + "'!");
+		if(!FGDEntry.isValidClass(lexer.expect(BasicTokenType.ident).value)) throw new LexerException(lexer, "Unknown class type '" + lexer.getToken().value + "'!");
 		newClass.setClass(lexer.getToken().value);
 		lexer.consume();
 		
@@ -285,7 +285,7 @@ public class FGD {
 				newClass.baseclasses.add(fgdData.classes.get(fgdData.classMap.get(s)));
 			}
 		}
-		lexer.expect(TokenType.symbol, "=");
+		lexer.expect(BasicTokenType.symbol, "=");
 		lexer.consume();
 		
 		newClass.classname = lexer.expect().value;
@@ -293,16 +293,16 @@ public class FGD {
 		
 		if(lexer.expect().isColon()) {
 			lexer.consume();
-			lexer.expect(TokenType.string);
+			lexer.expect(BasicTokenType.string);
 			
 			newClass.description = parseDescription(lexer);
 		}
 		
-		lexer.expect(TokenType.symbol, "[");
+		lexer.expect(BasicTokenType.symbol, "[");
 		lexer.consume();
 		
 		while(lexer.getToken() != null && !lexer.getToken().isClassClose()) {
-			lexer.expect(TokenType.ident);
+			lexer.expect(BasicTokenType.ident);
 			
 			//Input / Output
 			if(lexer.getToken().value.equals("input")) {
@@ -322,7 +322,7 @@ public class FGD {
 			newClass.addProperty(prop);
 		}
 		
-		lexer.expect(TokenType.symbol, "]");
+		lexer.expect(BasicTokenType.symbol, "]");
 		lexer.consume();
 		
 		return newClass;
@@ -379,56 +379,37 @@ public class FGD {
 		return desc;
 	}
 	
-	private static class FGDToken implements LexerToken{
-		public TokenType type;
-		public String value;
-		
+	private static class FGDToken extends BasicToken{		
 		public boolean isAt() {
-			return value.equals("@") && type == TokenType.symbol;
-		}
-		
-		public boolean isString() {
-			return type == TokenType.string;
-		}
-		
-		public boolean isIdent() {
-			return type == TokenType.ident;
-		}
-		
-		public boolean isNumeric() {
-			return type == TokenType.numeric;
+			return value.equals("@") && type == BasicTokenType.symbol;
 		}
 		
 		public boolean isNumericOrSign() {
-			return type == TokenType.numeric || ((value.equals("-") || value.equals("+")) && type == TokenType.symbol);
-		}
-		
-		public boolean isSymbol() {
-			return type == TokenType.symbol;
+			return type == BasicTokenType.numeric || ((value.equals("-") || value.equals("+")) && type == BasicTokenType.symbol);
 		}
 		
 		public boolean isClassClose() {
-			return type == TokenType.symbol && value.equals("]");
+			return type == BasicTokenType.symbol && value.equals("]");
 		}
 		
 		public boolean isEqualSign() {
-			return type == TokenType.symbol && value.equals("=");
+			return type == BasicTokenType.symbol && value.equals("=");
 		}
 		
 		public boolean isComma() {
-			return type == TokenType.symbol && value.equals(",");
+			return type == BasicTokenType.symbol && value.equals(",");
 		}
 		
 		public boolean isOpenParen() {
-			return type == TokenType.symbol && value.equals("(");
+			return type == BasicTokenType.symbol && value.equals("(");
 		}
 		
 		public boolean isCloseParen() {
-			return type == TokenType.symbol && value.equals(")");
+			return type == BasicTokenType.symbol && value.equals(")");
 		}
 		
 		public boolean isColon() {
-			return type == TokenType.symbol && value.equals(":");
+			return type == BasicTokenType.symbol && value.equals(":");
 		}
 	}
 	
@@ -452,7 +433,7 @@ public class FGD {
 		}
 		
 		//throws exception if token is null or token is not of a specified type
-		public FGDToken expect(TokenType type) throws LexerException {
+		public FGDToken expect(BasicTokenType type) throws LexerException {
 			if(getToken() == null) {
 				throw new LexerException(this, "Unexpected EOF!!!");
 			}
@@ -463,7 +444,7 @@ public class FGD {
 		}
 		
 		//throws exception if token is null or token is not of a specified type or it's value differs from that specified
-		public FGDToken expect(TokenType type, String value) throws LexerException {
+		public FGDToken expect(BasicTokenType type, String value) throws LexerException {
 			if(getToken() == null) {
 				throw new LexerException(this, "Unexpected EOF!!!");
 			}
@@ -496,7 +477,7 @@ public class FGD {
 						}
 						
 						currToken = new FGDToken();
-						currToken.type = TokenType.ident;
+						currToken.type = BasicTokenType.ident;
 						currToken.value = sb.toString();
 						return currToken;
 					}
@@ -518,7 +499,7 @@ public class FGD {
 						}
 						
 						currToken = new FGDToken();
-						currToken.type = TokenType.numeric;
+						currToken.type = BasicTokenType.numeric;
 						currToken.value = sb.toString();
 						return currToken;
 					}
@@ -541,7 +522,7 @@ public class FGD {
 						++offset;
 						
 						currToken = new FGDToken();
-						currToken.type = TokenType.string;
+						currToken.type = BasicTokenType.string;
 						currToken.value = sb.toString();
 						
 						return currToken;
@@ -550,7 +531,7 @@ public class FGD {
 					//symbols
 					if(allowedSymbols.indexOf(buffer[offset]) > -1) {
 						currToken = new FGDToken();
-						currToken.type = TokenType.symbol;
+						currToken.type = BasicTokenType.symbol;
 						currToken.value = String.valueOf(buffer[offset++]);
 						return currToken;
 					}

@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.io.Reader;
 
 public abstract class Lexer<T extends entspy.Lexer.LexerToken>{
-	public static enum TokenType{
+	public static enum BasicTokenType{
 		ident,
 		string,
 		numeric,
@@ -16,6 +16,27 @@ public abstract class Lexer<T extends entspy.Lexer.LexerToken>{
 		public boolean isIdent();
 		public boolean isNumeric();
 		public boolean isString();
+	}
+	
+	public static class BasicToken implements LexerToken{
+		public BasicTokenType type;
+		public String value;
+		
+		public boolean isString() {
+			return type == BasicTokenType.string;
+		}
+		
+		public boolean isIdent() {
+			return type == BasicTokenType.ident;
+		}
+		
+		public boolean isNumeric() {
+			return type == BasicTokenType.numeric;
+		}
+		
+		public boolean isSymbol() {
+			return type == BasicTokenType.symbol;
+		}
 	}
 	
 	public String fileName;

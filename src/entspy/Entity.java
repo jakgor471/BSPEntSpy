@@ -115,11 +115,11 @@ public class Entity {
     public String toStringSpecial() {
     	StringBuilder sb = new StringBuilder();
 		
-		sb.append("{\n");
+		sb.append("entity\n{\n");
 		for(int i = 0; i < keys.size(); ++i) {
 			sb.append("\t\"" + keys.get(i) + "\" \"" + values.get(i) + "\"\n");
 		}
-		sb.append("}\n");
+		sb.append("}");
 
 		return sb.toString();
     }

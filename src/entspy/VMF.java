@@ -3,9 +3,9 @@ package entspy;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
+import entspy.Lexer.BasicToken;
 import entspy.Lexer.LexerException;
-import entspy.Lexer.LexerToken;
-import entspy.Lexer.TokenType;
+import entspy.Lexer.BasicTokenType;
 
 public class VMF {
 	public ArrayList<Entity> ents;
@@ -14,13 +14,15 @@ public class VMF {
 		ents = new ArrayList<Entity>();
 	}
 	
-	public void loadFromReader(Reader in, String vmfName) throws IOException, LexerException {
+	public void loadFromReader(Reader in, String vmfName) throws LexerException {
 		VMFLexer lexer = new VMFLexer(in, vmfName);
 		
 		while(lexer.getToken() != null) {
-			if(lexer.getToken().type == TokenType.ident) {
-				if(lexer.getToken().value == "entity") {
-					
+			if(lexer.getToken().type == BasicTokenType.ident) {
+				//care only about entities
+				if(lexer.getToken().value.equals("entity")) {
+					lexer.consume();
+					ents.add(parseEntity(lexer));
 				} else {
 					lexer.consume();
 					skipClass(lexer);
@@ -32,28 +34,59 @@ public class VMF {
 		}
 	}
 	
-	private static void skipClass(VMFLexer lexer) throws IOException, LexerException {
-		lexer.expect(TokenType.symbol, "{");
+	private static Entity parseEntity(VMFLexer lexer) throws LexerException {
+		Entity ent = new Entity();
+		
+		lexer.expect(BasicTokenType.symbol, "{");
+		lexer.consume();
+		
+		while(lexer.getToken().value != null) {
+			if(lexer.getToken().isSymbol() && lexer.getToken().value.equals("}"))
+				break;
+			
+			if(lexer.getToken().isIdent()) {
+				if(lexer.getToken().value.equals("solid")) {
+					ent.addKeyVal("model", "TODO: DEFINE IT!!!");
+				}
+				lexer.consume();
+				skipClass(lexer);
+				continue;
+			}
+			
+			String key = lexer.expect(BasicTokenType.string).value;
+			lexer.consume();
+			String value = lexer.expect(BasicTokenType.string).value;
+			lexer.consume();
+			
+			if(key.equals("id"))
+				key = "hammerid";
+			
+			ent.addKeyVal(key, value);
+		}
+		
+		lexer.consume(); //consume '}'
+		
+		ent.setnames();
+		return ent;
 	}
 	
-	private static class VMFToken implements LexerToken{
-		public TokenType type;
-		public String value;
+	private static void skipClass(VMFLexer lexer) throws LexerException {
+		lexer.expect(BasicTokenType.symbol, "{");
+		lexer.consume();
+		int depth = 1;
 		
-		public boolean isString() {
-			return type == TokenType.string;
+		while(depth > 0 && lexer.getToken() != null) {
+			if(lexer.getToken().isSymbol() && lexer.getToken().value.equals("{"))
+				++depth;
+			else if(lexer.getToken().isSymbol() && lexer.getToken().value.equals("}"))
+				--depth;
+			lexer.consume();
 		}
-		
-		public boolean isIdent() {
-			return type == TokenType.ident;
-		}
-		
+	}
+	
+	private static class VMFToken extends BasicToken{		
 		public boolean isNumeric() {
 			return false; //not applicable to VMF
-		}
-		
-		public boolean isSymbol() {
-			return type == TokenType.symbol;
 		}
 	}
 	
@@ -64,14 +97,34 @@ public class VMF {
 			sb = new StringBuilder();
 		}
 		
-		public VMFToken expect(TokenType type, String value) throws IOException, LexerException {
+		//throws exception if token is null
+		public VMFToken expect() throws LexerException {
+			if(getToken() == null) {
+				throw new LexerException(this, "Unexpected EOF!!!");
+			}
+			return currToken;
+		}
+		
+		//throws exception if token is null or token is not of a specified type
+		public VMFToken expect(BasicTokenType type) throws LexerException {
+			if(getToken() == null) {
+				throw new LexerException(this, "Unexpected EOF!!!");
+			}
+			if(currToken.type != type)
+				throw new LexerException(this, "Unexpected token type. Expected '" + type.toString() + "', got '" + currToken.type.toString() + "'!");
+			
+			return currToken;
+		}
+		
+		//throws exception if token is null or token is not of a specified type or it's value differs from that specified
+		public VMFToken expect(BasicTokenType type, String value) throws LexerException {
 			if(getToken() == null) {
 				throw new LexerException(this, "Unexpected EOF!!!");
 			}
 			if(currToken.type != type || !currToken.value.equals(value))
 				throw new LexerException(this, "Unexpected token. Expected '" + value.toString() + "', got '" + currToken.value + "'!");
 			
-			return (VMFToken) currToken;
+			return currToken;
 		}
 
 		protected VMFToken nextToken() throws LexerException {
@@ -97,7 +150,7 @@ public class VMF {
 						}
 						
 						currToken = new VMFToken();
-						currToken.type = TokenType.ident;
+						currToken.type = BasicTokenType.ident;
 						currToken.value = sb.toString();
 						return currToken;
 					}
@@ -120,7 +173,7 @@ public class VMF {
 						++offset;
 						
 						currToken = new VMFToken();
-						currToken.type = TokenType.string;
+						currToken.type = BasicTokenType.string;
 						currToken.value = sb.toString();
 						
 						return currToken;
@@ -129,7 +182,7 @@ public class VMF {
 					//symbols
 					if(allowedSymbols.indexOf(buffer[offset]) > -1) {
 						currToken = new VMFToken();
-						currToken.type = TokenType.symbol;
+						currToken.type = BasicTokenType.symbol;
 						currToken.value = String.valueOf(buffer[offset++]);
 						return currToken;
 					}
