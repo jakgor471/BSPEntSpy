@@ -50,11 +50,7 @@ public class Entity {
     	
     	if(k != null)
     		return k.intValue();
-    	
-        /*for (int i = 0; i < this.key.size(); ++i) {
-            if (!this.key.get(i).equals(keyword)) continue;
-            return i;
-        }*/
+
         return -1;
     }
 
@@ -127,8 +123,9 @@ public class Entity {
         ret.mark = this.mark;
         ret.autoedit = this.autoedit;
         for (int i = 0; i < this.size(); ++i) {
-            ret.key.add(new String(this.key.get(i)));
-            ret.value.add(new String(this.value.get(i)));
+        	ret.kvmap.put(this.key.get(i), ret.value.size());
+            ret.key.add(this.key.get(i));
+            ret.value.add(this.value.get(i));
         }
         ret.link = (ArrayList)this.link.clone();
         ret.setnames();

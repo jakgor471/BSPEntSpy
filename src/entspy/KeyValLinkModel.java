@@ -4,12 +4,16 @@
 package entspy;
 
 import entspy.Entity;
+import entspy.Entspy.EntspyListModel;
+
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import javax.swing.JButton;
+import javax.swing.JList;
 import javax.swing.JTree;
+import javax.swing.ListModel;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
@@ -21,13 +25,13 @@ class KeyValLinkModel
 extends AbstractTableModel {
     Entity ent;
     ArrayList<JButton> button;
-    JTree tree;
+    JList list;
 
     KeyValLinkModel() {
     }
 
-    public void setTreeMapping(JTree t) {
-        this.tree = t;
+    public void setTreeMapping(JList t) {
+        this.list = t;
     }
 
     public int getRowCount() {
@@ -67,7 +71,7 @@ extends AbstractTableModel {
             return;
         }
         this.ent.setnames();
-        this.fireTableDataChanged();
+        //this.fireTableDataChanged();
         this.reselect();
     }
 
@@ -98,6 +102,7 @@ extends AbstractTableModel {
 
     public void set(Entity e) {
         this.ent = e;
+        this.fireTableDataChanged();
         this.setlinklisteners();
     }
 
@@ -111,11 +116,10 @@ extends AbstractTableModel {
 
                     public void actionPerformed(ActionEvent ae) {
                         Entity targetent = KeyValLinkModel.this.ent.link.get(rowcopy);
-                        Object[] tna = KeyValLinkModel.this.findtreenode(targetent, KeyValLinkModel.this.tree);
-                        if (tna != null) {
-                            TreePath tp = new TreePath(tna);
-                            KeyValLinkModel.this.tree.setSelectionPath(tp);
-                            KeyValLinkModel.this.tree.scrollPathToVisible(tp);
+                        int index = KeyValLinkModel.this.findEntityIndex(targetent, KeyValLinkModel.this.list);
+                        if (index > -1) {
+                            KeyValLinkModel.this.list.setSelectedIndex(index);
+                            KeyValLinkModel.this.list.ensureIndexIsVisible(index);
                             return;
                         }
                         System.out.println("Cannot find node for target ent: " + targetent);
@@ -133,23 +137,24 @@ extends AbstractTableModel {
         return this.ent.link.get(row);
     }
 
-    public TreeNode[] findtreenode(Object target, JTree t) {
-        TreeModel tmodel = this.tree.getModel();
-        DefaultMutableTreeNode currentnode = (DefaultMutableTreeNode)tmodel.getRoot();
-        do {
-            if (currentnode.getUserObject() != target) continue;
-            return currentnode.getPath();
-        } while ((currentnode = currentnode.getNextNode()) != null);
-        return null;
+    public int findEntityIndex(Entity target, JList t) {
+        EntspyListModel tmodel = (EntspyListModel) this.list.getModel();
+        
+        for(int i = 0; i < tmodel.entities.size(); ++i) {
+        	if(tmodel.entities.get(i).equals(target))
+        		return i;
+        }
+        
+        return -1;
     }
 
     public void reselect() {
-        TreePath tp = this.tree.getSelectionPath();
-        if (tp != null) {
-            ((DefaultTreeModel)this.tree.getModel()).nodeChanged((DefaultMutableTreeNode)tp.getLastPathComponent());
-            this.tree.clearSelection();
-            this.tree.setSelectionPath(tp);
-        }
+    	int index = this.list.getSelectedIndex();
+    	
+    	if(index < 0)
+    		return;
+    	
+        this.list.setSelectedIndex(index);
     }
 
     public void refreshtable() {

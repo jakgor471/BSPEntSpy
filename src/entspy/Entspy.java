@@ -37,6 +37,8 @@ import javax.swing.ButtonGroup;
 import javax.swing.ButtonModel;
 import javax.swing.ComboBoxModel;
 import javax.swing.DefaultComboBoxModel;
+import javax.swing.DefaultListModel;
+import javax.swing.DefaultListSelectionModel;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -44,6 +46,7 @@ import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -56,9 +59,11 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.JTree;
 import javax.swing.KeyStroke;
+import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.Timer;
 import javax.swing.border.Border;
+import javax.swing.event.ListDataListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.event.TreeSelectionEvent;
@@ -84,10 +89,9 @@ public class Entspy {
     String filename;
     File infile;
     RandomAccessFile raf;
-    DefaultMutableTreeNode root;
     JFrame frame = null;
     final Entity blank = new Entity("");
-    JTree tree;
+    JList entList;
     JTable table;
     MapInfo info;
     static final String VERSION = "v0.9";
@@ -102,12 +106,12 @@ public class Entspy {
         }
         this.m = new BSP(this.raf);
         this.m.loadheader();
-        this.root = new DefaultMutableTreeNode(this.blank);
-        this.tree = new JTree(new DefaultTreeModel(this.root));
-        DefaultTreeSelectionModel selmodel = new DefaultTreeSelectionModel();
-        selmodel.setSelectionMode(TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
-        this.tree.setSelectionModel(selmodel);
-        this.tree.setCellRenderer(new TERenderer());
+        this.entList = new JList<Entity>();
+        DefaultListSelectionModel selmodel = new DefaultListSelectionModel();
+        selmodel.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        entList.setSelectionModel(selmodel);
+       
+
         this.frame.setTitle("Entspy - " + this.filename);
         JMenu filemenu = new JMenu("File");
         JMenuItem mload = new JMenuItem("Load BSP");
@@ -215,7 +219,7 @@ public class Entspy {
         panel.add((Component)grid, "North");
         JPanel keypanel = new JPanel();
         final KeyValLinkModel tablemodel = new KeyValLinkModel();
-        tablemodel.setTreeMapping(this.tree);
+        tablemodel.setTreeMapping(this.entList);
         this.table = new JTable(tablemodel);
         this.table.setSelectionMode(0);
         TableColumn keycol = this.table.getColumn("Value");
@@ -246,16 +250,16 @@ public class Entspy {
         findbutton.addActionListener(new ActionListener(){
 
             public void actionPerformed(ActionEvent e) {
-                Entity targetent = (Entity)findmodel.getSelectedItem();
-                DefaultMutableTreeNode currentnode = (DefaultMutableTreeNode)Entspy.this.tree.getModel().getRoot();
+                /*Entity targetent = (Entity)findmodel.getSelectedItem();
+                DefaultMutableTreeNode currentnode = (DefaultMutableTreeNode)Entspy.this.entList.getModel().getRoot();
                 do {
                     if (Entspy.this.getNodeEntity(currentnode) != targetent) continue;
                     TreePath tp = new TreePath(currentnode.getPath());
-                    Entspy.this.tree.setSelectionPath(tp);
-                    Entspy.this.tree.scrollPathToVisible(tp);
+                    Entspy.this.entList.setSelectionPath(tp);
+                    Entspy.this.entList.scrollPathToVisible(tp);
                     return;
                 } while ((currentnode = currentnode.getNextNode()) != null);
-                Cons.println("Cannot find node for target ent: " + targetent);
+                Cons.println("Cannot find node for target ent: " + targetent);*/
             }
         });
         findlabel.setEnabled(false);
@@ -263,7 +267,7 @@ public class Entspy {
         findcombo.setEnabled(false);
         panel.add((Component)findpanel, "South");
         JPanel tpanel = new JPanel(new BorderLayout());
-        tpanel.add((Component)new JScrollPane(this.tree), "Center");
+        tpanel.add((Component)new JScrollPane(this.entList), "Center");
         JPanel entcpl = new JPanel(new BorderLayout());
         JPanel entbut = new JPanel();
         JButton updent = new JButton("Update");
@@ -285,42 +289,40 @@ public class Entspy {
         entbut.add(cpyent);
         entbut.add(delent);
         entcpl.add((Component)entbut, "South");
-        JButton findent = new JButton("Find");
+        JButton findent = new JButton("Find Next");
         findent.setToolTipText("Find entity");
         findent.setMnemonic(114);
-        JButton selfind = new JButton("Match select");
-        selfind.setToolTipText("Select all matching entities");
-        selfind.setMnemonic(114);
+        JButton findall = new JButton("Find all");
+        findall.setToolTipText("Select all matching entities");
+        findall.setMnemonic(114);
         JTextField findtext = new JTextField();
         findtext.setToolTipText("Text to search for");
         Box fbox = Box.createHorizontalBox();
         fbox.add(findtext);
         fbox.add(findent);
-        fbox.add(selfind);
+        fbox.add(findall);
         entcpl.add((Component)fbox, "Center");
         entcpl.setBorder(BorderFactory.createEtchedBorder());
         tpanel.add((Component)entcpl, "South");
         findent.addActionListener(new FindListen(findtext));
         findtext.addActionListener(new FindListen(findtext));
-        selfind.addActionListener(new FindSelectListen(findtext));
+        findall.addActionListener(new FindSelectListen(findtext));
         updent.addActionListener(new ActionListener(){
 
             public void actionPerformed(ActionEvent e) {
-                Entspy.this.root = Entspy.this.m.getTree();
-                Entspy.this.tree.setModel(new DefaultTreeModel(Entspy.this.root));
+                //Entspy.this.root = Entspy.this.m.getTree();
+                //Entspy.this.entList.setModel(new DefaultTreeModel(Entspy.this.root));
+            	entList.setModel(new EntspyListModel(m.el));
             }
         });
         delent.addActionListener(new ActionListener(){
 
-            public void actionPerformed(ActionEvent e) {
-                for(TreePath tp : Entspy.this.tree.getSelectionPaths()) {
-                	Entity selected = (Entity)((DefaultMutableTreeNode)tp.getLastPathComponent()).getUserObject();
-                	int i = Entspy.this.m.el.indexOf(selected);
-                	Entspy.this.m.el.remove(i);
-                }
-                
-                Entspy.this.root = Entspy.this.m.getTree();
-                Entspy.this.tree.setModel(new DefaultTreeModel(Entspy.this.root));
+            public void actionPerformed(ActionEvent e) {            	
+            	for(int i : Entspy.this.entList.getSelectedIndices()) {
+            		Entspy.this.m.el.remove(i);
+            	}
+            	
+                Entspy.this.entList.setModel(new EntspyListModel(Entspy.this.m.el));
                 Entspy.this.m.dirty = true;
             }
         });
@@ -331,16 +333,10 @@ public class Entspy {
                 Entity newent = selEnt.copy();
                 int i = Entspy.this.m.el.indexOf(selEnt);
                 Entspy.this.m.el.add(i + 1, newent);
-                Entspy.this.root = Entspy.this.m.getTree();
-                Entspy.this.tree.setModel(new DefaultTreeModel(Entspy.this.root));
-                DefaultMutableTreeNode currentnode = Entspy.this.root;
-                do {
-                    if (Entspy.this.getNodeEntity(currentnode) != newent) continue;
-                    TreePath currentpath = new TreePath(currentnode.getPath());
-                    Entspy.this.tree.setSelectionPath(currentpath);
-                    Entspy.this.tree.scrollPathToVisible(currentpath);
-                    break;
-                } while ((currentnode = currentnode.getNextNode()) != null);
+                entList.setModel(new EntspyListModel(m.el));
+                
+                entList.setSelectedIndex(m.el.indexOf(newent));
+                
                 Entspy.this.m.dirty = true;
             }
         });
@@ -348,25 +344,21 @@ public class Entspy {
 
             public void actionPerformed(ActionEvent e) {
                 Entity newent = new Entity();
-                if (Entspy.this.tree.getSelectionCount() == 0) {
-                    Entspy.this.m.el.add(newent);
+                int index = 0;
+                
+                if(entList.getMaxSelectionIndex() > 0) {
+                	m.el.add(entList.getMaxSelectionIndex() + 1, newent);
+                	index = entList.getMaxSelectionIndex() + 1;
                 } else {
-                    Entity selEnt = Entspy.this.getSelectedEntity();
-                    int i = Entspy.this.m.el.indexOf(selEnt);
-                    Entspy.this.m.el.add(i + 1, newent);
+                	m.el.add(newent);
+                	index = m.el.size() - 1;
                 }
+                
                 newent.autoedit = true;
-                Entspy.this.root = Entspy.this.m.getTree();
-                Entspy.this.tree.setModel(new DefaultTreeModel(Entspy.this.root));
-                DefaultMutableTreeNode currentnode = Entspy.this.root;
-                do {
-                    if (Entspy.this.getNodeEntity(currentnode) != newent) continue;
-                    TreePath currentpath = new TreePath(currentnode.getPath());
-                    Entspy.this.tree.setSelectionPath(currentpath);
-                    Entspy.this.tree.scrollPathToVisible(currentpath);
-                    break;
-                } while ((currentnode = currentnode.getNextNode()) != null);
-                Entspy.this.m.dirty = true;
+                Entspy.this.entList.setModel(new EntspyListModel(m.el));
+                entList.setSelectedIndex(index);
+                entList.ensureIndexIsVisible(index);
+                
             }
         });
         JPanel cpanel = new JPanel();
@@ -392,55 +384,45 @@ public class Entspy {
         cpanel.add(entexp);
         entexp.setEnabled(true);
         
-        this.tree.addTreeSelectionListener(new TreeSelectionListener(){
+        this.entList.addListSelectionListener(new ListSelectionListener() {
 
-            public void valueChanged(TreeSelectionEvent e) {
-                block8 : {
-                    try {
-                        TableCellEditor tce = Entspy.this.table.getCellEditor();
-                        if (tce == null || !Entspy.this.table.isEditing()) break block8;
-                        tce.stopCellEditing();
-                    }
-                    catch (Exception ex) {
-                        Cons.println(ex);
-                        for (int i = 0; i < 10; ++i) {
-                            Cons.println(ex.getStackTrace()[i]);
-                        }
-                    }
-                }
-                Entity selEnt = new Entity();
-                TreePath tp = e.getNewLeadSelectionPath();
-                if (tp != null) {
-                    DefaultMutableTreeNode selNode = Entspy.this.getSelectedNode();
-                    selEnt = Entspy.this.getSelectedEntity();
-                    classlabel.setText(selEnt.classname);
-                    classlabel.setEnabled(true);
-                    targetlabel.setText(selEnt.targetname);
-                    targetlabel.setEnabled(true);
-                    parentlabel.setText(selEnt.parentname);
-                    parentlabel.setEnabled(true);
-                    originlabel.setText(selEnt.origin);
-                    originlabel.setEnabled(true);
-                    Entspy.this.settable(selEnt, tablemodel);
-                    delent.setEnabled(selNode != Entspy.this.root);
-                    cpyent.setEnabled(true);
-                    addkv.setEnabled(true);
-                    if (selEnt.autoedit) {
-                        selEnt.autoedit = false;
-                        classlabel.setText("new_entity");
-                        classlabel.selectAll();
-                        classlabel.requestFocus();
-                    }
-                    if (Entspy.this.setfindlist(selEnt, findmodel)) {
-                        findlabel.setEnabled(true);
-                        findbutton.setEnabled(true);
-                        findcombo.setEnabled(true);
-                    } else {
-                        findlabel.setEnabled(false);
-                        findbutton.setEnabled(false);
-                        findcombo.setEnabled(false);
-                    }
-                } else {
+			@Override
+			public void valueChanged(ListSelectionEvent e) {
+				TableCellEditor tce = Entspy.this.table.getCellEditor();
+				if(tce != null && Entspy.this.table.isEditing())
+					tce.stopCellEditing();
+				Entity selEnt = Entspy.this.getSelectedEntity();
+				
+				if(selEnt != null) {
+					classlabel.setText(selEnt.classname);
+	                classlabel.setEnabled(true);
+	                targetlabel.setText(selEnt.targetname);
+	                targetlabel.setEnabled(true);
+	                parentlabel.setText(selEnt.parentname);
+	                parentlabel.setEnabled(true);
+	                originlabel.setText(selEnt.origin);
+	                originlabel.setEnabled(true);
+	                Entspy.this.settable(selEnt, tablemodel);
+	                
+	                delent.setEnabled(true);
+	                cpyent.setEnabled(true);
+	                addkv.setEnabled(true);
+	                if (selEnt.autoedit) {
+	                    selEnt.autoedit = false;
+	                    classlabel.setText("new_entity");
+	                    classlabel.selectAll();
+	                    classlabel.requestFocus();
+	                }
+	                if (Entspy.this.setfindlist(selEnt, findmodel)) {
+	                    findlabel.setEnabled(true);
+	                    findbutton.setEnabled(true);
+	                    findcombo.setEnabled(true);
+	                } else {
+	                    findlabel.setEnabled(false);
+	                    findbutton.setEnabled(false);
+	                    findcombo.setEnabled(false);
+	                }
+				} else {
                     classlabel.setText(" ");
                     classlabel.setEnabled(false);
                     targetlabel.setText(" ");
@@ -457,8 +439,10 @@ public class Entspy {
                     cpyent.setEnabled(false);
                     addkv.setEnabled(false);
                 }
-            }
+			}
+        	
         });
+        
         addkv.addActionListener(new ActionListener(){
 
             public void actionPerformed(ActionEvent ae) {
@@ -736,8 +720,7 @@ public class Entspy {
 
             public void finished() {
                 timer.stop();
-                Entspy.this.root = Entspy.this.m.getTree();
-                Entspy.this.tree.setModel(new DefaultTreeModel(Entspy.this.root));
+                Entspy.this.entList.setModel(new EntspyListModel(Entspy.this.m.el));
                 Entspy.this.frame.setCursor(null);
                 prog.end();
                 Entspy.this.frame.setTitle("Entspy - " + Entspy.this.filename);
@@ -765,20 +748,18 @@ public class Entspy {
         return new DecimalFormat("0.0").format((float)bytes / 1024.0f) + " kbytes";
     }
 
-    public DefaultMutableTreeNode getSelectedNode() {
-        return (DefaultMutableTreeNode)this.tree.getLastSelectedPathComponent();
+    public Entity getSelectedEntity() {
+        //return (DefaultMutableTreeNode)this.entList.getLastSelectedPathComponent();
+    	int index = entList.getSelectedIndex();
+    	
+    	if(index < 0 || index >= m.el.size())
+    		return null;
+    	
+    	return m.el.get(index);
     }
 
     public Entity getNodeEntity(DefaultMutableTreeNode node) {
         return (Entity)node.getUserObject();
-    }
-
-    public Entity getSelectedEntity() {
-        DefaultMutableTreeNode selNode = this.getSelectedNode();
-        if (selNode == null) {
-            return null;
-        }
-        return this.getNodeEntity(selNode);
     }
 
     public static void main(String[] args) throws Exception {
@@ -801,24 +782,19 @@ public class Entspy {
             if (ftext.equals("")) {
                 return;
             }
-            DefaultMutableTreeNode selnode = Entspy.this.getSelectedNode();
-            if (selnode == null) {
-                selnode = Entspy.this.root;
+            
+            int i = 0;
+            for(i = entList.getSelectedIndex() + 1; i < ((EntspyListModel)entList.getModel()).entities.size(); ++i) {
+            	if(((EntspyListModel)entList.getModel()).entities.get(i).ismatch(ftext, searchKey)) {
+            		found = true;
+            		break;
+            	}
             }
-            DefaultMutableTreeNode startnode = selnode;
-            for (selnode = selnode.getNextNode(); selnode != null; selnode = selnode.getNextNode()) {
-                if (!Entspy.this.getNodeEntity(selnode).ismatch(ftext, searchKey)) continue;
-                found = true;
-                break;
+            
+            if(found) {
+            	entList.setSelectedIndex(i);
+            	entList.ensureIndexIsVisible(i);
             }
-            if (!found) {
-                for (selnode = Entspy.this.root; selnode != startnode; selnode = selnode.getNextNode()) {
-                    if (Entspy.this.getNodeEntity(selnode).ismatch(ftext, searchKey)) break;
-                }
-            }
-            TreePath tp = new TreePath(selnode.getPath());
-            Entspy.this.tree.setSelectionPath(tp);
-            Entspy.this.tree.scrollPathToVisible(tp);
         }
     }
     
@@ -857,6 +833,37 @@ public class Entspy {
             selEnt.setDefinedValue(this.type, text);
             ((KeyValLinkModel)Entspy.this.table.getModel()).refreshtable();
         }
+    }
+    
+    class EntspyListModel implements ListModel<Entity> {
+    	ArrayList<Entity> entities;
+    	
+    	public EntspyListModel(ArrayList<Entity> ents) {
+    		entities = ents;
+    	}
+    	
+		@Override
+		public int getSize() {
+			return entities.size();
+		}
+
+		@Override
+		public Entity getElementAt(int index) {
+			return entities.get(index);
+		}
+
+		@Override
+		public void addListDataListener(ListDataListener l) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void removeListDataListener(ListDataListener l) {
+			// TODO Auto-generated method stub
+			
+		}
+    	
     }
 
 }
