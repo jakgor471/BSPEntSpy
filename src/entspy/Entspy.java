@@ -8,6 +8,7 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -118,6 +119,7 @@ public class Entspy {
 	JTable table;
 	MapInfo info;
 	Preferences preferences;
+	FGD fgdFile = null;
 	static final String VERSION = "v0.9";
 	static ImageIcon esIcon = new ImageIcon(JTBRenderer.class.getResource("/images/newicons/entspy.png"));
 
@@ -143,19 +145,26 @@ public class Entspy {
 		JMenuItem msave = new JMenuItem("Save BSP");
 		mload.setToolTipText("Load an new map file");
 		msave.setToolTipText("Save the current map file");
-		mload.setAccelerator(KeyStroke.getKeyStroke(76, 2));
-		msave.setAccelerator(KeyStroke.getKeyStroke(83, 2));
+		mload.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_L, KeyEvent.CTRL_DOWN_MASK));
+		msave.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.CTRL_DOWN_MASK));
 		filemenu.add(mload);
 		filemenu.add(msave);
+		
+		filemenu.addSeparator();
+		
+		JMenuItem mloadfgd = new JMenuItem("Load FGD file");
+		mloadfgd.setToolTipText("Load an FGD file to enable Smart Edit");
+		filemenu.add(mloadfgd);
+		
 		filemenu.addSeparator();
 		JMenuItem minfo = new JMenuItem("Map info...");
 		minfo.setToolTipText("Map header information");
-		minfo.setAccelerator(KeyStroke.getKeyStroke(73, 2));
+		minfo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_I, KeyEvent.CTRL_DOWN_MASK));
 		filemenu.add(minfo);
 		filemenu.addSeparator();
 		JMenuItem mquit = new JMenuItem("Quit");
 		mquit.setToolTipText("Quit Entspy");
-		mquit.setAccelerator(KeyStroke.getKeyStroke(81, 2));
+		mquit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Q, KeyEvent.CTRL_DOWN_MASK));
 		filemenu.add(mquit);
 
 		JMenu helpmenu = new JMenu("Help");
@@ -237,6 +246,13 @@ public class Entspy {
 				Entspy.this.info = new MapInfo(Entspy.this.frame, Entspy.this.m, Entspy.this.filename);
 			}
 		});
+		
+		mloadfgd.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				
+			}
+		});
+		
 		JPanel panel = new JPanel(new BorderLayout());
 		JPanel grid = new JPanel();
 		grid.setLayout(new GridLayout(4, 2));
@@ -289,7 +305,6 @@ public class Entspy {
 		findpanel.add(findcombo);
 		final JTBRenderer findbutton = new JTBRenderer();
 		findbutton.setToolTipText("Go to linking entity");
-		findbutton.setMnemonic(76);
 		findpanel.add(findbutton);
 		findbutton.addActionListener(new ActionListener() {
 
@@ -319,18 +334,14 @@ public class Entspy {
 		JPanel entbut = new JPanel();
 		JButton updent = new JButton("Update");
 		updent.setToolTipText("Update entity links");
-		updent.setMnemonic(85);
 		JButton addent = new JButton("Add");
 		addent.setToolTipText("Add a new entity");
-		addent.setMnemonic(155);
 		final JButton cpyent = new JButton("Copy");
 		cpyent.setToolTipText("Copy the selected entities");
 		cpyent.setEnabled(false);
-		cpyent.setMnemonic(10);
 		final JButton delent = new JButton("Del");
 		delent.setToolTipText("Delete the selected entities");
 		delent.setEnabled(false);
-		delent.setMnemonic(127);
 		entbut.add(updent);
 		entbut.add(addent);
 		entbut.add(cpyent);
@@ -350,10 +361,9 @@ public class Entspy {
 
 		JButton findent = new JButton("Find Next");
 		findent.setToolTipText("Find entity, hold Shift to add to selection");
-		findent.setMnemonic(114);
+		findent.setMnemonic(KeyEvent.VK_F);
 		JButton findall = new JButton("Find all");
 		findall.setToolTipText("Select all matching entities, hold Shift to add to selection");
-		findall.setMnemonic(114);
 		JTextField findtext = new JTextField();
 		findtext.setToolTipText("Text to search for");
 		Box fbox = Box.createHorizontalBox();
@@ -514,17 +524,14 @@ public class Entspy {
 		JPanel cpanel = new JPanel();
 		final JButton addkv = new JButton("Add");
 		addkv.setToolTipText("Add an entity property");
-		addkv.setMnemonic(65);
 		cpanel.add(addkv);
 		addkv.setEnabled(false);
 		final JButton cpykv = new JButton("Copy");
 		cpykv.setToolTipText("Copy the selected property");
-		cpykv.setMnemonic(67);
 		cpanel.add(cpykv);
 		cpykv.setEnabled(false);
 		final JButton delkv = new JButton("Delete");
 		delkv.setToolTipText("Delete the selected property");
-		delkv.setMnemonic(68);
 		cpanel.add(delkv);
 		delkv.setEnabled(false);
 
@@ -853,6 +860,30 @@ public class Entspy {
 		} catch (IOException ioe) {
 			Cons.println(ioe);
 		}
+	}
+	
+	public void loadfgdfile() {
+		JFileChooser chooser = new JFileChooser(preferences.get("LastFGDFolder", System.getProperty("user.dir")));
+		
+		chooser.setDialogTitle("Entspy - Open a FGD file");
+		File file = chooser.getSelectedFile();
+		chooser = null;
+		
+		if(!(file.exists() && file.canRead())) {
+			JOptionPane.showMessageDialog(frame, "Could not load " + file + "!", "ERROR!", JOptionPane.ERROR_MESSAGE);
+			return;
+		}
+		
+		try(FileReader fr = new FileReader(file)) {
+			if(fgdFile == null)
+				fgdFile = new FGD();
+			
+			fgdFile.loadFromStream(fr, file.getName());
+		} catch(Exception e) {
+			
+		}
+		
+		preferences.put("LastFGDFolder", file.getParent());
 	}
 
 	public void loaddata() {
