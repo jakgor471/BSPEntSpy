@@ -162,13 +162,12 @@ public class Entity {
     		return false;
     	
     	for(int i = 0; i < keys.size(); ++i) {
-    		if(kvmap.containsKey(keys.get(i))) {
-				int index = kvmap.get(keys.get(i));
-    			
-    			if(index < value.size() && index >= 0 && value.get(index).toLowerCase().indexOf(values.get(i)) == -1) {
-    				return false;
-    			}
-    		}
+    		if(!kvmap.containsKey(keys.get(i))) return false;
+    		
+    		int index = kvmap.get(keys.get(i));
+    		if(index >= value.size() || index < 0 || value.get(index).toLowerCase().indexOf(values.get(i)) == -1) {
+				return false;
+			}
     	}
     	
     	return true;
