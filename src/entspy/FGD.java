@@ -215,8 +215,12 @@ public class FGD {
 		lexer.expect(BasicTokenType.symbol, ")");
 		lexer.consume();
 		
-		if(lexer.expect().isIdent() && lexer.getToken().value.equals("readonly"))
+		boolean readOnly = false;
+		
+		if(lexer.expect().isIdent() && lexer.getToken().value.equals("readonly")) {
+			readOnly = true;
 			lexer.consume();
+		}
 		
 		String displayname = null;
 		String defaultValue = null;
@@ -260,6 +264,7 @@ public class FGD {
 		
 		prop.setDataType(type);
 		
+		prop.readOnly = readOnly;
 		prop.name = name;
 		prop.displayName = displayname;
 		prop.defaultVal = defaultValue;

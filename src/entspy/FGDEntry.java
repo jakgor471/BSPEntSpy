@@ -110,6 +110,7 @@ public class FGDEntry {
 		public String description;
 		public String defaultVal;
 		public DataType type;
+		public boolean readOnly = false;
 		
 		public void setDataType(String str) {
 			type = dataTypeMap.get(str);
