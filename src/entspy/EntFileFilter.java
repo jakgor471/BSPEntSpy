@@ -1,6 +1,3 @@
-/*
- * Decompiled with CFR 0_102.
- */
 package entspy;
 
 import java.io.File;

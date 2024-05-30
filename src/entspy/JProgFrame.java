@@ -1,13 +1,8 @@
-/*
- * Decompiled with CFR 0_102.
- */
 package entspy;
 
 import java.awt.Component;
-import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Frame;
-import java.awt.Image;
 import javax.swing.JFrame;
 import javax.swing.JProgressBar;
 

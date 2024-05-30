@@ -1,20 +1,11 @@
-/*
- * Decompiled with CFR 0_102.
- */
 package entspy;
 
-import entspy.Entity;
-import entspy.KeyValLinkModel;
-import java.awt.Color;
 import java.awt.Component;
-import java.net.URL;
-import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JTable;
 import javax.swing.UIManager;
 import javax.swing.table.TableCellRenderer;
-import javax.swing.table.TableModel;
 
 public class JTBRenderer
 extends JButton

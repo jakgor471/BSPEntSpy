@@ -1,27 +1,14 @@
-/*
- * Decompiled with CFR 0_102.
- */
 package entspy;
 
-import entspy.BSP;
-import entspy.Lumpdata;
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.Container;
 import java.awt.Frame;
-import java.awt.Image;
-import java.awt.LayoutManager;
 import java.io.IOException;
-import java.io.PrintStream;
-import java.io.RandomAccessFile;
-import java.util.zip.CRC32;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
-import javax.swing.table.TableColumn;
-import javax.swing.table.TableModel;
 
 public class MapInfo
 extends JFrame {

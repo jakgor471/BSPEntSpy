@@ -1,9 +1,4 @@
-/*
- * Decompiled with CFR 0_102.
- */
 package util;
-
-import java.io.PrintStream;
 
 public class Cons {
     public static void print(String str) {

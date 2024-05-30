@@ -1,10 +1,5 @@
-/*
- * Decompiled with CFR 0_102.
- */
 package entspy;
 
-import entspy.JTBRenderer;
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;

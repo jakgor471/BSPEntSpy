@@ -1,16 +1,7 @@
-/*
- * Decompiled with CFR 0_102.
- */
 package entspy;
 
-import entspy.Entity;
-import entspy.Gamelump;
-import entspy.JProgFrame;
-import entspy.Lump;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.io.RandomAccessFile;
-import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -20,7 +11,6 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.zip.CRC32;
 import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.MutableTreeNode;
 import util.Cons;
 
 public class BSP {

@@ -1,12 +1,8 @@
-/*
- * Decompiled with CFR 0_102.
- */
 package entspy;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class Entity {
     int index;
@@ -60,7 +56,7 @@ public class Entity {
         if (ik >= 0) {
             return this.value.get(ik);
         }
-        return null;
+        return "";
     }
 
     public void setnames() {
@@ -176,7 +172,10 @@ public class Entity {
     public boolean ismatch(String text) {
     	String lower = text.toLowerCase();
     	
-    	for(String key : key) {
+    	if(getkeyvalue("classname").toLowerCase().indexOf(lower) != -1 || getkeyvalue("targetname").toLowerCase().indexOf(lower) != -1)
+    		return true;
+    	
+    	/*for(String key : key) {
     		if(kvmap.containsKey(key)) {
     			int index = kvmap.get(key);
     			
@@ -186,7 +185,7 @@ public class Entity {
     			if(value.get(index).toLowerCase().indexOf(lower) > -1)
     				return true;
     		}
-    	}
+    	}*/
     	
         return false;
     }

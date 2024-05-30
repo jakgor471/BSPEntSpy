@@ -1,30 +1,11 @@
-/*
- * Decompiled with CFR 0_102.
- */
 package entspy;
 
-import entspy.BSP;
-import entspy.EntFileFilter;
-import entspy.Entity;
-import entspy.JProgFrame;
-import entspy.JTBEditor;
-import entspy.JTBRenderer;
-import entspy.KeyValLinkModel;
-import entspy.MapInfo;
-import entspy.LERenderer;
 import java.awt.BorderLayout;
-import java.awt.CardLayout;
 import java.awt.Component;
-import java.awt.Container;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
 import java.awt.GridLayout;
-import java.awt.Image;
-import java.awt.LayoutManager;
-import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.BufferedReader;
@@ -33,28 +14,20 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.RandomAccessFile;
-import java.io.Reader;
-import java.net.URL;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
-import javax.swing.ButtonModel;
-import javax.swing.ComboBoxModel;
 import javax.swing.DefaultComboBoxModel;
-import javax.swing.DefaultListModel;
 import javax.swing.DefaultListSelectionModel;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -74,34 +47,66 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
-import javax.swing.JTree;
+import javax.swing.JTextPane;
 import javax.swing.KeyStroke;
 import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.Timer;
-import javax.swing.border.Border;
+import javax.swing.UIManager;
 import javax.swing.event.ListDataListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-import javax.swing.event.TreeSelectionEvent;
-import javax.swing.event.TreeSelectionListener;
-import javax.swing.filechooser.FileFilter;
 import javax.swing.table.TableCellEditor;
-import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
-import javax.swing.table.TableModel;
+import javax.swing.text.html.HTMLEditorKit;
+import javax.swing.text.html.StyleSheet;
 import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeModel;
-import javax.swing.tree.DefaultTreeSelectionModel;
-import javax.swing.tree.TreeCellRenderer;
-import javax.swing.tree.TreeModel;
-import javax.swing.tree.TreeNode;
-import javax.swing.tree.TreePath;
-import javax.swing.tree.TreeSelectionModel;
 import util.Cons;
 import util.SwingWorker;
 
 public class Entspy {
+	class HelpActionListener implements ActionListener{
+		String file;
+		public HelpActionListener(String file) {
+			this.file = file;
+		}
+		
+		public void actionPerformed(ActionEvent ev) {
+			JFrame hframe = new JFrame("Search syntax Help");
+			
+			JTextPane textp = new JTextPane();
+			textp.setEditable(false);
+			
+			HTMLEditorKit ek = new HTMLEditorKit();
+			textp.setEditorKit(ek);
+			
+			try(BufferedReader rd = new BufferedReader(
+					new InputStreamReader(Entspy.class.getResourceAsStream(file)))) {
+				StringBuilder sb = new StringBuilder();
+				
+				String line = rd.readLine();
+				while(line != null) {
+					sb.append(line);
+					line = rd.readLine();
+				}
+				
+				textp.setText(sb.toString());
+			} catch (IOException e) {
+				textp.setText("Couldn't find " + file + "<br>"+e);
+			} catch (NullPointerException e) {
+				textp.setText("Couldn't find " + file + "<br>"+e);
+			}
+			
+			JScrollPane scp = new JScrollPane(textp);
+
+			hframe.add(scp);
+			scp.getVerticalScrollBar().setValue(0);
+			
+			hframe.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+			hframe.setSize(720, 520);
+			hframe.setVisible(true);
+		}
+	}
 	BSP m;
 	String filename;
 	File infile;
@@ -153,14 +158,15 @@ public class Entspy {
 		filemenu.add(mquit);
 
 		JMenu helpmenu = new JMenu("Help");
-		JMenuItem mhelpSearch = new JMenuItem("Search syntax");
+		JMenuItem mhelpSearch = new JMenuItem("Search help");
 		helpmenu.add(mhelpSearch);
 
-		mhelpSearch.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
+		mhelpSearch.addActionListener(new HelpActionListener("/text/searchhelp.html"));
+		
+		JMenuItem mexportHelp = new JMenuItem("Export / Import help");
+		helpmenu.add(mexportHelp);
 
-			}
-		});
+		mexportHelp.addActionListener(new HelpActionListener("/text/exporthelp.html"));
 
 		JMenuBar menubar = new JMenuBar();
 		menubar.add(filemenu);
@@ -943,6 +949,7 @@ public class Entspy {
 	}
 
 	public static void main(String[] args) throws Exception {
+		UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 		Entspy inst = new Entspy();
 		inst.exec();
 	}
@@ -993,23 +1000,26 @@ public class Entspy {
 				JOptionPane.showMessageDialog(frame, e.getMessage());
 			}
 
-			int i = 0;
-			if (special) {
-				for (i = entList.getMaxSelectionIndex() + 1; i < ((EntspyListModel) entList.getModel()).entities
-						.size(); ++i) {
-					if (((EntspyListModel) entList.getModel()).entities.get(i).ismatch(keysToSearch, valuesToSearch)) {
-						found = true;
-						break;
+			int i = entList.getSelectedIndex() + 1;
+			for(int j = 0; j < 2 && !found; ++j) {
+				if (special) {
+					for (; i < ((EntspyListModel) entList.getModel()).entities.size(); ++i) {
+						if (((EntspyListModel) entList.getModel()).entities.get(i).ismatch(keysToSearch, valuesToSearch)) {
+							found = true;
+							break;
+						}
+					}
+				} else {
+					for (; i < ((EntspyListModel) entList.getModel()).entities.size(); ++i) {
+						if (((EntspyListModel) entList.getModel()).entities.get(i).ismatch(ftext)) {
+							found = true;
+							break;
+						}
 					}
 				}
-			} else {
-				for (i = entList.getMaxSelectionIndex() + 1; i < ((EntspyListModel) entList.getModel()).entities
-						.size(); ++i) {
-					if (((EntspyListModel) entList.getModel()).entities.get(i).ismatch(ftext)) {
-						found = true;
-						break;
-					}
-				}
+				
+				if(!found)
+					i = 0;
 			}
 
 			if (found) {

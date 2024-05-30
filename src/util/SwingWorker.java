@@ -1,6 +1,3 @@
-/*
- * Decompiled with CFR 0_102.
- */
 package util;
 
 import javax.swing.SwingUtilities;
@@ -30,24 +27,8 @@ public abstract class SwingWorker {
         this.threadVar.clear();
     }
 
-    /*
-     * Exception decompiling
-     */
     public Object get() {
-        // This method has failed to decompile.  When submitting a bug report, please provide this stack trace, and (if you hold appropriate legal rights) the relevant class file.
-        // org.benf.cfr.reader.util.ConfusedCFRException: Tried to end blocks [2[UNCONDITIONALDOLOOP]], but top level block is 1[CATCHBLOCK]
-        // org.benf.cfr.reader.bytecode.analysis.opgraph.Op04StructuredStatement.processEndingBlocks(Op04StructuredStatement.java:392)
-        // org.benf.cfr.reader.bytecode.analysis.opgraph.Op04StructuredStatement.buildNestedBlocks(Op04StructuredStatement.java:444)
-        // org.benf.cfr.reader.bytecode.analysis.opgraph.Op03SimpleStatement.createInitialStructuredBlock(Op03SimpleStatement.java:2802)
-        // org.benf.cfr.reader.bytecode.CodeAnalyser.getAnalysisInner(CodeAnalyser.java:787)
-        // org.benf.cfr.reader.bytecode.CodeAnalyser.getAnalysisOrWrapFail(CodeAnalyser.java:214)
-        // org.benf.cfr.reader.bytecode.CodeAnalyser.getAnalysis(CodeAnalyser.java:159)
-        // org.benf.cfr.reader.entities.attributes.AttributeCode.analyse(AttributeCode.java:91)
-        // org.benf.cfr.reader.entities.Method.analyse(Method.java:353)
-        // org.benf.cfr.reader.entities.ClassFile.analyseMid(ClassFile.java:731)
-        // org.benf.cfr.reader.entities.ClassFile.analyseTop(ClassFile.java:663)
-        // org.benf.cfr.reader.Main.doJar(Main.java:126)
-        // org.benf.cfr.reader.Main.main(Main.java:178)
+
         throw new IllegalStateException("Decompilation failed");
     }
 

@@ -1,11 +1,5 @@
-/*
- * Decompiled with CFR 0_102.
- */
 package entspy;
 
-/*
- * This class specifies class file version 49.0 but uses Java 6 signatures.  Assumed Java 6.
- */
 public class Lump
 implements Comparable<Lump> {
     static String[] lumpname = new String[]{"Entities", "Planes", "TexData", "Vertices", "Visibility", "Nodes", "TexInfo", "Faces", "Lighting", "Occlusion", "Leaves", "", "Edges", "SurfEdges", "Models", "Worldlights", "LeafFaces", "LeafBrushes", "Brushes", "BrushSides", "Areas", "AreaPortals", "Portals", "Clusters", "PortalVerts", "ClusterPortals", "DispInfo", "OriginalFaces", "", "PhysCollide", "VertNormals", "VertNormalIndices", "DispLightmapAlphas", "DispVerts", "DispLightmapSamplePositions", "GameLump", "LeafWaterData", "Primatives", "PrimVerts", "PrimIndices", "PakFile", "ClipPortalVerts", "Cubemaps", "TexDataStringData", "TexDataStringTable", "Overlays", "LeafMinDistToWater", "FaceMacroTextureInfo", "DispTris", "PhysCollideSurface", "", "", "", "LightingHDR", "WorldlightsHDR", "LeaflightHDR1", "LeaflightHDR2", "", "", "", "", "", "", "", ""};

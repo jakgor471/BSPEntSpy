@@ -1,25 +1,12 @@
-/*
- * Decompiled with CFR 0_102.
- */
 package entspy;
 
-import entspy.Entity;
 import entspy.Entspy.EntspyListModel;
-
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.PrintStream;
 import java.util.ArrayList;
 import javax.swing.JButton;
 import javax.swing.JList;
-import javax.swing.JTree;
-import javax.swing.ListModel;
 import javax.swing.table.AbstractTableModel;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeModel;
-import javax.swing.tree.TreeModel;
-import javax.swing.tree.TreeNode;
-import javax.swing.tree.TreePath;
 
 class KeyValLinkModel extends AbstractTableModel {
 	Entity ent;

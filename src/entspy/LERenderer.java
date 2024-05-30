@@ -1,19 +1,9 @@
-/*
- * Decompiled with CFR 0_102.
- */
 package entspy;
 
-import entspy.Entity;
 import java.awt.Component;
-import java.net.URL;
-
 import javax.swing.DefaultListCellRenderer;
-import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JList;
-import javax.swing.JTree;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeCellRenderer;
 
 public class LERenderer
 extends DefaultListCellRenderer {
