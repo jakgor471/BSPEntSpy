@@ -6,6 +6,9 @@ import javax.swing.JList;
 import javax.swing.table.AbstractTableModel;
 
 import entspy.ClassPropertyPanel.KVEntry;
+import entspy.FGDEntry.PropChoicePair;
+import entspy.FGDEntry.Property;
+import entspy.FGDEntry.PropertyChoices;
 
 class KeyValLinkModel extends AbstractTableModel {
 	ArrayList<KVEntry> keyvalues;
@@ -32,16 +35,28 @@ class KeyValLinkModel extends AbstractTableModel {
 	}
 
 	public Object getValueAt(int row, int col) {
+		KVEntry keyval = keyvalues.get(row);
+		String key = keyval.key.toLowerCase();
+		Property prop = null;
+		if(fgdContent != null)
+			prop = fgdContent.propmap.get(key);
+		
 		if(col == 0) {
-			String key = keyvalues.get(row).key.toLowerCase();
+			if(prop != null)
+				return prop.getDisplayName();
 			
-			if(fgdContent != null && fgdContent.propmap.containsKey(key))
-				return fgdContent.propmap.get(key).getDisplayName();
-			
-			return keyvalues.get(row).key;
+			return keyval.key;
 		}
 		
-		return keyvalues.get(row).getValue();
+		if(!keyval.different && prop != null && prop instanceof PropertyChoices) {
+			String val = keyval.value.toLowerCase().trim();
+			PropertyChoices propChoices = (PropertyChoices)prop;
+			PropChoicePair ch = propChoices.chMap.get(val);
+			if(ch != null)
+				return ch.description;
+		}
+		
+		return keyval.getValue();
 	}
 
 	public void setValueAt(Object setval, int row, int col) {

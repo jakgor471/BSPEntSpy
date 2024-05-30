@@ -256,11 +256,9 @@ public class FGD {
 		return io;
 	}
 	
-	private static ArrayList<PropChoicePair> parseChoices(FGDLexer lexer) throws LexerException{
+	private static void parseChoices(FGDLexer lexer, PropertyChoices propChoices) throws LexerException{
 		lexer.expect(BasicTokenType.symbol, "[");
 		lexer.consume();
-		
-		ArrayList<PropChoicePair> choices = new ArrayList<PropChoicePair>();
 		
 		while(lexer.getToken() != null && !lexer.getToken().isClassClose()) {
 			PropChoicePair choice = new PropChoicePair();
@@ -283,13 +281,12 @@ public class FGD {
 				lexer.consume();
 			}
 			
-			choices.add(choice);
+			propChoices.choices.add(choice);
+			propChoices.chMap.put(choice.value.toLowerCase().trim(), choice);
 		}
 		
 		lexer.expect(BasicTokenType.symbol, "]");
 		lexer.consume();
-		
-		return choices;
 	}
 	
 	private static Property parseProperty(FGDLexer lexer) throws LexerException {
@@ -349,11 +346,12 @@ public class FGD {
 		
 		if(type.equals("flags") || type.equals("choices")) {
 			prop = new PropertyChoices();
+			PropertyChoices propChoices = (PropertyChoices)prop;
 			
 			lexer.expect(BasicTokenType.symbol, "=");
 			lexer.consume();
 			
-			((PropertyChoices)prop).choices = parseChoices(lexer); 
+			parseChoices(lexer, propChoices); 
 		} else {
 			prop = new Property();
 		}

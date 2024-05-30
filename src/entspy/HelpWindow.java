@@ -12,7 +12,7 @@ public class HelpWindow extends JFrame{
 	JTextPane textPane;
 	private HelpWindow(String title) {
 		super(title);
-		this.setIconImage(Entspy.esIcon.getImage());
+		this.setIconImage(BSPEntspy.esIcon.getImage());
 		
 		textPane = new JTextPane();
 		textPane.setEditable(false);

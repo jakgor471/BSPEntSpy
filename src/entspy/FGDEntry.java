@@ -152,9 +152,11 @@ public class FGDEntry {
 	//used for boolean, flags, choices
 	public static class PropertyChoices extends Property{
 		public ArrayList<PropChoicePair> choices;
+		public HashMap<String, PropChoicePair> chMap;
 		
 		public PropertyChoices() {
 			choices = new ArrayList<PropChoicePair>();
+			chMap = new HashMap<String, PropChoicePair>();
 		}
 		
 		public void addChoice(String value, String name) {

@@ -68,7 +68,7 @@ import entspy.Lexer.LexerException;
 import util.Cons;
 import util.SwingWorker;
 
-public class Entspy {
+public class BSPEntspy {
 	BSP m;
 	String filename;
 	File infile;
@@ -82,7 +82,7 @@ public class Entspy {
 	HashSet<Entity> previouslySelected = new HashSet<Entity>();
 	
 	static ImageIcon esIcon = new ImageIcon(JTBRenderer.class.getResource("/images/newicons/entspy.png"));
-	public static final String entspyTitle = "Entspy v2.0";
+	public static final String entspyTitle = "BSPEntSpy v2.0";
 
 	public int exec() throws IOException {
 		preferences = Preferences.userRoot().node(getClass().getName());
@@ -165,10 +165,24 @@ public class Entspy {
 		rightEntPanel.setSmartEdit(shouldSmartEdit);
 		
 		JMenu optionmenu = new JMenu("Options");
+		
 		JCheckBoxMenuItem msmartEditOption = new JCheckBoxMenuItem("Smart Edit");
 		msmartEditOption.setToolTipText("If FGD file is loaded Smart Edit can be enabled. See more in Help");
 		msmartEditOption.setEnabled(fgdFile != null);
 		msmartEditOption.setState(shouldSmartEdit);
+		
+		JCheckBoxMenuItem maddDefaultOption = new JCheckBoxMenuItem("Auto-add default parameters");
+		maddDefaultOption.setToolTipText("If FGD file is loaded the default class parameters will be added but not applied unless edited");
+		maddDefaultOption.setEnabled(fgdFile != null);
+		maddDefaultOption.setState(fgdFile != null && preferences.getBoolean("AutoAddParams", false));
+		
+		maddDefaultOption.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				rightEntPanel.shouldAddDefaultParameters(maddDefaultOption.getState());
+				preferences.putBoolean("AutoAddParams", maddDefaultOption.getState());
+			}
+		});
+		
 		msmartEditOption.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				rightEntPanel.setSmartEdit(msmartEditOption.getState());
@@ -177,6 +191,7 @@ public class Entspy {
 		});
 		
 		optionmenu.add(msmartEditOption);
+		optionmenu.add(maddDefaultOption);
 		
 		JMenuBar menubar = new JMenuBar();
 		menubar.add(filemenu);
@@ -188,15 +203,15 @@ public class Entspy {
 
 			public void actionPerformed(ActionEvent e) {
 				try {
-					if (Entspy.this.checkchanged("Load BSP")) {
+					if (BSPEntspy.this.checkchanged("Load BSP")) {
 						return;
 					}
-					if (!Entspy.this.loadfile()) {
+					if (!BSPEntspy.this.loadfile()) {
 						return;
 					}
-					Entspy.this.m = new BSP(Entspy.this.raf);
-					Entspy.this.m.loadheader();
-					Entspy.this.loaddata();
+					BSPEntspy.this.m = new BSP(BSPEntspy.this.raf);
+					BSPEntspy.this.m.loadheader();
+					BSPEntspy.this.loaddata();
 				} catch (IOException ex) {
 					Cons.println(ex);
 				}
@@ -205,17 +220,17 @@ public class Entspy {
 		msave.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
-				Entspy.this.frame.setCursor(Cursor.getPredefinedCursor(3));
+				BSPEntspy.this.frame.setCursor(Cursor.getPredefinedCursor(3));
 				SwingWorker worker = new SwingWorker() {
 
 					public Object construct() {
-						Entspy.this.savefile();
+						BSPEntspy.this.savefile();
 						return null;
 					}
 
 					public void finished() {
-						Entspy.this.frame.setTitle(entspyTitle + " - " + Entspy.this.filename);
-						Entspy.this.frame.setCursor(null);
+						BSPEntspy.this.frame.setTitle(entspyTitle + " - " + BSPEntspy.this.filename);
+						BSPEntspy.this.frame.setCursor(null);
 					}
 				};
 				worker.start();
@@ -225,7 +240,7 @@ public class Entspy {
 		mquit.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
-				if (Entspy.this.checkchanged("Quit Entspy")) {
+				if (BSPEntspy.this.checkchanged("Quit Entspy")) {
 					return;
 				}
 				System.exit(0);
@@ -234,11 +249,11 @@ public class Entspy {
 		minfo.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
-				Entspy.this.m.setfile(Entspy.this.raf);
-				if (Entspy.this.info != null) {
-					Entspy.this.info.dispose();
+				BSPEntspy.this.m.setfile(BSPEntspy.this.raf);
+				if (BSPEntspy.this.info != null) {
+					BSPEntspy.this.info.dispose();
 				}
-				Entspy.this.info = new MapInfo(Entspy.this.frame, Entspy.this.m, Entspy.this.filename);
+				BSPEntspy.this.info = new MapInfo(BSPEntspy.this.frame, BSPEntspy.this.m, BSPEntspy.this.filename);
 			}
 		});
 		
@@ -263,6 +278,7 @@ public class Entspy {
 				}
 				
 				msmartEditOption.setEnabled(fgdFile != null);
+				maddDefaultOption.setEnabled(fgdFile != null);
 				
 				rightEntPanel.fgdContent = fgdFile;
 			}
@@ -494,7 +510,7 @@ public class Entspy {
 			public void actionPerformed(ActionEvent e) {
 				ArrayList<Entity> toremove = new ArrayList<Entity>();
 				int j = 0;
-				for (int i : Entspy.this.entList.getSelectedIndices()) {
+				for (int i : BSPEntspy.this.entList.getSelectedIndices()) {
 					toremove.add(m.el.get(i));
 					++j;
 				}
@@ -502,11 +518,11 @@ public class Entspy {
 				
 				j = entList.getMaxSelectionIndex() - j;
 
-				Entspy.this.entList.setModel(new EntspyListModel(Entspy.this.m.getData()));
+				BSPEntspy.this.entList.setModel(new EntspyListModel(BSPEntspy.this.m.getData()));
 				
 				entList.setSelectedIndex(j + 1);
 				
-				Entspy.this.m.dirty = true;
+				BSPEntspy.this.m.dirty = true;
 			}
 		});
 		cpyent.addActionListener(new ActionListener() {
@@ -527,7 +543,7 @@ public class Entspy {
 				entList.setModel(new EntspyListModel(m.getData()));
 				entList.setSelectedIndices(selected);
 
-				Entspy.this.m.dirty = true;
+				BSPEntspy.this.m.dirty = true;
 			}
 		});
 		addent.addActionListener(new ActionListener() {
@@ -545,7 +561,7 @@ public class Entspy {
 				}
 
 				newent.autoedit = true;
-				Entspy.this.entList.setModel(new EntspyListModel(m.getData()));
+				BSPEntspy.this.entList.setModel(new EntspyListModel(m.getData()));
 				entList.setSelectedIndex(index);
 				entList.ensureIndexIsVisible(index);
 
@@ -837,15 +853,15 @@ public class Entspy {
 		final Timer timer = new Timer(100, new ActionListener() {
 
 			public void actionPerformed(ActionEvent evt) {
-				prog.setValue(Entspy.this.m.loadtaskprogress());
+				prog.setValue(BSPEntspy.this.m.loadtaskprogress());
 			}
 		});
 		SwingWorker worker = new SwingWorker() {
 
 			public Object construct() {
 				try {
-					Entspy.this.m.loadentities();
-					Entspy.this.m.loadglumps();
+					BSPEntspy.this.m.loadentities();
+					BSPEntspy.this.m.loadglumps();
 				} catch (IOException ex) {
 					Cons.println(ex);
 				}
@@ -854,10 +870,10 @@ public class Entspy {
 
 			public void finished() {
 				timer.stop();
-				Entspy.this.entList.setModel(new EntspyListModel(Entspy.this.m.getData()));
-				Entspy.this.frame.setCursor(null);
+				BSPEntspy.this.entList.setModel(new EntspyListModel(BSPEntspy.this.m.getData()));
+				BSPEntspy.this.frame.setCursor(null);
 				prog.end();
-				Entspy.this.frame.setTitle(entspyTitle + " - " + Entspy.this.filename);
+				BSPEntspy.this.frame.setTitle(entspyTitle + " - " + BSPEntspy.this.filename);
 			}
 		};
 		timer.start();
@@ -930,7 +946,7 @@ public class Entspy {
 	
 	public static void main(String[] args) throws Exception {		
 		UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-		Entspy inst = new Entspy();
+		BSPEntspy inst = new BSPEntspy();
 		inst.exec();
 	}
 
@@ -1035,7 +1051,7 @@ public class Entspy {
 			HelpWindow help = HelpWindow.openHelp("Help");
 			
 			try(BufferedReader rd = new BufferedReader(
-					new InputStreamReader(Entspy.class.getResourceAsStream(file)))) {
+					new InputStreamReader(BSPEntspy.class.getResourceAsStream(file)))) {
 				StringBuilder sb = new StringBuilder();
 				
 				String line = rd.readLine();

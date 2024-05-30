@@ -27,6 +27,8 @@ import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 import javax.swing.table.TableColumn;
 
+import entspy.FGDEntry.Property;
+
 @SuppressWarnings("serial")
 public class ClassPropertyPanel extends JPanel {
 	private JTextField classTextField;
@@ -52,7 +54,9 @@ public class ClassPropertyPanel extends JPanel {
 	private ArrayList<KVEntry> deletedKv;
 	private HashMap<String, KVEntry> kvMap;
 	private ActionListener onApply;
+	
 	private boolean smartEdit;
+	private boolean addDefaultParameters;
 	
 	public FGD fgdContent;
 	
@@ -61,8 +65,10 @@ public class ClassPropertyPanel extends JPanel {
 		keyvalues = new ArrayList<KVEntry>();
 		deletedKv = new ArrayList<KVEntry>();
 		kvMap = new HashMap<String, KVEntry>();
+		
 		fgdContent = null;
 		smartEdit = false;
+		addDefaultParameters = false;
 		
 		BorderLayout panelBLayout = new BorderLayout();
 		panelBLayout.setVgap(5);
@@ -318,6 +324,10 @@ public class ClassPropertyPanel extends JPanel {
 		kvModel.refreshtable();
 	}
 	
+	public void shouldAddDefaultParameters(boolean should) {
+		addDefaultParameters = should;
+	}
+	
 	public int entityCount() {
 		return editingEntities.size();
 	}
@@ -407,6 +417,25 @@ public class ClassPropertyPanel extends JPanel {
 			}
 		}
 		
+		refreshClassOriginInfo();
+		
+		if(fgdContent != null && classname != null && !classname.different && addDefaultParameters) {
+			Integer index = fgdContent.classMap.get(classname.value);
+			
+			if(index != null) {
+				FGDEntry entry = fgdContent.classes.get(index);
+				
+				for(Property p : entry.properties) {
+					KVEntry kventry = kvMap.get(p.name);
+					
+					if(kventry == null) {
+						kventry = addKeyValue(p.name, "");
+						kventry.autoAdded = true;
+					}
+				}
+			}
+		}
+		
 		Collections.sort(keyvalues, new Comparator<KVEntry>(){
 			public int compare(KVEntry o1, KVEntry o2) {								
 				return o1.key.compareToIgnoreCase(o2.key);
@@ -419,7 +448,6 @@ public class ClassPropertyPanel extends JPanel {
 			keyvalues.add(0, name);
 		}
 		
-		refreshClassOriginInfo();
 		kvModel.set(keyvalues);
 		
 		boolean enable = editingEntities.size() > 0;
@@ -531,6 +559,7 @@ public class ClassPropertyPanel extends JPanel {
 		KVEntry kv;
 		JTextField textField;
 		String oldKey;
+		String oldVal;
 		boolean key = false;
 
 		public TextListen(String keyname, JTextField field) {
@@ -549,9 +578,11 @@ public class ClassPropertyPanel extends JPanel {
 			
 			if(kv == null) {
 				oldKey = null;
+				oldVal = null;
 				return;
 			}
 			oldKey = kv.key;
+			oldVal = kv.getValue();
 		}
 		
 		public boolean keyChanged() {
@@ -561,6 +592,15 @@ public class ClassPropertyPanel extends JPanel {
 				return true;
 			
 			return !oldKey.equals(kv.key);
+		}
+		
+		public boolean valChanged() {
+			if(kv == null)
+				return false;
+			if(oldVal == null)
+				return true;
+			
+			return !oldVal.equals(kv.value);
 		}
 
 		@Override
@@ -579,11 +619,14 @@ public class ClassPropertyPanel extends JPanel {
 			if(kv == null)
 				return;
 			
+			kv.autoAdded = false;
+			
 			if(key) {
 				kv.key = text;
 				kv.renamed = true;
 			}else {
 				kv.value = text;
+				kv.different = false;
 				kv.edited = true;
 			}
 		}
@@ -600,6 +643,7 @@ public class ClassPropertyPanel extends JPanel {
 		public boolean different = false;
 		public boolean edited = false;
 		public boolean renamed = false;
+		public boolean autoAdded = false;
 		
 		public String getValue() {
 			if(different) return "(different)";
