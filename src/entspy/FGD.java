@@ -180,6 +180,11 @@ public class FGD {
 		}
 	}
 	
+	//TODO: Replace html unsafe characters with safe ones!!!
+	private static String makeHTMLSafe(String s) {
+		return s;
+	}
+	
 	private static ArrayList<String> parseCommaList(FGDLexer lexer, BasicTokenType type) throws LexerException{
 		FGDToken tok = lexer.expect();
 		ArrayList<String> list = new ArrayList<String>();

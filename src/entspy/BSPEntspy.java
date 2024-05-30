@@ -162,7 +162,9 @@ public class BSPEntspy {
 		rightEntPanel.fgdContent = fgdFile;
 		
 		boolean shouldSmartEdit = fgdFile != null && preferences.getBoolean("SmartEdit", false);
+		boolean shouldAddDefaultParams = fgdFile != null && preferences.getBoolean("AutoAddParams", false);
 		rightEntPanel.setSmartEdit(shouldSmartEdit);
+		rightEntPanel.shouldAddDefaultParameters(shouldAddDefaultParams);
 		
 		JMenu optionmenu = new JMenu("Options");
 		
@@ -174,7 +176,7 @@ public class BSPEntspy {
 		JCheckBoxMenuItem maddDefaultOption = new JCheckBoxMenuItem("Auto-add default parameters");
 		maddDefaultOption.setToolTipText("If FGD file is loaded the default class parameters will be added but not applied unless edited");
 		maddDefaultOption.setEnabled(fgdFile != null);
-		maddDefaultOption.setState(fgdFile != null && preferences.getBoolean("AutoAddParams", false));
+		maddDefaultOption.setState(shouldAddDefaultParams);
 		
 		maddDefaultOption.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {

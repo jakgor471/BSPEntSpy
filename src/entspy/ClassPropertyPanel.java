@@ -16,6 +16,7 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.border.BevelBorder;
@@ -30,7 +31,7 @@ import javax.swing.table.TableColumn;
 import entspy.FGDEntry.Property;
 
 @SuppressWarnings("serial")
-public class ClassPropertyPanel extends JPanel {
+public class ClassPropertyPanel extends JTabbedPane {
 	private JTextField classTextField;
 	private JTextField originTextField;
 	private JTextField keyTextField;
@@ -46,6 +47,7 @@ public class ClassPropertyPanel extends JPanel {
 	private JButton delkv;
 	private JButton help;
 	private JButton apply;
+	
 	private KeyValLinkModel kvModel;
 	private KVEntry classname;
 	private KVEntry origin;
@@ -70,11 +72,14 @@ public class ClassPropertyPanel extends JPanel {
 		smartEdit = false;
 		addDefaultParameters = false;
 		
+		/*MAIN PARAMETERS PANEL*/
+		JPanel paramsPanel = new JPanel();
+		
 		BorderLayout panelBLayout = new BorderLayout();
 		panelBLayout.setVgap(5);
 		
-		this.setLayout(panelBLayout);
-		this.setBorder(BorderFactory.createEtchedBorder());
+		paramsPanel.setLayout(panelBLayout);
+		paramsPanel.setBorder(BorderFactory.createEtchedBorder());
 		
 		GridLayout gridLayout = new GridLayout(2, 2);
 		JPanel grid = new JPanel(gridLayout);
@@ -97,7 +102,7 @@ public class ClassPropertyPanel extends JPanel {
 		grid.add(new JLabel("Origin", 4));
 		grid.add(originTextField);
 		
-		this.add(grid, "North");
+		paramsPanel.add(grid, "North");
 		
 		JPanel keyvalPanel = new JPanel(new BorderLayout());
 		keyvalPanel.setBorder(BorderFactory.createBevelBorder(BevelBorder.RAISED));
@@ -156,7 +161,7 @@ public class ClassPropertyPanel extends JPanel {
 		keyvalPanel.add(kveditPanel, "North");
 		keyvalPanel.add(new JScrollPane(this.table), "Center");
 		
-		this.add(keyvalPanel, "Center");
+		paramsPanel.add(keyvalPanel, "Center");
 		
 		JPanel bottomLeftPanel = new JPanel();
 		addkv = new JButton("Add");
@@ -183,7 +188,7 @@ public class ClassPropertyPanel extends JPanel {
 		apply.setToolTipText("Apply to all selected entities.");
 		apply.addActionListener(new ActionListener(){
 			public void actionPerformed(ActionEvent ae) {
-				ClassPropertyPanel.this.apply();
+				apply();
 				
 				if(onApply != null)
 					onApply.actionPerformed(new ActionEvent(this, 1, "apply"));
@@ -207,7 +212,7 @@ public class ClassPropertyPanel extends JPanel {
 		
 		bottom.add(bottomLeftPanel);
 		bottom.add(bottomRightPanel);
-		this.add(bottom, "South");
+		paramsPanel.add(bottom, "South");
 		
 		addkv.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
@@ -267,6 +272,12 @@ public class ClassPropertyPanel extends JPanel {
 				table.clearSelection();
 			}
 		});
+		
+		this.addTab("Parameters", paramsPanel);
+		/*=== END OF MAIN PARAMETERS PANEL ===*/
+		
+		this.addTab("Outputs", new JPanel());
+		this.addTab("Flags", new JPanel());
 	}
 	
 	public void applyKVChanges() {
@@ -474,6 +485,8 @@ public class ClassPropertyPanel extends JPanel {
 	}
 	
 	public void apply() {
+		applyKVChanges();
+		
 		ArrayList<KVEntry> edited = new ArrayList<KVEntry>();
 		ArrayList<KVEntry> renamed = new ArrayList<KVEntry>();
 		
