@@ -5,201 +5,207 @@ import java.util.HashMap;
 import java.util.List;
 
 public class Entity {
-    int index;
-    boolean mark = false;
-    boolean autoedit = false;
-    String classname;
-    String targetname;
-    String origin;
-    public HashMap<String, Integer> kvmap = new HashMap();
-    public ArrayList<String> keys = new ArrayList();
-    public ArrayList<String> values = new ArrayList();
-    public ArrayList<Entity> links = new ArrayList();
-    public ArrayList<KeyValLink> keyvalues = new ArrayList<KeyValLink>();
+	int index;
+	boolean mark = false;
+	boolean autoedit = false;
+	String classname;
+	String targetname;
+	String origin;
+	public HashMap<String, Integer> kvmap = new HashMap<String, Integer>();
+	public HashMap<Integer, Integer> uniqueKvmap = new HashMap<Integer, Integer>();
+	public ArrayList<KeyValLink> keyvalues = new ArrayList<KeyValLink>();
 
-    public Entity() {
-    }
+	private int uniqueInt = 0;
 
-    public Entity(String s) {
-        this.classname = s;
-    }
+	public Entity() {
+	}
 
-    public void clear() {
-        this.classname = null;
-        this.targetname = null;
-        this.origin = null;
-        if (this.keys != null) {
-            this.keys.clear();
-        }
-        if (this.values != null) {
-            this.values.clear();
-        }
-        if (this.links != null) {
-            this.links.clear();
-        }
-    }
+	public Entity(String s) {
+		this.classname = s;
+	}
 
-    public int getKeyIndex(String keyword) {
-    	Integer k = kvmap.get(keyword);
-    	
-    	if(k != null)
-    		return k;
+	public void clear() {
+		this.classname = null;
+		this.targetname = null;
+		this.origin = null;
+		keyvalues.clear();
+		kvmap.clear();
+		uniqueKvmap.clear();
+	}
 
-        return -1;
-    }
+	public String getKeyValue(String keyword) {
+		Integer index = kvmap.get(keyword);
+		if (index != null) {
+			return keyvalues.get(index).value;
+		}
+		return "";
+	}
 
-    public String getKeyValue(String keyword) {
-        int ik = this.getKeyIndex(keyword);
-        if (ik >= 0) {
-            return this.values.get(ik);
-        }
-        return "";
-    }
+	public void setnames() {
+		this.classname = this.getKeyValue("classname");
+		this.targetname = this.getKeyValue("targetname");
+		this.origin = this.getKeyValue("origin");
+	}
 
-    public void setnames() {
-    	this.classname = this.getKeyValue("classname");
-        this.targetname = this.getKeyValue("targetname");
-        this.origin = this.getKeyValue("origin");
-    }
+	public String getKeyValString(int i) {
+		if (i < 0 || i >= this.keyvalues.size()) {
+			return null;
+		}
+		return '\"' + this.keyvalues.get(i).key + "\" \"" + this.keyvalues.get(i).value + '\"';
+	}
 
-    public String getKeyValString(int i) {
-        if (i < 0 || i >= this.keys.size()) {
-            return null;
-        }
-        char quote = '\"';
-        return "" + quote + this.keys.get(i) + quote + " " + quote + this.values.get(i) + quote;
-    }
-    
-    public void setKeyVal(String k, String v) {
-    	if(kvmap.containsKey(k)) {
-    		values.set(kvmap.get(k), v);
-    		setnames();
-    		return;
-    	}
-    	
-    	addKeyVal(k, v);
-    }
+	public void setKeyVal(String k, String v) {
+		if (kvmap.containsKey(k)) {
+			keyvalues.get(kvmap.get(k)).value = v;
+			setnames();
+			return;
+		}
 
-    public void addKeyVal(String k, String v) {
-    	kvmap.put(k, values.size());
-    	
-        this.keys.add(k);
-        this.values.add(v);
-        this.links.add(null);
-        this.setnames();
-    }
-    
-    public void delKeyVal(String k) {
-    	if(!kvmap.containsKey(k))
-    		return;
-    	delKeyVal(kvmap.get(k));
-    }
-    
-    public void changeKey(String from, String to) {
-    	if(!kvmap.containsKey(from))
-    		return;
-    	
-    	int index = kvmap.get(from);
-    	kvmap.remove(from);
-    	keys.set(index, to);
-    	kvmap.put(to, index);
-    }
+		addKeyVal(k, v);
+	}
+	
+	public void setKeyVal(int uniqueId, String v) {
+		if (uniqueKvmap.containsKey(uniqueId)) {
+			keyvalues.get(uniqueKvmap.get(uniqueId)).value = v;
+			setnames();
+			return;
+		}
+	}
 
-    public void delKeyVal(int i) {
-        if (i < 0 || i >= this.size()) {
-            return;
-        }
-        
-        kvmap.remove(keys.get(i));
-        
-        for(int j = i + 1; j < keys.size(); ++j) {
-        	kvmap.put(keys.get(j), j - 1);
-        }
-        
-        this.keys.remove(i);
-        this.values.remove(i);
-        this.links.remove(i);
-        this.setnames();
-    }
+	public void addKeyVal(String k, String v) {
+		KeyValLink kv = new KeyValLink();
+		kv.key = k;
+		kv.value = v;
 
-    public int size() {
-        if (this.keys != null) {
-            return this.keys.size();
-        }
-        return 0;
-    }
+		kvmap.put(k, keyvalues.size());
 
-    public String toString() {
-        return this.classname + (this.targetname == null ? "" : new StringBuilder().append(" (").append(this.targetname).append(")").toString());
-    }
-    
-    public String toStringSpecial() {
-    	StringBuilder sb = new StringBuilder();
-		
+		int hash1 = (k + " " + v).hashCode();
+		uniqueInt ^= hash1 + 0x9e3779b9 + (uniqueInt << 6) + (uniqueInt >>> 2);
+
+		kv.uniqueId = uniqueInt;
+
+		uniqueKvmap.put(uniqueInt, keyvalues.size());
+		keyvalues.add(kv);
+		this.setnames();
+	}
+
+	public void delKeyVal(String k) {
+		if (!kvmap.containsKey(k))
+			return;
+		delKeyVal(kvmap.get(k));
+	}
+	
+	public void delKeyValById(int uniqueId) {
+		if (!uniqueKvmap.containsKey(uniqueId))
+			return;
+		delKeyVal(uniqueKvmap.get(uniqueId));
+	}
+
+	public void changeKey(String from, String to) {
+		if (!kvmap.containsKey(from))
+			return;
+
+		int index = kvmap.get(from);
+		keyvalues.get(index).key = to;
+		kvmap.remove(from);
+		kvmap.put(to, index);
+	}
+
+	public void delKeyVal(int i) {
+		if (i < 0 || i >= this.size()) {
+			return;
+		}
+
+		kvmap.remove(keyvalues.get(i).key);
+		uniqueKvmap.remove(keyvalues.get(i).uniqueId);
+
+		for (int j = i + 1; j < keyvalues.size(); ++j) {
+			kvmap.put(keyvalues.get(j).key, j - 1);
+			uniqueKvmap.put(keyvalues.get(j).uniqueId, j - 1);
+		}
+
+		keyvalues.remove(i);
+		this.setnames();
+	}
+
+	public int size() {
+		if (this.keyvalues != null) {
+			return this.keyvalues.size();
+		}
+		return 0;
+	}
+
+	public String toString() {
+		return this.classname + (this.targetname == null ? ""
+				: new StringBuilder().append(" (").append(this.targetname).append(")").toString());
+	}
+
+	public String toStringSpecial() {
+		StringBuilder sb = new StringBuilder();
+
 		sb.append("entity\n{\n");
-		for(int i = 0; i < keys.size(); ++i) {
-			sb.append("\t\"" + keys.get(i) + "\" \"" + values.get(i) + "\"\n");
+		for (int i = 0; i < keyvalues.size(); ++i) {
+			sb.append("\t\"" + keyvalues.get(i).key + "\" \"" + keyvalues.get(i).value + "\"\n");
 		}
 		sb.append("}");
 
 		return sb.toString();
-    }
+	}
 
-    public Entity copy() {
-        Entity ret = new Entity();
-        ret.index = this.index;
-        ret.mark = this.mark;
-        ret.autoedit = this.autoedit;
-        for (int i = 0; i < this.size(); ++i) {
-        	ret.kvmap.put(this.keys.get(i), ret.values.size());
-            ret.keys.add(this.keys.get(i));
-            ret.values.add(this.values.get(i));
-        }
-        ret.links = (ArrayList)this.links.clone();
-        ret.setnames();
-        return ret;
-    }
+	public Entity copy() {
+		Entity ret = new Entity();
+		ret.index = this.index;
+		ret.mark = this.mark;
+		ret.autoedit = this.autoedit;
+		for (int i = 0; i < this.size(); ++i) {
+			ret.addKeyVal(keyvalues.get(i).key, keyvalues.get(i).value);
+		}
+		ret.setnames();
+		return ret;
+	}
 
-    public int byteSize() {
-        int length = 4;
-        for (int i = 0; i < this.size(); ++i) {
-            length+=this.keys.get(i).length() + 2;
-            length+=this.values.get(i).length() + 2;
-            length+=2;
-        }
-        return length;
-    }
-    
-    public boolean isMatch(List<String> keys, List<String> values) {
-    	if(values.size() < keys.size())
-    		return false;
-    	
-    	for(int i = 0; i < keys.size(); ++i) {
-    		if(!kvmap.containsKey(keys.get(i))) return false;
-    		
-    		int index = kvmap.get(keys.get(i));
-    		if(index >= values.size() || index < 0 || values.get(index).toLowerCase().indexOf(values.get(i)) == -1) {
+	public int byteSize() {
+		int length = 4;
+		for (int i = 0; i < this.size(); ++i) {
+			length += this.keyvalues.get(i).key.length() + 2;
+			length += this.keyvalues.get(i).value.length() + 2;
+			length += 2;
+		}
+		return length;
+	}
+
+	public boolean isMatch(List<String> keys, List<String> values) {
+		if (values.size() < keys.size())
+			return false;
+
+		for (int i = 0; i < keys.size(); ++i) {
+			if (!kvmap.containsKey(keys.get(i)))
+				return false;
+
+			int index = kvmap.get(keys.get(i));
+			if (index >= values.size() || index < 0
+					|| keyvalues.get(index).value.toLowerCase().indexOf(values.get(i)) == -1) {
 				return false;
 			}
-    	}
-    	
-    	return true;
-    }
+		}
 
-    public boolean isMatch(String text) {
-    	String lower = text.toLowerCase();
-    	
-    	if(getKeyValue("classname").toLowerCase().indexOf(lower) != -1 || getKeyValue("targetname").toLowerCase().indexOf(lower) != -1)
-    		return true;
-    	
-        return false;
-    }
-    
-    public static class KeyValLink{
-    	public int uniqueKey;
-    	public String key;
-    	public String value;
-    	public Entity link;
-    }
+		return true;
+	}
+
+	public boolean isMatch(String text) {
+		String lower = text.toLowerCase();
+
+		if (getKeyValue("classname").toLowerCase().indexOf(lower) != -1
+				|| getKeyValue("targetname").toLowerCase().indexOf(lower) != -1)
+			return true;
+
+		return false;
+	}
+
+	public static class KeyValLink {
+		public int uniqueId;
+		public String key;
+		public String value;
+		public Entity link;
+	}
 }
-

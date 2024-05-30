@@ -637,10 +637,10 @@ public class BSPEntspy {
 		model.removeAllElements();
 		loop1: for (int i = 0; i < this.m.el.size(); ++i) {
 			Entity lent = this.m.el.get(i);
-			if (lent.keys == null)
+			if (lent.keyvalues == null)
 				continue;
-			for (int j = 0; j < lent.keys.size(); ++j) {
-				Entity linkent = lent.links.get(j);
+			for (int j = 0; j < lent.keyvalues.size(); ++j) {
+				Entity linkent = lent.keyvalues.get(j).link;
 				if (linkent == null || !linkent.targetname.equals(sel.targetname))
 					continue;
 				model.addElement(lent);

@@ -138,10 +138,7 @@ public class BSP {
                 if (fields.length == 5) {
                     String ckey = fields[1];
                     String cval = fields[3];
-                    cent.kvmap.put(ckey, cent.values.size());
-                    cent.keys.add(ckey);
-                    cent.values.add(cval);
-                    cent.links.add(null);
+                    cent.addKeyVal(ckey, cval);
                 }
                 if (!line.equals("}")) continue;
             }
@@ -167,18 +164,18 @@ public class BSP {
         for (int i2 = 0; i2 < this.el.size(); ++i2) {
             lent = this.el.get(i2);
             lent.mark = false;
-            if (lent.keys == null) continue;
-            for (int j = 0; j < lent.keys.size(); ++j) {
-                if (lent.keys.get(j).equals("targetname")) continue;
-                String val = lent.values.get(j);
+            if (lent.keyvalues == null) continue;
+            for (int j = 0; j < lent.keyvalues.size(); ++j) {
+                if (lent.keyvalues.get(j).key.equals("targetname")) continue;
+                String val = lent.keyvalues.get(j).value;
                 String[] plink = val.split(",");
                 Entity linkent = this.namemap.get(plink[0]);
                 if (linkent != null) {
-                    lent.links.set(j, linkent);
+                    lent.keyvalues.get(j).link = linkent;
                     ++nlinks;
                     continue;
                 }
-                lent.links.set(j, null);
+                lent.keyvalues.get(j).link = null;
             }
         }
         System.out.println("" + nlinks + " links found");
@@ -294,7 +291,7 @@ public class BSP {
         for (int i = 0; i < this.el.size(); ++i) {
             Entity ient = this.el.get(i);
             oraf.writeBytes("{\n");
-            for (int j = 0; j < ient.keys.size(); ++j) {
+            for (int j = 0; j < ient.keyvalues.size(); ++j) {
                 oraf.writeBytes(ient.getKeyValString(j) + "\n");
             }
             oraf.writeBytes("}\n");

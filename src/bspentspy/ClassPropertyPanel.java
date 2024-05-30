@@ -30,6 +30,7 @@ import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 import javax.swing.table.TableColumn;
 
+import bspentspy.Entity.KeyValLink;
 import bspentspy.FGDEntry.Property;
 
 @SuppressWarnings("serial")
@@ -277,7 +278,10 @@ public class ClassPropertyPanel extends JPanel {
 				KVEntry entry = keyvalues.get(selected);
 				kvMap.remove(entry.key);
 				keyvalues.remove(selected);
-				deletedKv.add(entry);
+				
+				//if uniqueId is null it means this kv exists only in editor, not in actual entity
+				if(entry.uniqueId != null)
+					deletedKv.add(entry);
 				
 				kvModel.refreshtable();
 				kvtable.clearSelection();
@@ -372,7 +376,9 @@ public class ClassPropertyPanel extends JPanel {
 				
 				KVEntry entry = outputs.get(selected);
 				outputs.remove(selected);
-				deletedKv.add(entry);
+				
+				if(entry.uniqueId != null)
+					deletedOutputs.add(entry);
 				
 				outputModel.fireTableDataChanged();
 				outputTable.clearSelection();
@@ -520,6 +526,7 @@ public class ClassPropertyPanel extends JPanel {
 	public void gatherKeyValues() {
 		keyvalues.clear();
 		deletedKv.clear();
+		deletedOutputs.clear();
 		kvMap.clear();
 		outputs.clear();
 		
@@ -531,28 +538,30 @@ public class ClassPropertyPanel extends JPanel {
 			}
 			
 			for(int i = 0; i < e.size(); ++i) {
-				if(fgdent != null && fgdent.outmap.containsKey(e.keys.get(i))) {
+				KeyValLink kvl = e.keyvalues.get(i);
+				if(fgdent != null && fgdent.outmap.containsKey(kvl.key)) {
 					KVEntry kv = new KVEntry();
-					kv.key = e.keys.get(i);
-					kv.value = e.values.get(i);
+					kv.key = kvl.key;
+					kv.value = kvl.value;
+					kv.uniqueId = kvl.uniqueId;
 					
 					outputs.add(kv);
 					continue;
 				}
-				KVEntry entry = kvMap.get(e.keys.get(i));
+				KVEntry entry = kvMap.get(kvl.key);
 				
 				if(entry == null || editingEntities.size() <= 1) {
-					entry = addKeyValue(e.keys.get(i), e.values.get(i));
+					entry = addKeyValue(kvl.key, kvl.value, kvl.uniqueId);
 				}
 				
 				if(!entry.different) {
-					entry.different = !entry.value.equals(e.values.get(i));
+					entry.different = !entry.value.equals(kvl.value);
 				}
 			}
 		}
 		
 		if(!kvMap.containsKey("classname"))
-			addKeyValue("classname", "info_target");
+			addKeyValue("classname", "info_target", null);
 		
 		refreshClassOriginInfo();
 		
@@ -565,7 +574,7 @@ public class ClassPropertyPanel extends JPanel {
 						KVEntry kventry = kvMap.get(p.name);
 						
 						if(kventry == null) {
-							kventry = addKeyValue(p.name, p.defaultVal);
+							kventry = addKeyValue(p.name, p.defaultVal, null);
 							kventry.autoAdded = true;
 						}
 					}
@@ -616,16 +625,17 @@ public class ClassPropertyPanel extends JPanel {
 		}
 		
 		for(KVEntry e : keyvalues) {
-			if(e.renamed) {
+			if(e.renamed && e.uniqueId != null)
 				renamed.add(e);
-				if(e.originalKey == null)
-					edited.add(e);
-			}
 		}
 		
 		for(Entity e : editingEntities) {
 			for(KVEntry entry : deletedKv) {
 				e.delKeyVal(entry.key);
+			}
+			
+			for(KVEntry entry : deletedOutputs) {
+				e.delKeyValById(entry.uniqueId);
 			}
 			
 			for(KVEntry entry : renamed) {
@@ -665,10 +675,11 @@ public class ClassPropertyPanel extends JPanel {
 		return fgdContent.getClassHelp(classname.getValue());
 	}
 	
-	private KVEntry addKeyValue(String key, String value) {
+	private KVEntry addKeyValue(String key, String value, Integer unique) {
 		KVEntry entry = new KVEntry();
 		entry.key = key;
 		entry.value = value;
+		entry.uniqueId = unique;
 		
 		keyvalues.add(entry);
 		entry.originalKey = key;
@@ -772,6 +783,7 @@ public class ClassPropertyPanel extends JPanel {
 		public String originalKey = null;
 		public String key = "";
 		public String value = "";
+		public Integer uniqueId = null;
 
 		public boolean different = false;
 		public boolean edited = false;
