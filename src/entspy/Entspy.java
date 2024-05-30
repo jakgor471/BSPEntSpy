@@ -62,6 +62,8 @@ import javax.swing.table.TableColumn;
 import javax.swing.text.html.HTMLEditorKit;
 import javax.swing.text.html.StyleSheet;
 import javax.swing.tree.DefaultMutableTreeNode;
+
+import entspy.FGD.FGDException;
 import util.Cons;
 import util.SwingWorker;
 
@@ -881,6 +883,9 @@ public class Entspy {
 			fgdFile.loadFromStream(fr, file.getName());
 		} catch(Exception e) {
 			
+		} catch (FGDException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 		
 		preferences.put("LastFGDFolder", file.getParent());
@@ -1008,6 +1013,17 @@ public class Entspy {
 	}
 
 	public static void main(String[] args) throws Exception {
+		try(FileReader fr = new FileReader(new File("D:\\Steam\\steamapps\\common\\Half-Life 2\\bin\\halflife2.fgd"))) {
+			FGD fgdFile = new FGD();
+			
+			fgdFile.loadFromStream(fr, "halflife2.fgd");
+		} catch(Exception e) {
+			e.printStackTrace();
+		} catch (FGDException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
 		UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 		Entspy inst = new Entspy();
 		inst.exec();
