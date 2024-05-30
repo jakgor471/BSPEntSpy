@@ -185,48 +185,10 @@ public class BSP {
         System.out.println("" + nlinks + " links found");
     }
 
-    public DefaultMutableTreeNode getTree() {
-        int i;
+    public ArrayList<Entity> getData() {
         this.buildlinks();
-        Entity lent = this.el.get(0);
-        DefaultMutableTreeNode root = new DefaultMutableTreeNode(lent);
-        int te = 1;
-        int depth = 0;
-        while (te < this.el.size() && depth < 30) {
-            ++depth;
-            block1 : for (i = 1; i < this.el.size(); ++i) {
-                lent = this.el.get(i);
-                if (lent.mark) continue;
-                if (lent.parentname == null) {
-                    DefaultMutableTreeNode lnode = new DefaultMutableTreeNode(lent);
-                    root.add(lnode);
-                    ++te;
-                    lent.mark = true;
-                    continue;
-                }
-                Enumeration tenum = root.preorderEnumeration();
-                do {
-                    DefaultMutableTreeNode pnode = (DefaultMutableTreeNode)tenum.nextElement();
-                    Entity pent = (Entity)pnode.getUserObject();
-                    if (pnode == root || pent.targetname == null || !pent.targetname.equals(lent.parentname)) continue;
-                    DefaultMutableTreeNode lnode = new DefaultMutableTreeNode(lent);
-                    pnode.add(lnode);
-                    ++te;
-                    lent.mark = true;
-                    continue block1;
-                } while (tenum.hasMoreElements());
-            }
-        }
-        if (te < this.el.size()) {
-            System.out.println("" + (this.el.size() - te) + " element(s) with unknown parent");
-            for (i = 1; i < this.el.size(); ++i) {
-                lent = this.el.get(i);
-                if (lent.mark) continue;
-                System.out.println(lent + ": no such parent " + lent.parentname);
-                root.add(new DefaultMutableTreeNode(lent));
-            }
-        }
-        return root;
+        
+        return el;
     }
 
     public void setprog(JProgFrame prog) {

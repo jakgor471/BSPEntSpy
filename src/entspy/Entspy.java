@@ -72,7 +72,8 @@ public class Entspy {
 		}
 		
 		public void actionPerformed(ActionEvent ev) {
-			JFrame hframe = new JFrame("Search syntax Help");
+			JFrame hframe = new JFrame("Help");
+			hframe.setIconImage(Entspy.esIcon.getImage());
 			
 			JTextPane textp = new JTextPane();
 			textp.setEditable(false);
@@ -118,7 +119,7 @@ public class Entspy {
 	MapInfo info;
 	Preferences preferences;
 	static final String VERSION = "v0.9";
-	static ImageIcon esIcon = new ImageIcon(JTBRenderer.class.getResource("/images/entspy.gif"));
+	static ImageIcon esIcon = new ImageIcon(JTBRenderer.class.getResource("/images/newicons/entspy.png"));
 
 	public int exec() throws IOException {
 		preferences = Preferences.userRoot().node(getClass().getName());
@@ -167,6 +168,13 @@ public class Entspy {
 		helpmenu.add(mexportHelp);
 
 		mexportHelp.addActionListener(new HelpActionListener("/text/exporthelp.html"));
+		
+		helpmenu.addSeparator();
+		
+		JMenuItem mcreditHelp = new JMenuItem("Credits");
+		helpmenu.add(mcreditHelp);
+
+		mcreditHelp.addActionListener(new HelpActionListener("/text/credits.html"));
 
 		JMenuBar menubar = new JMenuBar();
 		menubar.add(filemenu);
@@ -365,7 +373,7 @@ public class Entspy {
 		updent.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
-				entList.setModel(new EntspyListModel(m.el));
+				entList.setModel(new EntspyListModel(m.getData()));
 			}
 		});
 		delent.addActionListener(new ActionListener() {
@@ -377,7 +385,7 @@ public class Entspy {
 				}
 				m.el.removeAll(toremove);
 
-				Entspy.this.entList.setModel(new EntspyListModel(Entspy.this.m.el));
+				Entspy.this.entList.setModel(new EntspyListModel(Entspy.this.m.getData()));
 				Entspy.this.m.dirty = true;
 			}
 		});
@@ -388,7 +396,7 @@ public class Entspy {
 				Entity newent = selEnt.copy();
 				int i = Entspy.this.m.el.indexOf(selEnt);
 				Entspy.this.m.el.add(i + 1, newent);
-				entList.setModel(new EntspyListModel(m.el));
+				entList.setModel(new EntspyListModel(m.getData()));
 
 				entList.setSelectedIndex(m.el.indexOf(newent));
 
@@ -410,7 +418,7 @@ public class Entspy {
 				}
 
 				newent.autoedit = true;
-				Entspy.this.entList.setModel(new EntspyListModel(m.el));
+				Entspy.this.entList.setModel(new EntspyListModel(m.getData()));
 				entList.setSelectedIndex(index);
 				entList.ensureIndexIsVisible(index);
 
@@ -477,7 +485,7 @@ public class Entspy {
 						m.el.add(e);
 					}
 					
-					entList.setModel(new EntspyListModel(m.el));
+					entList.setModel(new EntspyListModel(m.getData()));
 					preferences.put("LastFolder", f.getParent());
 					
 					JOptionPane.showMessageDialog(frame, ents.size() + " entities successfuly imported from " + f, "Info", JOptionPane.INFORMATION_MESSAGE);
@@ -853,7 +861,7 @@ public class Entspy {
 
 			public void finished() {
 				timer.stop();
-				Entspy.this.entList.setModel(new EntspyListModel(Entspy.this.m.el));
+				Entspy.this.entList.setModel(new EntspyListModel(Entspy.this.m.getData()));
 				Entspy.this.frame.setCursor(null);
 				prog.end();
 				Entspy.this.frame.setTitle("Entspy - " + Entspy.this.filename);

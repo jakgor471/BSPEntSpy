@@ -57,7 +57,6 @@ class KeyValLinkModel extends AbstractTableModel {
 			return;
 		}
 		this.ent.setnames();
-		// this.fireTableDataChanged();
 		this.reselect();
 	}
 

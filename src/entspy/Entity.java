@@ -6,7 +6,6 @@ import java.util.List;
 
 public class Entity {
     int index;
-    int type;
     boolean mark = false;
     boolean autoedit = false;
     String classname;
@@ -64,11 +63,6 @@ public class Entity {
         this.targetname = this.getkeyvalue("targetname");
         this.parentname = this.getkeyvalue("parentname");
         this.origin = this.getkeyvalue("origin");
-        this.type = 0;
-        String modelval = this.getkeyvalue("model");
-        if (modelval != null && modelval.length() != 0) {
-            this.type = modelval.charAt(0) != '*' ? 1 : 2;
-        }
     }
 
     public String getkeyvalstring(int i) {
@@ -116,7 +110,6 @@ public class Entity {
     public Entity copy() {
         Entity ret = new Entity();
         ret.index = this.index;
-        ret.type = this.type;
         ret.mark = this.mark;
         ret.autoedit = this.autoedit;
         for (int i = 0; i < this.size(); ++i) {
