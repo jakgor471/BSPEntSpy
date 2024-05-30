@@ -19,6 +19,10 @@ extends DefaultListCellRenderer {
     static ImageIcon itemIcon;
     static ImageIcon decalIcon;
     static ImageIcon logicIcon;
+    static ImageIcon npcIcon;
+    static ImageIcon weaponIcon;
+    static ImageIcon axisIcon;
+    static ImageIcon scrseqIcon;
     static HashMap<String, ImageIcon> iconMap;
     
     static {
@@ -34,17 +38,25 @@ extends DefaultListCellRenderer {
         itemIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/item.png"));
         decalIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/decal.png"));
         logicIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/logic.png"));
+        npcIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/npc.png"));
+        weaponIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/weapon.png"));
+        axisIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/axis.png"));
+        scrseqIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/scriptedsequence.png"));
         
         iconMap.put("light", lightIcon);
         iconMap.put("light_dynamic", lightIcon);
         iconMap.put("light_spot", lightIcon);
         iconMap.put("point_spotlight", lightIcon);
+        iconMap.put("light_environment", lightIcon);
         iconMap.put("ambient_generic", soundIcon);
         iconMap.put("env_soundscape", soundIcon);
         iconMap.put("env_soundscape_triggerable", soundIcon);
         iconMap.put("env_soundscape_proxy", soundIcon);
         iconMap.put("infodecal", decalIcon);
         iconMap.put("info_overlay", decalIcon);
+        iconMap.put("keyframe_rope", axisIcon);
+        iconMap.put("move_rope", axisIcon);
+        iconMap.put("scripted_sequence", scrseqIcon);
     }
 
     public LERenderer() {
@@ -80,6 +92,12 @@ extends DefaultListCellRenderer {
         
         if(cls.indexOf("logic_") > -1)
     		return logicIcon;
+        
+        if(cls.indexOf("weapon_") > -1)
+    		return weaponIcon;
+        
+        if(cls.indexOf("npc_") > -1 && cls.indexOf("_make") < 0)
+    		return npcIcon;
         
         return pointIcon;
     }

@@ -579,9 +579,6 @@ public class FGD {
 					currToken.type = TokenType.string;
 					currToken.value = sb.toString();
 					
-					if(line == 6542) {
-						System.out.println("BREAK");
-					}
 					return currToken;
 				}
 				

@@ -68,50 +68,6 @@ import util.Cons;
 import util.SwingWorker;
 
 public class Entspy {
-	class HelpActionListener implements ActionListener{
-		String file;
-		public HelpActionListener(String file) {
-			this.file = file;
-		}
-		
-		public void actionPerformed(ActionEvent ev) {
-			JFrame hframe = new JFrame("Help");
-			hframe.setIconImage(Entspy.esIcon.getImage());
-			
-			JTextPane textp = new JTextPane();
-			textp.setEditable(false);
-			
-			HTMLEditorKit ek = new HTMLEditorKit();
-			textp.setEditorKit(ek);
-			
-			try(BufferedReader rd = new BufferedReader(
-					new InputStreamReader(Entspy.class.getResourceAsStream(file)))) {
-				StringBuilder sb = new StringBuilder();
-				
-				String line = rd.readLine();
-				while(line != null) {
-					sb.append(line);
-					line = rd.readLine();
-				}
-				
-				textp.setText(sb.toString());
-			} catch (IOException e) {
-				textp.setText("Couldn't find " + file + "<br>"+e);
-			} catch (NullPointerException e) {
-				textp.setText("Couldn't find " + file + "<br>"+e);
-			}
-			
-			textp.setCaretPosition(0);
-			JScrollPane scp = new JScrollPane(textp);
-
-			hframe.add(scp);
-			scp.getVerticalScrollBar().setValue(0);
-			
-			hframe.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-			hframe.setSize(720, 520);
-			hframe.setVisible(true);
-		}
-	}
 	BSP m;
 	String filename;
 	File infile;
@@ -1137,6 +1093,51 @@ public class Entspy {
 				entList.setSelectedIndices(indices);
 				entList.ensureIndexIsVisible(indices[indices.length - 1]);
 			}
+		}
+	}
+	
+	class HelpActionListener implements ActionListener{
+		String file;
+		public HelpActionListener(String file) {
+			this.file = file;
+		}
+		
+		public void actionPerformed(ActionEvent ev) {
+			JFrame hframe = new JFrame("Help");
+			hframe.setIconImage(Entspy.esIcon.getImage());
+			
+			JTextPane textp = new JTextPane();
+			textp.setEditable(false);
+			
+			HTMLEditorKit ek = new HTMLEditorKit();
+			textp.setEditorKit(ek);
+			
+			try(BufferedReader rd = new BufferedReader(
+					new InputStreamReader(Entspy.class.getResourceAsStream(file)))) {
+				StringBuilder sb = new StringBuilder();
+				
+				String line = rd.readLine();
+				while(line != null) {
+					sb.append(line);
+					line = rd.readLine();
+				}
+				
+				textp.setText(sb.toString());
+			} catch (IOException e) {
+				textp.setText("Couldn't find " + file + "<br>"+e);
+			} catch (NullPointerException e) {
+				textp.setText("Couldn't find " + file + "<br>"+e);
+			}
+			
+			textp.setCaretPosition(0);
+			JScrollPane scp = new JScrollPane(textp);
+
+			hframe.add(scp);
+			scp.getVerticalScrollBar().setValue(0);
+			
+			hframe.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+			hframe.setSize(720, 520);
+			hframe.setVisible(true);
 		}
 	}
 
