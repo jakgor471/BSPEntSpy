@@ -537,7 +537,9 @@ public class ClassPropertyPanel extends JPanel {
 			}
 		}
 		
+		Undo.create();
 		for(Entity e : editingEntities) {
+			Undo.setTarget(e);
 			if(editingEntities.size() <= 1) {
 				//single entity edit
 				for(KVEntry entry : deletedKv) {
@@ -569,6 +571,7 @@ public class ClassPropertyPanel extends JPanel {
 			
 			e.setnames();
 		}
+		Undo.finish();
 	}
 	
 	public void addApplyListener(ActionListener ls) {

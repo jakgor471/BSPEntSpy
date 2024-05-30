@@ -66,6 +66,7 @@ import javax.swing.event.ListSelectionListener;
 
 import bspentspy.ClassPropertyPanel.GotoEvent;
 import bspentspy.Lexer.LexerException;
+import bspentspy.Undo.DummyCommand;
 import util.Cons;
 import util.SwingWorker;
 
@@ -135,6 +136,26 @@ public class BSPEntspy {
 		mquit.setToolTipText("Quit Entspy");
 		mquit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Q, KeyEvent.CTRL_DOWN_MASK));
 		filemenu.add(mquit);
+		
+		JMenu editmenu = new JMenu("Edit");
+		JMenuItem mUndo = new JMenuItem("Undo");
+		mUndo.setToolTipText("Undo last edit");
+		mUndo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, KeyEvent.CTRL_DOWN_MASK));
+		mUndo.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				Undo.undo();
+			}
+		});
+		JMenuItem mRedo = new JMenuItem("Redo");
+		mRedo.setToolTipText("Redo last edit");
+		mRedo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_R, KeyEvent.CTRL_DOWN_MASK));
+		mRedo.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				Undo.redo();
+			}
+		});
+		editmenu.add(mUndo);
+		editmenu.add(mRedo);
 
 		JMenu helpmenu = new JMenu("Help");
 		JMenuItem mhelpSearch = new JMenuItem("Search help");
@@ -198,6 +219,7 @@ public class BSPEntspy {
 		
 		JMenuBar menubar = new JMenuBar();
 		menubar.add(filemenu);
+		menubar.add(editmenu);
 		menubar.add(optionmenu);
 		menubar.add(helpmenu);
 		this.frame.setJMenuBar(menubar);
@@ -600,7 +622,7 @@ public class BSPEntspy {
 				 * then the changes are applied automatically
 				 */
 				HashSet<Entity> newSelection = new HashSet<Entity>();
-				boolean shouldApply = selected.length > 0;
+				boolean shouldApply = selected.length > 0 && previouslySelected.size() > 0;
 				for(int i : selected) {
 					Entity e = m.el.get(i);
 					newSelection.add(e);
@@ -988,6 +1010,7 @@ public class BSPEntspy {
 	
 	public static void main(String[] args) throws Exception {		
 		UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+		
 		BSPEntspy inst = new BSPEntspy();
 		inst.exec();
 	}
