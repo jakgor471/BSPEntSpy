@@ -6,6 +6,11 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.awt.Toolkit;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
+import java.awt.datatransfer.Transferable;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
@@ -18,6 +23,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.RandomAccessFile;
+import java.io.Reader;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,6 +63,7 @@ import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.Timer;
 import javax.swing.UIManager;
+import javax.swing.border.BevelBorder;
 import javax.swing.event.ListDataListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
@@ -74,7 +84,7 @@ public class Entspy {
 	RandomAccessFile raf;
 	JFrame frame = null;
 	final Entity blank = new Entity("");
-	JList entList;
+	JList<Entity> entList;
 	JTable table;
 	MapInfo info;
 	Preferences preferences;
@@ -234,35 +244,36 @@ public class Entspy {
 			}
 		});
 		
-		JPanel panel = new JPanel(new BorderLayout());
+		BorderLayout panelBLayout = new BorderLayout();
+		panelBLayout.setVgap(5);
+		
+		JPanel rightEntPanel = new JPanel(panelBLayout);
 		JPanel grid = new JPanel();
-		grid.setLayout(new GridLayout(4, 2));
-		final JTextField classlabel = new JTextField(" ");
-		final JTextField targetlabel = new JTextField(" ");
-		final JTextField parentlabel = new JTextField(" ");
-		final JTextField originlabel = new JTextField(" ");
-		classlabel.addActionListener(new TextListen(0));
-		targetlabel.addActionListener(new TextListen(1));
-		parentlabel.addActionListener(new TextListen(2));
-		originlabel.addActionListener(new TextListen(3));
-		classlabel.setEnabled(false);
-		targetlabel.setEnabled(false);
-		parentlabel.setEnabled(false);
-		originlabel.setEnabled(false);
-		grid.add(new JLabel(" Classname ", 4));
-		grid.add(classlabel);
-		grid.add(new JLabel(" Targetname ", 4));
-		grid.add(targetlabel);
-		grid.add(new JLabel(" Parentname ", 4));
-		grid.add(parentlabel);
-		grid.add(new JLabel(" Origin ", 4));
-		grid.add(originlabel);
-		panel.add((Component) grid, "North");
-		JPanel keypanel = new JPanel();
+		GridLayout gridLayout = new GridLayout(2, 2);
+		gridLayout.setHgap(10);
+		gridLayout.setVgap(5);
+		grid.setLayout(gridLayout);
+		
+		final JTextField classTextField = new JTextField(" ");
+		final JTextField originTextField = new JTextField(" ");
+		classTextField.addActionListener(new TextListen(0));
+		originTextField.addActionListener(new TextListen(3));
+		classTextField.setEnabled(false);
+		originTextField.setEnabled(false);
+		
+		grid.add(new JLabel("Class", 4));
+		grid.add(classTextField);
+		grid.add(new JLabel("Origin", 4));
+		grid.add(originTextField);
+		
+		rightEntPanel.add((Component) grid, "North");
+		
+		JPanel keyvalPanel = new JPanel();
 		final KeyValLinkModel tablemodel = new KeyValLinkModel();
 		tablemodel.setMapping(this.entList);
 		this.table = new JTable(tablemodel);
 		this.table.setSelectionMode(0);
+		
 		TableColumn keycol = this.table.getColumn("Value");
 		keycol.setPreferredWidth(175);
 		TableColumn linkcol = this.table.getColumn("Link");
@@ -271,10 +282,14 @@ public class Entspy {
 		linkcol.setResizable(false);
 		linkcol.setCellRenderer(new JTBRenderer());
 		linkcol.setCellEditor(new JTBEditor(new JCheckBox()));
-		keypanel.setLayout(new GridLayout(1, 1));
-		keypanel.add(new JScrollPane(this.table));
-		panel.add((Component) keypanel, "Center");
+		
+		keyvalPanel.setLayout(new GridLayout(1, 1));
+		keyvalPanel.add(new JScrollPane(this.table));
+		
+		rightEntPanel.add((Component) keyvalPanel, "Center");
+		
 		JPanel findpanel = new JPanel();
+		
 		final JLabel findlabel = new JLabel("Linked from ");
 		findpanel.add(findlabel);
 		final DefaultComboBoxModel findmodel = new DefaultComboBoxModel();
@@ -306,19 +321,20 @@ public class Entspy {
 		findlabel.setEnabled(false);
 		findbutton.setEnabled(false);
 		findcombo.setEnabled(false);
-		panel.add((Component) findpanel, "South");
-		JPanel tpanel = new JPanel(new BorderLayout());
-		tpanel.add((Component) new JScrollPane(this.entList), "Center");
+
+		JPanel leftPanel = new JPanel(new BorderLayout());
+		leftPanel.add((Component) new JScrollPane(this.entList), "Center");
 		JPanel entcpl = new JPanel();
 		entcpl.setLayout(new BoxLayout(entcpl, BoxLayout.PAGE_AXIS));
 
 		JPanel entbut = new JPanel();
+		
 		JButton updent = new JButton("Update");
 		updent.setToolTipText("Update entity links");
 		JButton addent = new JButton("Add");
 		addent.setToolTipText("Add a new entity");
-		final JButton cpyent = new JButton("Copy");
-		cpyent.setToolTipText("Copy the selected entities");
+		final JButton cpyent = new JButton("Duplicate");
+		cpyent.setToolTipText("Duplicate the selected entities");
 		cpyent.setEnabled(false);
 		final JButton delent = new JButton("Del");
 		delent.setToolTipText("Delete the selected entities");
@@ -331,14 +347,146 @@ public class Entspy {
 		JPanel entexp = new JPanel();
 
 		final JButton importEntity = new JButton("Import");
-		importEntity.setToolTipText("Import entities from file");
+		importEntity.setToolTipText("Import entities from a file");
 		importEntity.setEnabled(true);
 		entexp.add(importEntity);
 
-		final JButton exportEntity = new JButton("Export selected");
-		exportEntity.setToolTipText("Export selected entities");
+		final JButton exportEntity = new JButton("Export");
+		exportEntity.setToolTipText("Export selected entities to a file");
 		exportEntity.setEnabled(false);
 		entexp.add(exportEntity);
+		
+		exportEntity.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ev) {
+				ArrayList<Entity> ents = new ArrayList<Entity>();
+				
+				for(int i : entList.getSelectedIndices()) {
+					ents.add(m.el.get(i));
+				}
+				
+				JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
+				chooser.setDialogTitle("Entspy - Export entities to a file");
+				chooser.setDialogType(JFileChooser.SAVE_DIALOG);
+				
+				int result = chooser.showOpenDialog(frame);
+				if (result == 1) {
+					return;
+				}
+				
+				File f = chooser.getSelectedFile();
+				
+				String ext = ".ent";
+				if(f.getName().indexOf('.') > -1)
+					ext = "";
+				
+				try(FileWriter fw = new FileWriter(f + ext)){
+					writeEntsToWriter(ents, fw);
+					
+					fw.close();
+					
+					preferences.put("LastFolder", f.getParent());
+					JOptionPane.showMessageDialog(frame, ents.size() + " entities successfuly exported to " + f, "Info", JOptionPane.INFORMATION_MESSAGE);
+				} catch(IOException e) {
+					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
+				}
+				
+				return;
+			}
+		});
+		
+		importEntity.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ev) {
+				JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
+				chooser.setDialogTitle("Entspy - Export entities to a file");
+				chooser.setDialogType(JFileChooser.SAVE_DIALOG);
+				
+				int result = chooser.showOpenDialog(frame);
+				if (result == 1) {
+					return;
+				}
+				
+				File f = chooser.getSelectedFile();
+				
+				try(FileReader fr = new FileReader(f)){
+					ArrayList<Entity> ents = loadEntsFromReader(fr);
+					
+					fr.close();
+					
+					for(Entity e : ents) {
+						m.el.add(e);
+					}
+					
+					entList.setModel(new EntspyListModel(m.getData()));
+					preferences.put("LastFolder", f.getParent());
+					
+					JOptionPane.showMessageDialog(frame, ents.size() + " entities successfuly imported from " + f, "Info", JOptionPane.INFORMATION_MESSAGE);
+				} catch(Exception e) {
+					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
+				}
+				
+				return;
+			}
+		});
+		
+		final JButton cpToClipEnt = new JButton("Copy");
+		cpToClipEnt.setToolTipText("Copy selected entities to clipboard");
+		cpToClipEnt.setEnabled(false);
+		entexp.add(cpToClipEnt);
+		
+		final JButton pstFromClipEnt = new JButton("Paste");
+		pstFromClipEnt.setToolTipText("Paste entities from clipboard");
+		pstFromClipEnt.setEnabled(true);
+		entexp.add(pstFromClipEnt);
+		
+		cpToClipEnt.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ev) {
+				ArrayList<Entity> ents = new ArrayList<Entity>();
+				
+				for(int i : entList.getSelectedIndices()) {
+					ents.add(m.el.get(i));
+				}
+				
+				try(StringWriter sw = new StringWriter(ents.size() * 256)){
+					writeEntsToWriter(ents, sw);
+					
+					sw.close();
+					
+					Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
+					cb.setContents(new StringSelection(sw.toString()), null);
+				} catch(IOException e) {
+					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
+				}
+				
+				return;
+			}
+		});
+		
+		pstFromClipEnt.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ev) {
+				try{
+					Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
+					Transferable cbcontent = cb.getContents(null);
+					
+					if(cbcontent == null)
+						return;
+					
+					StringReader sr = new StringReader(cbcontent.getTransferData(DataFlavor.stringFlavor).toString());
+					ArrayList<Entity> ents = loadEntsFromReader(sr);
+					
+					sr.close();
+					
+					for(Entity e : ents) {
+						m.el.add(e);
+					}
+					
+					entList.setModel(new EntspyListModel(m.getData()));
+				} catch(Exception e) {
+					JOptionPane.showMessageDialog(frame, "Could not parse data from clipboard!\n" + e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
+				}
+				
+				return;
+			}
+		});
 
 		JButton findent = new JButton("Find Next");
 		findent.setToolTipText("Find entity, hold Shift to add to selection");
@@ -348,6 +496,7 @@ public class Entspy {
 		JTextField findtext = new JTextField();
 		findtext.setToolTipText("Text to search for");
 		Box fbox = Box.createHorizontalBox();
+		
 		fbox.add(findtext);
 		fbox.add(findent);
 		fbox.add(findall);
@@ -356,8 +505,7 @@ public class Entspy {
 		entcpl.add((Component) entbut);
 		entcpl.add((Component) entexp);
 
-		entcpl.setBorder(BorderFactory.createEtchedBorder());
-		tpanel.add((Component) entcpl, "South");
+		leftPanel.add((Component) entcpl, "South");
 		findent.addActionListener(new FindListen(findtext));
 		findtext.addActionListener(new FindListen(findtext));
 		findall.addActionListener(new FindSelectListen(findtext));
@@ -391,7 +539,6 @@ public class Entspy {
 
 			public void actionPerformed(ActionEvent e) {				
 				int[] selected = entList.getSelectedIndices();
-				Entity[] newEnts = new Entity[selected.length];
 				for(int j = 0; j < selected.length; ++j) {
 					selected[j] += j;
 					Entity old = m.el.get(selected[j]);
@@ -431,77 +578,6 @@ public class Entspy {
 			}
 		});
 		
-		exportEntity.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent ev) {
-				ArrayList<Entity> ents = new ArrayList<Entity>();
-				
-				for(int i : entList.getSelectedIndices()) {
-					ents.add(m.el.get(i));
-				}
-				
-				JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
-				chooser.setDialogTitle("Entspy - Export entities to a file");
-				chooser.setDialogType(JFileChooser.SAVE_DIALOG);
-				
-				int result = chooser.showOpenDialog(frame);
-				if (result == 1) {
-					return;
-				}
-				
-				File f = chooser.getSelectedFile();
-				
-				String ext = ".ent";
-				if(f.getName().indexOf('.') > -1)
-					ext = "";
-				
-				try(FileWriter fw = new FileWriter(f + ext)){
-					exportEntsToStream(ents, fw);
-					
-					fw.close();
-					
-					preferences.put("LastFolder", f.getParent());
-					JOptionPane.showMessageDialog(frame, ents.size() + " entities successfuly exported to " + f, "Info", JOptionPane.INFORMATION_MESSAGE);
-				} catch(IOException e) {
-					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
-				}
-				
-				return;
-			}
-		});
-		
-		importEntity.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent ev) {
-				JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
-				chooser.setDialogTitle("Entspy - Export entities to a file");
-				chooser.setDialogType(JFileChooser.SAVE_DIALOG);
-				
-				int result = chooser.showOpenDialog(frame);
-				if (result == 1) {
-					return;
-				}
-				
-				File f = chooser.getSelectedFile();
-				
-				try(FileReader fr = new FileReader(f)){
-					ArrayList<Entity> ents = loadEntsFromStream(fr);
-					
-					fr.close();
-					
-					for(Entity e : ents) {
-						m.el.add(e);
-					}
-					
-					entList.setModel(new EntspyListModel(m.getData()));
-					preferences.put("LastFolder", f.getParent());
-					
-					JOptionPane.showMessageDialog(frame, ents.size() + " entities successfuly imported from " + f, "Info", JOptionPane.INFORMATION_MESSAGE);
-				} catch(Exception e) {
-					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
-				}
-				
-				return;
-			}
-		});
 		JPanel cpanel = new JPanel();
 		final JButton addkv = new JButton("Add");
 		addkv.setToolTipText("Add an entity property");
@@ -527,15 +603,12 @@ public class Entspy {
 
 				if (selEnt != null) {
 					exportEntity.setEnabled(true);
+					cpToClipEnt.setEnabled(true);
 
-					classlabel.setText(selEnt.classname);
-					classlabel.setEnabled(true);
-					targetlabel.setText(selEnt.targetname);
-					targetlabel.setEnabled(true);
-					parentlabel.setText(selEnt.parentname);
-					parentlabel.setEnabled(true);
-					originlabel.setText(selEnt.origin);
-					originlabel.setEnabled(true);
+					classTextField.setText(selEnt.classname);
+					classTextField.setEnabled(true);
+					originTextField.setText(selEnt.origin);
+					originTextField.setEnabled(true);
 					Entspy.this.settable(selEnt, tablemodel);
 
 					delent.setEnabled(true);
@@ -543,9 +616,9 @@ public class Entspy {
 					addkv.setEnabled(true);
 					if (selEnt.autoedit) {
 						selEnt.autoedit = false;
-						classlabel.setText("new_entity");
-						classlabel.selectAll();
-						classlabel.requestFocus();
+						classTextField.setText("new_entity");
+						classTextField.selectAll();
+						classTextField.requestFocus();
 					}
 					if (Entspy.this.setfindlist(selEnt, findmodel)) {
 						findlabel.setEnabled(true);
@@ -558,15 +631,12 @@ public class Entspy {
 					}
 				} else {
 					exportEntity.setEnabled(false);
+					cpToClipEnt.setEnabled(false);
 
-					classlabel.setText(" ");
-					classlabel.setEnabled(false);
-					targetlabel.setText(" ");
-					targetlabel.setEnabled(false);
-					parentlabel.setText(" ");
-					parentlabel.setEnabled(false);
-					originlabel.setText(" ");
-					originlabel.setEnabled(false);
+					classTextField.setText(" ");
+					classTextField.setEnabled(false);
+					originTextField.setText(" ");
+					originTextField.setEnabled(false);
 					Entspy.this.settable(Entspy.this.blank, tablemodel);
 					findlabel.setEnabled(false);
 					findbutton.setEnabled(false);
@@ -648,15 +718,19 @@ public class Entspy {
 				}
 			}
 		});
-		JPanel epanel = new JPanel(new BorderLayout());
-		epanel.add((Component) panel, "Center");
-		epanel.add((Component) cpanel, "South");
-		cpanel.setBorder(BorderFactory.createEtchedBorder());
-		JSplitPane split = new JSplitPane(1, tpanel, epanel);
-		split.setDividerLocation(275);
+		
+		rightEntPanel.add(cpanel, "South");
+		rightEntPanel.setBorder(BorderFactory.createEtchedBorder());
+		
+		JPanel rightPanel = new JPanel(new BorderLayout());
+		rightPanel.add((Component) findpanel, "South");
+		rightPanel.add((Component) rightEntPanel, "Center");
+		
+		JSplitPane mainSplit = new JSplitPane(1, leftPanel, rightPanel);
+		mainSplit.setDividerLocation(275);
 		this.frame.setDefaultCloseOperation(3);
 		this.frame.setSize(720, 520);
-		this.frame.getContentPane().add(split);
+		this.frame.getContentPane().add(mainSplit);
 		this.frame.setVisible(true);
 		this.loaddata();
 		return 0;
@@ -941,12 +1015,8 @@ public class Entspy {
 
 		return m.el.get(index);
 	}
-
-	public Entity getNodeEntity(DefaultMutableTreeNode node) {
-		return (Entity) node.getUserObject();
-	}
-
-	public ArrayList<Entity> loadEntsFromStream(InputStreamReader in) throws Exception {
+	
+	public ArrayList<Entity> loadEntsFromReader(Reader in) throws Exception {
 		BufferedReader r = new BufferedReader(in);
 		ArrayList<Entity> ents = new ArrayList<Entity>();
 		
@@ -965,7 +1035,7 @@ public class Entspy {
 				
 				e = null;
 			} else {
-				if(e == null) throw new Exception("Error in file at line " + lineIndex);
+				if(e == null) throw new Exception("Error at line " + lineIndex);
 				
 				Matcher match = p.matcher(line);
 				if(match.find()) {
@@ -985,15 +1055,11 @@ public class Entspy {
 		return ents;
 	}
 	
-	public void exportEntsToStream(List<Entity> ents, OutputStreamWriter out) throws IOException {
+	public void writeEntsToWriter(List<Entity> ents, Writer out) throws IOException {
 		BufferedWriter w = new BufferedWriter(out);
 		
 		for(Entity e : ents) {
-			w.append("{\n");
-			for(int i = 0; i < e.keys.size(); ++i) {
-				w.append("\t\""+e.keys.get(i)+"\" \""+e.values.get(i)+"\"\n");
-			}
-			w.append("}\n");
+			w.append(e.toStringSpecial());
 		}
 		
 		w.flush();

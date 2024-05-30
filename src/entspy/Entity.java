@@ -1,5 +1,6 @@
 package entspy;
 
+import java.io.BufferedWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -109,6 +110,18 @@ public class Entity {
 
     public String toString() {
         return this.classname + (this.targetname == null ? "" : new StringBuilder().append(" (").append(this.targetname).append(")").toString());
+    }
+    
+    public String toStringSpecial() {
+    	StringBuilder sb = new StringBuilder();
+		
+		sb.append("{\n");
+		for(int i = 0; i < keys.size(); ++i) {
+			sb.append("\t\"" + keys.get(i) + "\" \"" + values.get(i) + "\"\n");
+		}
+		sb.append("}\n");
+
+		return sb.toString();
     }
 
     public Entity copy() {
