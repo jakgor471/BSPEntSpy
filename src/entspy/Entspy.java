@@ -477,8 +477,13 @@ public class Entspy {
 					
 					sr.close();
 					
+					int i = entList.getMaxSelectionIndex();
+					
+					if(i < 0)
+						i = Math.max(0, m.el.size() - 1);
+					
 					for(Entity e : ents) {
-						m.el.add(e);
+						m.el.add(++i, e);
 					}
 					
 					entList.setModel(new EntspyListModel(m.getData()));
