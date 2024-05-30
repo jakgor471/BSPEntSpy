@@ -398,8 +398,8 @@ public class ClassPropertyPanel extends JPanel {
 	
 	public void applyKVChanges() {
 		if(keyListener.keyChanged()) {
-			while(kvMap.containsKey(keyListener.kv.key) && smartEdit)
-				fixDuplicateKey(keyListener.kv);
+			//while(kvMap.containsKey(keyListener.kv.key) && smartEdit)
+			//	fixDuplicateKey(keyListener.kv);
 			kvMap.remove(keyListener.oldKey);
 			kvMap.put(keyListener.kv.key, keyListener.kv);
 		}
@@ -539,7 +539,7 @@ public class ClassPropertyPanel extends JPanel {
 			
 			for(int i = 0; i < e.size(); ++i) {
 				KeyValLink kvl = e.keyvalues.get(i);
-				if(fgdent != null && fgdent.outmap.containsKey(kvl.key)) {
+				/*if(fgdent != null && fgdent.outmap.containsKey(kvl.key)) {
 					KVEntry kv = new KVEntry();
 					kv.key = kvl.key;
 					kv.value = kvl.value;
@@ -547,7 +547,7 @@ public class ClassPropertyPanel extends JPanel {
 					
 					outputs.add(kv);
 					continue;
-				}
+				}*/
 				KVEntry entry = kvMap.get(kvl.key);
 				
 				if(entry == null || editingEntities.size() <= 1) {
@@ -622,28 +622,26 @@ public class ClassPropertyPanel extends JPanel {
 		for(KVEntry e : keyvalues) {
 			if(e.edited)
 				edited.add(e);
-		}
-		
-		for(KVEntry e : keyvalues) {
-			if(e.renamed && e.uniqueId != null)
+			if(e.renamed)
 				renamed.add(e);
 		}
 		
 		for(Entity e : editingEntities) {
-			for(KVEntry entry : deletedKv) {
-				e.delKeyVal(entry.key);
-			}
-			
-			for(KVEntry entry : deletedOutputs) {
-				e.delKeyValById(entry.uniqueId);
-			}
-			
-			for(KVEntry entry : renamed) {
-				e.changeKey(entry.originalKey, entry.key);
-			}
-			
-			for(KVEntry entry : edited) {
-				e.setKeyVal(entry.key, entry.value);
+			if(editingEntities.size() <= 1) {
+				for(KVEntry entry : deletedKv) {
+					e.delKeyValById(entry.uniqueId);
+				}
+				
+				for(KVEntry entry : renamed) {
+					e.changeKey(entry.originalKey, entry.key);
+				}
+				
+				for(KVEntry entry : edited) {
+					if(entry.uniqueId == null) {
+						entry.uniqueId = e.addKeyVal(entry.key, entry.value);
+					} else
+						e.setKeyVal(entry.key, entry.value);
+				}
 			}
 			
 			if(classname != null && !classname.different)

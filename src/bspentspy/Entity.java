@@ -72,7 +72,7 @@ public class Entity {
 		}
 	}
 
-	public void addKeyVal(String k, String v) {
+	public int addKeyVal(String k, String v) {
 		KeyValLink kv = new KeyValLink();
 		kv.key = k;
 		kv.value = v;
@@ -87,6 +87,8 @@ public class Entity {
 		uniqueKvmap.put(uniqueInt, keyvalues.size());
 		keyvalues.add(kv);
 		this.setnames();
+		
+		return uniqueInt;
 	}
 
 	public void delKeyVal(String k) {
@@ -108,6 +110,16 @@ public class Entity {
 		int index = kvmap.get(from);
 		keyvalues.get(index).key = to;
 		kvmap.remove(from);
+		kvmap.put(to, index);
+	}
+	
+	public void changeKey(int uniqueId, String to) {
+		if (!uniqueKvmap.containsKey(uniqueId))
+			return;
+
+		int index = uniqueKvmap.get(uniqueId);
+		kvmap.remove(keyvalues.get(index).key);
+		keyvalues.get(index).key = to;
 		kvmap.put(to, index);
 	}
 

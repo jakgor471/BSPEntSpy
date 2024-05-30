@@ -62,6 +62,9 @@ public class OutputModel extends AbstractTableModel {
 		
 		switch(col) {
 		case 0:
+			if(!outputs.get(row).key.equals(o)) {
+				outputs.get(row).renamed = true;
+			}
 			outputs.get(row).key = (String)o;
 			break;
 		case 1:
