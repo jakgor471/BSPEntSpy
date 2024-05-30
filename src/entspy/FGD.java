@@ -247,15 +247,15 @@ public class FGD {
 			description = parseDescription(lexer);
 		}
 		
-		if(type.equals("integer") || type.equals("float") || type.equals("string")) {
-			prop = new Property();
-		}else if(type.equals("flags") || type.equals("choices")) {
+		if(type.equals("flags") || type.equals("choices")) {
 			prop = new PropertyChoices();
 			
 			lexer.expect(BasicTokenType.symbol, "=");
 			lexer.consume();
 			
 			((PropertyChoices)prop).choices = parseChoices(lexer); 
+		} else {
+			prop = new Property();
 		}
 		
 		prop.setDataType(type);
@@ -328,9 +328,18 @@ public class FGD {
 		return newClass;
 	}
 	
-	private static void skipClass(FGDLexer lexer) throws LexerException {
-		while(lexer.getToken() != null && lexer.getToken().isClassClose()) {}
-		lexer.consume();
+	private static void skipClass(FGDLexer lexer) throws LexerException {	
+		int depth = -1;
+		while((depth > 0 || depth == -1) && lexer.getToken() != null) {
+			if(lexer.getToken().isSymbol() && lexer.getToken().value.equals("[")) {
+				if(depth == -1)
+					depth = 0;
+				++depth;
+			}
+			else if(lexer.getToken().isSymbol() && lexer.getToken().value.equals("]"))
+				--depth;
+			lexer.consume();
+		}
 	}
 	
 	private static String parseNumber(FGDLexer lexer) throws LexerException {

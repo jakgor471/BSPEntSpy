@@ -78,6 +78,7 @@ public class FGDEntry {
 		dataTypeMap.put("flags", DataType.flags);
 		dataTypeMap.put("choices", DataType.choices);
 		dataTypeMap.put("void", DataType.voidT);
+		dataTypeMap.put("target_destination", DataType.targetDestination);
 	}
 	
 	public static enum ClassType{
@@ -98,7 +99,8 @@ public class FGDEntry {
 		bool,
 		flags,
 		choices,
-		voidT
+		voidT,
+		targetDestination
 	}
 	
 	//used for int, string, float
