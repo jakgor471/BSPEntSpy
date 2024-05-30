@@ -9,8 +9,25 @@ public class FGDEntry {
 	public FGDEntry baseclass;
 	public ClassType classtype;
 	public ArrayList<KVEntry> keyvalues;
-	public HashMap<String, KVEntry> kvmap;
-	public ArrayList<KVEntry> inputs;
+	public HashMap<String, Integer> kvmap;
+	public ArrayList<InputOutput> inputs;
+	public ArrayList<InputOutput> outputs;
+	
+	public FGDEntry(String classname) {
+		this.classname = classname;
+		description = "";
+		baseclass = null;
+		classtype = ClassType.BaseClass;
+		keyvalues = new ArrayList<KVEntry>();
+		kvmap = new HashMap<String, Integer>();
+		inputs = new ArrayList<InputOutput>();
+		outputs = new ArrayList<InputOutput>();
+	}
+	
+	public void addKeyValue(KVEntry kv) {
+		kvmap.put(kv.key, keyvalues.size());
+		keyvalues.add(kv);
+	}
 	
 	public static enum ClassType{
 		BaseClass,
@@ -23,20 +40,21 @@ public class FGDEntry {
 		ExtendClass
 	}
 	
-	public static enum KVType{
+	public static enum DataType{
 		integer,
 		string,
 		floating,
 		bool,
 		flags,
 		choices,
-		empty //void
+		voidT
 	}
 	
 	public static abstract class KVEntry{
 		public String key;
 		public String description;
-		public KVType type;
+		public String defaultVal;
+		public DataType type;
 		
 		public abstract Object getValue();
 	}
@@ -72,5 +90,11 @@ public class FGDEntry {
 		public Object getValue() {
 			return choices;
 		}
+	}
+	
+	public static class InputOutput{
+		public String name;
+		public String description;
+		public DataType type;
 	}
 }

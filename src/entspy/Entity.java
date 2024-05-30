@@ -13,9 +13,9 @@ public class Entity {
     String parentname;
     String origin;
     public HashMap<String, Integer> kvmap = new HashMap();
-    public ArrayList<String> key = new ArrayList();
-    public ArrayList<String> value = new ArrayList();
-    public ArrayList<Entity> link = new ArrayList();
+    public ArrayList<String> keys = new ArrayList();
+    public ArrayList<String> values = new ArrayList();
+    public ArrayList<Entity> links = new ArrayList();
     static final String[] definedkey = new String[]{"classname", "targetname", "parentname", "origin"};
 
     public Entity() {
@@ -30,75 +30,79 @@ public class Entity {
         this.targetname = null;
         this.parentname = null;
         this.origin = null;
-        if (this.key != null) {
-            this.key.clear();
+        if (this.keys != null) {
+            this.keys.clear();
         }
-        if (this.value != null) {
-            this.value.clear();
+        if (this.values != null) {
+            this.values.clear();
         }
-        if (this.link != null) {
-            this.link.clear();
+        if (this.links != null) {
+            this.links.clear();
         }
     }
 
-    public int getkeyindex(String keyword) {
+    public int getKeyIndex(String keyword) {
     	Integer k = kvmap.get(keyword);
     	
     	if(k != null)
-    		return k.intValue();
+    		return k;
 
         return -1;
     }
 
-    public String getkeyvalue(String keyword) {
-        int ik = this.getkeyindex(keyword);
+    public String getKeyValue(String keyword) {
+        int ik = this.getKeyIndex(keyword);
         if (ik >= 0) {
-            return this.value.get(ik);
+            return this.values.get(ik);
         }
         return "";
     }
 
     public void setnames() {
-        this.classname = this.getkeyvalue("classname");
-        this.targetname = this.getkeyvalue("targetname");
-        this.parentname = this.getkeyvalue("parentname");
-        this.origin = this.getkeyvalue("origin");
+        this.classname = this.getKeyValue("classname");
+        this.targetname = this.getKeyValue("targetname");
+        this.parentname = this.getKeyValue("parentname");
+        this.origin = this.getKeyValue("origin");
     }
 
-    public String getkeyvalstring(int i) {
-        if (i < 0 || i >= this.key.size()) {
+    public String getKeyValString(int i) {
+        if (i < 0 || i >= this.keys.size()) {
             return null;
         }
         char quote = '\"';
-        return "" + quote + this.key.get(i) + quote + " " + quote + this.value.get(i) + quote;
+        return "" + quote + this.keys.get(i) + quote + " " + quote + this.values.get(i) + quote;
     }
 
-    public void addkeyval(String k, String v) {
-    	kvmap.put(k, value.size());
+    public void addKeyVal(String k, String v) {
+    	kvmap.put(k, values.size());
     	
-        this.key.add(k);
-        this.value.add(v);
-        this.link.add(null);
+        this.keys.add(k);
+        this.values.add(v);
+        this.links.add(null);
         this.setnames();
     }
 
-    public void delkeyval(int i) {
+    public void delKeyVal(int i) {
         if (i < 0 || i >= this.size()) {
             return;
         }
         
-        if(kvmap.containsKey(key.get(i)))
-        	kvmap.remove(key.get(i));
+        if(kvmap.containsKey(keys.get(i)))
+        	kvmap.remove(keys.get(i));
         
-        this.key.remove(i);
-        this.value.remove(i);
-        this.link.remove(i);
+        for(int j = i + 1; j < keys.size(); ++j) {
+        	kvmap.put(keys.get(j), j - 1);
+        }
+        
+        this.keys.remove(i);
+        this.values.remove(i);
+        this.links.remove(i);
         this.setnames();
     }
 
     public int size() {
-        if (this.key != null) {
-            return this.key.size();
+        if (this.keys != null) {
+            return this.keys.size();
         }
         return 0;
     }
@@ -113,40 +117,40 @@ public class Entity {
         ret.mark = this.mark;
         ret.autoedit = this.autoedit;
         for (int i = 0; i < this.size(); ++i) {
-        	ret.kvmap.put(this.key.get(i), ret.value.size());
-            ret.key.add(this.key.get(i));
-            ret.value.add(this.value.get(i));
+        	ret.kvmap.put(this.keys.get(i), ret.values.size());
+            ret.keys.add(this.keys.get(i));
+            ret.values.add(this.values.get(i));
         }
-        ret.link = (ArrayList)this.link.clone();
+        ret.links = (ArrayList)this.links.clone();
         ret.setnames();
         return ret;
     }
 
-    public int bytesize() {
+    public int byteSize() {
         int length = 4;
         for (int i = 0; i < this.size(); ++i) {
-            length+=this.key.get(i).length() + 2;
-            length+=this.value.get(i).length() + 2;
+            length+=this.keys.get(i).length() + 2;
+            length+=this.values.get(i).length() + 2;
             length+=2;
         }
         return length;
     }
 
     public void setDefinedValue(int dk, String val) {
-        int ki = this.getkeyindex(definedkey[dk]);
+        int ki = this.getKeyIndex(definedkey[dk]);
         if (ki < 0) {
             if (!val.equals("")) {
-                this.addkeyval(definedkey[dk], val);
+                this.addKeyVal(definedkey[dk], val);
             }
         } else if (!val.equals("")) {
-            this.value.set(ki, val);
+            this.values.set(ki, val);
         } else {
-            this.delkeyval(ki);
+            this.delKeyVal(ki);
         }
         this.setnames();
     }
     
-    public boolean ismatch(List<String> keys, List<String> values) {
+    public boolean isMatch(List<String> keys, List<String> values) {
     	if(values.size() < keys.size())
     		return false;
     	
@@ -154,7 +158,7 @@ public class Entity {
     		if(!kvmap.containsKey(keys.get(i))) return false;
     		
     		int index = kvmap.get(keys.get(i));
-    		if(index >= value.size() || index < 0 || value.get(index).toLowerCase().indexOf(values.get(i)) == -1) {
+    		if(index >= values.size() || index < 0 || values.get(index).toLowerCase().indexOf(values.get(i)) == -1) {
 				return false;
 			}
     	}
@@ -162,23 +166,11 @@ public class Entity {
     	return true;
     }
 
-    public boolean ismatch(String text) {
+    public boolean isMatch(String text) {
     	String lower = text.toLowerCase();
     	
-    	if(getkeyvalue("classname").toLowerCase().indexOf(lower) != -1 || getkeyvalue("targetname").toLowerCase().indexOf(lower) != -1)
+    	if(getKeyValue("classname").toLowerCase().indexOf(lower) != -1 || getKeyValue("targetname").toLowerCase().indexOf(lower) != -1)
     		return true;
-    	
-    	/*for(String key : key) {
-    		if(kvmap.containsKey(key)) {
-    			int index = kvmap.get(key);
-    			
-    			if(index >= value.size() || index < 0)
-    				continue;
-    			
-    			if(value.get(index).toLowerCase().indexOf(lower) > -1)
-    				return true;
-    		}
-    	}*/
     	
         return false;
     }

@@ -139,10 +139,10 @@ public class BSP {
                 if (fields.length == 5) {
                     String ckey = fields[1];
                     String cval = fields[3];
-                    cent.kvmap.put(ckey, cent.value.size());
-                    cent.key.add(ckey);
-                    cent.value.add(cval);
-                    cent.link.add(null);
+                    cent.kvmap.put(ckey, cent.values.size());
+                    cent.keys.add(ckey);
+                    cent.values.add(cval);
+                    cent.links.add(null);
                 }
                 if (!line.equals("}")) continue;
             }
@@ -168,18 +168,18 @@ public class BSP {
         for (int i2 = 0; i2 < this.el.size(); ++i2) {
             lent = this.el.get(i2);
             lent.mark = false;
-            if (lent.key == null) continue;
-            for (int j = 0; j < lent.key.size(); ++j) {
-                if (lent.key.get(j).equals("targetname")) continue;
-                String val = lent.value.get(j);
+            if (lent.keys == null) continue;
+            for (int j = 0; j < lent.keys.size(); ++j) {
+                if (lent.keys.get(j).equals("targetname")) continue;
+                String val = lent.values.get(j);
                 String[] plink = val.split(",");
                 Entity linkent = this.namemap.get(plink[0]);
                 if (linkent != null) {
-                    lent.link.set(j, linkent);
+                    lent.links.set(j, linkent);
                     ++nlinks;
                     continue;
                 }
-                lent.link.set(j, null);
+                lent.links.set(j, null);
             }
         }
         System.out.println("" + nlinks + " links found");
@@ -201,7 +201,7 @@ public class BSP {
         this.entoriglumpsize = this.roundupto4(this.lump[0].len);
         this.entsize = 1;
         for (i = 0; i < this.el.size(); ++i) {
-            this.entsize+=this.el.get(i).bytesize();
+            this.entsize+=this.el.get(i).byteSize();
         }
         this.entlumpsize = this.roundupto4(this.entsize);
         this.entdiff = this.entlumpsize - this.entoriglumpsize;
@@ -295,8 +295,8 @@ public class BSP {
         for (int i = 0; i < this.el.size(); ++i) {
             Entity ient = this.el.get(i);
             oraf.writeBytes("{\n");
-            for (int j = 0; j < ient.key.size(); ++j) {
-                oraf.writeBytes(ient.getkeyvalstring(j) + "\n");
+            for (int j = 0; j < ient.keys.size(); ++j) {
+                oraf.writeBytes(ient.getKeyValString(j) + "\n");
             }
             oraf.writeBytes("}\n");
             this.prog.setValue(i);

@@ -16,7 +16,7 @@ class KeyValLinkModel extends AbstractTableModel {
 	KeyValLinkModel() {
 	}
 
-	public void setTreeMapping(JList t) {
+	public void setMapping(JList t) {
 		this.list = t;
 	}
 
@@ -24,10 +24,10 @@ class KeyValLinkModel extends AbstractTableModel {
 		if (this.ent == null) {
 			return 0;
 		}
-		if (this.ent.key == null) {
+		if (this.ent.keys == null) {
 			return 0;
 		}
-		return this.ent.key.size();
+		return this.ent.keys.size();
 	}
 
 	public int getColumnCount() {
@@ -37,10 +37,10 @@ class KeyValLinkModel extends AbstractTableModel {
 	public Object getValueAt(int row, int col) {
 		int rowcopy = row;
 		if (col == 0) {
-			return this.ent.key.get(row);
+			return this.ent.keys.get(row);
 		}
 		if (col == 1) {
-			return this.ent.value.get(row);
+			return this.ent.values.get(row);
 		}
 		return this.button.get(row);
 	}
@@ -50,9 +50,9 @@ class KeyValLinkModel extends AbstractTableModel {
 			return;
 		}
 		if (col == 0) {
-			this.ent.key.set(row, (String) setval);
+			this.ent.keys.set(row, (String) setval);
 		} else if (col == 1) {
-			this.ent.value.set(row, (String) setval);
+			this.ent.values.set(row, (String) setval);
 		} else {
 			return;
 		}
@@ -79,7 +79,7 @@ class KeyValLinkModel extends AbstractTableModel {
 	}
 
 	public boolean isCellEditable(int row, int col) {
-		if (col == 2 && this.ent.link.get(row) == null) {
+		if (col == 2 && this.ent.links.get(row) == null) {
 			return false;
 		}
 		return true;
@@ -93,14 +93,14 @@ class KeyValLinkModel extends AbstractTableModel {
 
 	public void setlinklisteners() {
 		this.button = new ArrayList();
-		for (int i = 0; i < this.ent.key.size(); ++i) {
+		for (int i = 0; i < this.ent.keys.size(); ++i) {
 			final int rowcopy = i;
-			if (this.ent.link.get(i) != null) {
+			if (this.ent.links.get(i) != null) {
 				JButton lb = new JButton();
 				lb.addActionListener(new ActionListener() {
 
 					public void actionPerformed(ActionEvent ae) {
-						Entity targetent = KeyValLinkModel.this.ent.link.get(rowcopy);
+						Entity targetent = KeyValLinkModel.this.ent.links.get(rowcopy);
 						int index = KeyValLinkModel.this.findEntityIndex(targetent, KeyValLinkModel.this.list);
 						if (index > -1) {
 							KeyValLinkModel.this.list.setSelectedIndex(index);
@@ -119,7 +119,7 @@ class KeyValLinkModel extends AbstractTableModel {
 	}
 
 	public Entity getLink(int row) {
-		return this.ent.link.get(row);
+		return this.ent.links.get(row);
 	}
 
 	public int findEntityIndex(Entity target, JList t) {

@@ -27,8 +27,11 @@ implements TableCellRenderer {
                 this.setForeground(table.getForeground());
                 this.setBackground(UIManager.getColor("Button.background"));
             }
-            String tooltip = ((KeyValLinkModel)table.getModel()).getLink(row).toString();
-            this.setToolTipText(tooltip);
+            Entity ent = ((KeyValLinkModel)table.getModel()).getLink(row);
+            
+            if(ent != null) {
+            	this.setToolTipText(ent.toString());
+            }
             return this;
         }
         return null;

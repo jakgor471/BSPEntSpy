@@ -58,17 +58,17 @@ extends DefaultListCellRenderer {
     
 
     protected ImageIcon nodetype(Entity value) {
-    	String cls = value.getkeyvalue("classname");
+    	String cls = value.getKeyValue("classname");
         if(LERenderer.iconMap.containsKey(cls)) {
         	return iconMap.get(cls);
         }
         
-        if(value.getkeyvalue("model").startsWith("*")) {
+        if(value.getKeyValue("model").startsWith("*")) {
         	if(cls.indexOf("trigger") > -1)
         		return triggerIcon;
         	
         	return brushIcon;
-        } else if(!value.getkeyvalue("model").equals("")) {
+        } else if(!value.getKeyValue("model").equals("")) {
         	return modelIcon;
         }
         

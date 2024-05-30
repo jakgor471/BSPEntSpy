@@ -263,7 +263,7 @@ public class Entspy {
 		panel.add((Component) grid, "North");
 		JPanel keypanel = new JPanel();
 		final KeyValLinkModel tablemodel = new KeyValLinkModel();
-		tablemodel.setTreeMapping(this.entList);
+		tablemodel.setMapping(this.entList);
 		this.table = new JTable(tablemodel);
 		this.table.setSelectionMode(0);
 		TableColumn keycol = this.table.getColumn("Value");
@@ -324,11 +324,11 @@ public class Entspy {
 		addent.setToolTipText("Add a new entity");
 		addent.setMnemonic(155);
 		final JButton cpyent = new JButton("Copy");
-		cpyent.setToolTipText("Copy the selected entity");
+		cpyent.setToolTipText("Copy the selected entities");
 		cpyent.setEnabled(false);
 		cpyent.setMnemonic(10);
 		final JButton delent = new JButton("Del");
-		delent.setToolTipText("Delete the selected entity");
+		delent.setToolTipText("Delete the selected entities");
 		delent.setEnabled(false);
 		delent.setMnemonic(127);
 		entbut.add(updent);
@@ -380,25 +380,40 @@ public class Entspy {
 
 			public void actionPerformed(ActionEvent e) {
 				ArrayList<Entity> toremove = new ArrayList<Entity>();
+				int j = 0;
 				for (int i : Entspy.this.entList.getSelectedIndices()) {
 					toremove.add(m.el.get(i));
+					++j;
 				}
 				m.el.removeAll(toremove);
+				
+				j = entList.getMaxSelectionIndex() - j;
 
 				Entspy.this.entList.setModel(new EntspyListModel(Entspy.this.m.getData()));
+				
+				entList.setSelectedIndex(j + 1);
+				
 				Entspy.this.m.dirty = true;
 			}
 		});
 		cpyent.addActionListener(new ActionListener() {
 
-			public void actionPerformed(ActionEvent e) {
-				Entity selEnt = Entspy.this.getSelectedEntity();
-				Entity newent = selEnt.copy();
-				int i = Entspy.this.m.el.indexOf(selEnt);
-				Entspy.this.m.el.add(i + 1, newent);
+			public void actionPerformed(ActionEvent e) {				
+				int[] selected = entList.getSelectedIndices();
+				Entity[] newEnts = new Entity[selected.length];
+				for(int j = 0; j < selected.length; ++j) {
+					selected[j] += j;
+					Entity old = m.el.get(selected[j]);
+					++selected[j];
+					
+					if(old != null) {
+						Entity newE = old.copy();
+						m.el.add(selected[j], newE);
+					}
+				}
+				
 				entList.setModel(new EntspyListModel(m.getData()));
-
-				entList.setSelectedIndex(m.el.indexOf(newent));
+				entList.setSelectedIndices(selected);
 
 				Entspy.this.m.dirty = true;
 			}
@@ -580,7 +595,7 @@ public class Entspy {
 
 			public void actionPerformed(ActionEvent ae) {
 				Entity selEnt = Entspy.this.getSelectedEntity();
-				selEnt.addkeyval("", "");
+				selEnt.addKeyVal("", "");
 				Entspy.this.settable(selEnt, tablemodel);
 				int lastrow = selEnt.size() - 1;
 				Entspy.this.table.changeSelection(lastrow, 0, false, false);
@@ -598,7 +613,7 @@ public class Entspy {
 				if (selrow == -1) {
 					return;
 				}
-				selEnt.addkeyval(selEnt.key.get(selrow), selEnt.value.get(selrow));
+				selEnt.addKeyVal(selEnt.keys.get(selrow), selEnt.values.get(selrow));
 				selEnt.setnames();
 				Entspy.this.settable(selEnt, tablemodel);
 				tablemodel.reselect();
@@ -618,10 +633,15 @@ public class Entspy {
 				if (selrow == -1) {
 					return;
 				}
-				selEnt.delkeyval(selrow);
+				selEnt.delKeyVal(selrow);
 				selEnt.setnames();
-				tablemodel.fireTableDataChanged();
-				tablemodel.reselect();
+				tablemodel.setlinklisteners();
+				
+				if(tablemodel.getRowCount() > 0) {
+					selrow = Math.min(selrow, tablemodel.getRowCount() - 1);
+					table.setRowSelectionInterval(selrow, selrow);
+				}
+				
 				Entspy.this.m.dirty = true;
 			}
 		});
@@ -662,10 +682,10 @@ public class Entspy {
 		model.removeAllElements();
 		block0: for (int i = 0; i < this.m.el.size(); ++i) {
 			Entity lent = this.m.el.get(i);
-			if (lent.key == null)
+			if (lent.keys == null)
 				continue;
-			for (int j = 0; j < lent.key.size(); ++j) {
-				Entity linkent = lent.link.get(j);
+			for (int j = 0; j < lent.keys.size(); ++j) {
+				Entity linkent = lent.links.get(j);
 				if (linkent == null || !linkent.targetname.equals(sel.targetname))
 					continue;
 				model.addElement(lent);
@@ -926,10 +946,10 @@ public class Entspy {
 				
 				Matcher match = p.matcher(line);
 				if(match.find()) {
-					e.kvmap.put(match.group(1), e.value.size());
-					e.key.add(match.group(1));
-					e.value.add(match.group(2));
-					e.link.add(null);
+					e.kvmap.put(match.group(1), e.values.size());
+					e.keys.add(match.group(1));
+					e.values.add(match.group(2));
+					e.links.add(null);
 				}
 			}
 			
@@ -947,8 +967,8 @@ public class Entspy {
 		
 		for(Entity e : ents) {
 			w.append("{\n");
-			for(int i = 0; i < e.key.size(); ++i) {
-				w.append("\t\""+e.key.get(i)+"\" \""+e.value.get(i)+"\"\n");
+			for(int i = 0; i < e.keys.size(); ++i) {
+				w.append("\t\""+e.keys.get(i)+"\" \""+e.values.get(i)+"\"\n");
 			}
 			w.append("}\n");
 		}
@@ -1012,14 +1032,14 @@ public class Entspy {
 			for(int j = 0; j < 2 && !found; ++j) {
 				if (special) {
 					for (; i < ((EntspyListModel) entList.getModel()).entities.size(); ++i) {
-						if (((EntspyListModel) entList.getModel()).entities.get(i).ismatch(keysToSearch, valuesToSearch)) {
+						if (((EntspyListModel) entList.getModel()).entities.get(i).isMatch(keysToSearch, valuesToSearch)) {
 							found = true;
 							break;
 						}
 					}
 				} else {
 					for (; i < ((EntspyListModel) entList.getModel()).entities.size(); ++i) {
-						if (((EntspyListModel) entList.getModel()).entities.get(i).ismatch(ftext)) {
+						if (((EntspyListModel) entList.getModel()).entities.get(i).isMatch(ftext)) {
 							found = true;
 							break;
 						}
@@ -1066,7 +1086,7 @@ public class Entspy {
 
 			ArrayList<Integer> indices = new ArrayList<Integer>();
 			for (int i = 0; i < ((EntspyListModel) entList.getModel()).entities.size(); ++i) {
-				if (((EntspyListModel) entList.getModel()).entities.get(i).ismatch(ftext)) {
+				if (((EntspyListModel) entList.getModel()).entities.get(i).isMatch(ftext)) {
 					indices.add(i);
 				}
 			}
