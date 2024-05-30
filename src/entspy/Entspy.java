@@ -91,11 +91,13 @@ public class Entspy {
 	FGD fgdFile = null;
 	static final String VERSION = "v0.9";
 	static ImageIcon esIcon = new ImageIcon(JTBRenderer.class.getResource("/images/newicons/entspy.png"));
+	
+	public static final String entspyTitle = "Entspy v2.0";
 
 	public int exec() throws IOException {
 		preferences = Preferences.userRoot().node(getClass().getName());
 		
-		this.frame = new JFrame("Entspy");
+		this.frame = new JFrame(entspyTitle);
 		this.frame.setIconImage(esIcon.getImage());
 		if (!this.loadfile()) {
 			System.exit(0);
@@ -115,7 +117,7 @@ public class Entspy {
 		entList.setSelectionModel(selmodel);
 		entList.setCellRenderer(new LERenderer());
 
-		this.frame.setTitle("Entspy - " + this.filename);
+		this.frame.setTitle(entspyTitle + " - " + this.filename);
 		JMenu filemenu = new JMenu("File");
 		JMenuItem mload = new JMenuItem("Load BSP");
 		JMenuItem msave = new JMenuItem("Save BSP");
@@ -200,7 +202,7 @@ public class Entspy {
 					}
 
 					public void finished() {
-						Entspy.this.frame.setTitle("Entspy - " + Entspy.this.filename);
+						Entspy.this.frame.setTitle(entspyTitle + " - " + Entspy.this.filename);
 						Entspy.this.frame.setCursor(null);
 					}
 				};
@@ -231,7 +233,7 @@ public class Entspy {
 		mloadfgd.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				JFileChooser chooser = new JFileChooser(preferences.get("LastFGDDir", System.getProperty("user.dir")));
-				chooser.setDialogTitle("Entspy - Open FGD File");
+				chooser.setDialogTitle(entspyTitle + " - Open FGD File");
 				if(chooser.showOpenDialog(frame) == 1)
 					return;
 				
@@ -365,7 +367,7 @@ public class Entspy {
 				}
 				
 				JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
-				chooser.setDialogTitle("Entspy - Export entities to a file");
+				chooser.setDialogTitle(entspyTitle + " - Export entities to a file");
 				chooser.setDialogType(JFileChooser.SAVE_DIALOG);
 				
 				int result = chooser.showOpenDialog(frame);
@@ -397,7 +399,7 @@ public class Entspy {
 		importEntity.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ev) {
 				JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
-				chooser.setDialogTitle("Entspy - Export entities to a file");
+				chooser.setDialogTitle(entspyTitle + " - Export entities to a file");
 				chooser.setDialogType(JFileChooser.SAVE_DIALOG);
 				
 				int result = chooser.showOpenDialog(frame);
@@ -768,7 +770,7 @@ public class Entspy {
 		try {
 			JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
 			
-			chooser.setDialogTitle("Entspy - Open a BSP file");
+			chooser.setDialogTitle(entspyTitle + " - Open a BSP file");
 			chooser.setFileFilter(new EntFileFilter());
 			int result = chooser.showOpenDialog(this.frame);
 			if (result == 1) {
@@ -845,11 +847,11 @@ public class Entspy {
 					entopt = 2;
 				}
 			}
-			JProgFrame prog = new JProgFrame(this.frame, "Entspy - Save BSP file");
+			JProgFrame prog = new JProgFrame(this.frame, entspyTitle + " - Save BSP file");
 			this.m.setprog(prog);
 			JFileChooser chooser = new JFileChooser(this.infile);
 			chooser.setSelectedFile(this.infile);
-			chooser.setDialogTitle("Entspy - Save BSP file - " + this.filename);
+			chooser.setDialogTitle(entspyTitle + " - Save BSP file - " + this.filename);
 			chooser.setFileFilter(new EntFileFilter());
 			int result2 = chooser.showSaveDialog(this.frame);
 			if (result2 == 1) {
@@ -953,7 +955,7 @@ public class Entspy {
 	}
 
 	public void loaddata() {
-		final JProgFrame prog = new JProgFrame(this.frame, "Entspy - Load BSP file");
+		final JProgFrame prog = new JProgFrame(this.frame, entspyTitle + " - Load BSP file");
 		this.m.setprog(prog);
 		prog.setMaximum(this.m.loadtasklength());
 		prog.start("Loading entities...", true);
@@ -981,7 +983,7 @@ public class Entspy {
 				Entspy.this.entList.setModel(new EntspyListModel(Entspy.this.m.getData()));
 				Entspy.this.frame.setCursor(null);
 				prog.end();
-				Entspy.this.frame.setTitle("Entspy - " + Entspy.this.filename);
+				Entspy.this.frame.setTitle(entspyTitle + " - " + Entspy.this.filename);
 			}
 		};
 		timer.start();
