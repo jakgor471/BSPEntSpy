@@ -11,13 +11,11 @@ public class Entity {
     boolean autoedit = false;
     String classname;
     String targetname;
-    String parentname;
     String origin;
     public HashMap<String, Integer> kvmap = new HashMap();
     public ArrayList<String> keys = new ArrayList();
     public ArrayList<String> values = new ArrayList();
     public ArrayList<Entity> links = new ArrayList();
-    static final String[] definedkey = new String[]{"classname", "targetname", "parentname", "origin"};
 
     public Entity() {
     }
@@ -29,7 +27,6 @@ public class Entity {
     public void clear() {
         this.classname = null;
         this.targetname = null;
-        this.parentname = null;
         this.origin = null;
         if (this.keys != null) {
             this.keys.clear();
@@ -60,9 +57,8 @@ public class Entity {
     }
 
     public void setnames() {
-        this.classname = this.getKeyValue("classname");
+    	this.classname = this.getKeyValue("classname");
         this.targetname = this.getKeyValue("targetname");
-        this.parentname = this.getKeyValue("parentname");
         this.origin = this.getKeyValue("origin");
     }
 
@@ -72,6 +68,16 @@ public class Entity {
         }
         char quote = '\"';
         return "" + quote + this.keys.get(i) + quote + " " + quote + this.values.get(i) + quote;
+    }
+    
+    public void setKeyVal(String k, String v) {
+    	if(kvmap.containsKey(k)) {
+    		values.set(kvmap.get(k), v);
+    		setnames();
+    		return;
+    	}
+    	
+    	addKeyVal(k, v);
     }
 
     public void addKeyVal(String k, String v) {
@@ -147,20 +153,6 @@ public class Entity {
             length+=2;
         }
         return length;
-    }
-
-    public void setDefinedValue(int dk, String val) {
-        int ki = this.getKeyIndex(definedkey[dk]);
-        if (ki < 0) {
-            if (!val.equals("")) {
-                this.addKeyVal(definedkey[dk], val);
-            }
-        } else if (!val.equals("")) {
-            this.values.set(ki, val);
-        } else {
-            this.delKeyVal(ki);
-        }
-        this.setnames();
     }
     
     public boolean isMatch(List<String> keys, List<String> values) {

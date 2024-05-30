@@ -87,11 +87,10 @@ public class Entspy {
 	JFrame frame = null;
 	final Entity blank = new Entity("");
 	JList<Entity> entList;
-	JTable table;
 	MapInfo info;
 	Preferences preferences;
 	FGD fgdFile = null;
-	static final String VERSION = "v0.9";
+	
 	static ImageIcon esIcon = new ImageIcon(JTBRenderer.class.getResource("/images/newicons/entspy.png"));
 	
 	public static final String entspyTitle = "Entspy v2.0";
@@ -248,50 +247,6 @@ public class Entspy {
 			}
 		});
 		
-		BorderLayout panelBLayout = new BorderLayout();
-		panelBLayout.setVgap(5);
-		
-		JPanel rightEntPanel = new JPanel(panelBLayout);
-		JPanel grid = new JPanel();
-		GridLayout gridLayout = new GridLayout(2, 2);
-		gridLayout.setHgap(10);
-		gridLayout.setVgap(5);
-		grid.setLayout(gridLayout);
-		
-		final JTextField classTextField = new JTextField(" ");
-		final JTextField originTextField = new JTextField(" ");
-		classTextField.addActionListener(new TextListen(0));
-		originTextField.addActionListener(new TextListen(3));
-		classTextField.setEnabled(false);
-		originTextField.setEnabled(false);
-		
-		grid.add(new JLabel("Class", 4));
-		grid.add(classTextField);
-		grid.add(new JLabel("Origin", 4));
-		grid.add(originTextField);
-		
-		rightEntPanel.add((Component) grid, "North");
-		
-		JPanel keyvalPanel = new JPanel();
-		final KeyValLinkModel kvOldModel = new KeyValLinkModel();
-		kvOldModel.setMapping(this.entList);
-		this.table = new JTable(kvOldModel);
-		this.table.setSelectionMode(0);
-		
-		TableColumn keycol = this.table.getColumn("Value");
-		keycol.setPreferredWidth(175);
-		TableColumn linkcol = this.table.getColumn("Link");
-		linkcol.setMaxWidth(30);
-		linkcol.setMinWidth(30);
-		linkcol.setResizable(false);
-		linkcol.setCellRenderer(new JTBRenderer());
-		linkcol.setCellEditor(new JTBEditor(new JCheckBox()));
-		
-		keyvalPanel.setLayout(new GridLayout(1, 1));
-		keyvalPanel.add(new JScrollPane(this.table));
-		
-		rightEntPanel.add((Component) keyvalPanel, "Center");
-		
 		JPanel findpanel = new JPanel();
 		
 		final JLabel findlabel = new JLabel("Linked from ");
@@ -307,25 +262,15 @@ public class Entspy {
 		findbutton.setToolTipText("Go to linking entity");
 		findpanel.add(findbutton);
 		findbutton.addActionListener(new ActionListener() {
-
 			public void actionPerformed(ActionEvent e) {
-				/*
-				 * Entity targetent = (Entity)findmodel.getSelectedItem();
-				 * DefaultMutableTreeNode currentnode =
-				 * (DefaultMutableTreeNode)Entspy.this.entList.getModel().getRoot(); do { if
-				 * (Entspy.this.getNodeEntity(currentnode) != targetent) continue; TreePath tp =
-				 * new TreePath(currentnode.getPath());
-				 * Entspy.this.entList.setSelectionPath(tp);
-				 * Entspy.this.entList.scrollPathToVisible(tp); return; } while ((currentnode =
-				 * currentnode.getNextNode()) != null);
-				 * Cons.println("Cannot find node for target ent: " + targetent);
-				 */
 			}
 		});
 		findlabel.setEnabled(false);
 		findbutton.setEnabled(false);
 		findcombo.setEnabled(false);
-
+		
+		final ClassPropertyPanel rightEntPanel = new ClassPropertyPanel();
+		
 		JPanel leftPanel = new JPanel(new BorderLayout());
 		leftPanel.add((Component) new JScrollPane(this.entList), "Center");
 		JPanel entcpl = new JPanel();
@@ -588,150 +533,18 @@ public class Entspy {
 
 			}
 		});
-		
-		JPanel cpanel = new JPanel();
-		final JButton addkv = new JButton("Add");
-		addkv.setToolTipText("Add an entity property");
-		cpanel.add(addkv);
-		addkv.setEnabled(false);
-		final JButton cpykv = new JButton("Copy");
-		cpykv.setToolTipText("Copy the selected property");
-		cpanel.add(cpykv);
-		cpykv.setEnabled(false);
-		final JButton delkv = new JButton("Delete");
-		delkv.setToolTipText("Delete the selected property");
-		cpanel.add(delkv);
-		delkv.setEnabled(false);
 
 		this.entList.addListSelectionListener(new ListSelectionListener() {
 
 			@Override
 			public void valueChanged(ListSelectionEvent e) {
-				TableCellEditor tce = Entspy.this.table.getCellEditor();
-				if (tce != null && Entspy.this.table.isEditing())
-					tce.stopCellEditing();
-				Entity selEnt = Entspy.this.getSelectedEntity();
-
-				if (selEnt != null) {
-					exportEntity.setEnabled(true);
-					cpToClipEnt.setEnabled(true);
-
-					classTextField.setText(selEnt.classname);
-					classTextField.setEnabled(true);
-					originTextField.setText(selEnt.origin);
-					originTextField.setEnabled(true);
-					Entspy.this.settable(selEnt, kvOldModel);
-
-					delent.setEnabled(true);
-					cpyent.setEnabled(true);
-					addkv.setEnabled(true);
-					if (selEnt.autoedit) {
-						selEnt.autoedit = false;
-						classTextField.setText("new_entity");
-						classTextField.selectAll();
-						classTextField.requestFocus();
-					}
-					if (Entspy.this.setfindlist(selEnt, findmodel)) {
-						findlabel.setEnabled(true);
-						findbutton.setEnabled(true);
-						findcombo.setEnabled(true);
-					} else {
-						findlabel.setEnabled(false);
-						findbutton.setEnabled(false);
-						findcombo.setEnabled(false);
-					}
-				} else {
-					exportEntity.setEnabled(false);
-					cpToClipEnt.setEnabled(false);
-
-					classTextField.setText(" ");
-					classTextField.setEnabled(false);
-					originTextField.setText(" ");
-					originTextField.setEnabled(false);
-					Entspy.this.settable(Entspy.this.blank, kvOldModel);
-					findlabel.setEnabled(false);
-					findbutton.setEnabled(false);
-					findcombo.setEnabled(false);
-					delent.setEnabled(false);
-					cpyent.setEnabled(false);
-					addkv.setEnabled(false);
+				rightEntPanel.clearEntities();
+				for(int i : entList.getSelectedIndices()) {
+					rightEntPanel.addEntity(m.el.get(i));
 				}
 			}
 
 		});
-
-		addkv.addActionListener(new ActionListener() {
-
-			public void actionPerformed(ActionEvent ae) {
-				Entity selEnt = Entspy.this.getSelectedEntity();
-				selEnt.addKeyVal("", "");
-				Entspy.this.settable(selEnt, kvOldModel);
-				int lastrow = selEnt.size() - 1;
-				Entspy.this.table.changeSelection(lastrow, 0, false, false);
-				Entspy.this.table.editCellAt(lastrow, 0);
-				Entspy.this.table.scrollRectToVisible(Entspy.this.table.getCellRect(lastrow, 0, true));
-				Entspy.this.table.getEditorComponent().requestFocus();
-				Entspy.this.m.dirty = true;
-			}
-		});
-		cpykv.addActionListener(new ActionListener() {
-
-			public void actionPerformed(ActionEvent ae) {
-				Entity selEnt = Entspy.this.getSelectedEntity();
-				int selrow = Entspy.this.table.getSelectedRow();
-				if (selrow == -1) {
-					return;
-				}
-				selEnt.addKeyVal(selEnt.keys.get(selrow), selEnt.values.get(selrow));
-				selEnt.setnames();
-				Entspy.this.settable(selEnt, kvOldModel);
-				kvOldModel.reselect();
-				int lastrow = selEnt.size() - 1;
-				Entspy.this.table.changeSelection(lastrow, 1, false, false);
-				Entspy.this.table.editCellAt(lastrow, 1);
-				Entspy.this.table.scrollRectToVisible(Entspy.this.table.getCellRect(lastrow, 1, true));
-				Entspy.this.table.getEditorComponent().requestFocus();
-				Entspy.this.m.dirty = true;
-			}
-		});
-		delkv.addActionListener(new ActionListener() {
-
-			public void actionPerformed(ActionEvent ae) {
-				Entity selEnt = Entspy.this.getSelectedEntity();
-				int selrow = Entspy.this.table.getSelectedRow();
-				if (selrow == -1) {
-					return;
-				}
-				selEnt.delKeyVal(selrow);
-				selEnt.setnames();
-				kvOldModel.setlinklisteners();
-				
-				if(kvOldModel.getRowCount() > 0) {
-					selrow = Math.min(selrow, kvOldModel.getRowCount() - 1);
-					table.setRowSelectionInterval(selrow, selrow);
-				}
-				
-				Entspy.this.m.dirty = true;
-			}
-		});
-		this.table.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
-
-			public void valueChanged(ListSelectionEvent lse) {
-				if (lse.getValueIsAdjusting()) {
-					return;
-				}
-				if (Entspy.this.table.getSelectedRowCount() != 0) {
-					delkv.setEnabled(true);
-					cpykv.setEnabled(true);
-				} else {
-					delkv.setEnabled(false);
-					cpykv.setEnabled(false);
-				}
-			}
-		});
-		
-		rightEntPanel.add(cpanel, "South");
-		rightEntPanel.setBorder(BorderFactory.createEtchedBorder());
 		
 		JPanel rightPanel = new JPanel(new BorderLayout());
 		rightPanel.add((Component) findpanel, "South");
@@ -745,10 +558,6 @@ public class Entspy {
 		this.frame.setVisible(true);
 		this.loaddata();
 		return 0;
-	}
-
-	public void settable(Entity ent, KeyValLinkModel model) {
-		model.set(ent);
 	}
 
 	public boolean setfindlist(Entity sel, DefaultComboBoxModel model) {
@@ -1238,24 +1047,6 @@ public class Entspy {
 
 				entList.setSelectedIndices(arr);
 			}
-		}
-	}
-
-	class TextListen implements ActionListener {
-		int type;
-
-		public TextListen(int type) {
-			this.type = type;
-		}
-
-		public void actionPerformed(ActionEvent ae) {
-			String text = ((JTextField) ae.getSource()).getText().trim();
-			Entity selEnt = Entspy.this.getSelectedEntity();
-			if (selEnt == null) {
-				return;
-			}
-			selEnt.setDefinedValue(this.type, text);
-			((KeyValLinkModel) Entspy.this.table.getModel()).refreshtable();
 		}
 	}
 

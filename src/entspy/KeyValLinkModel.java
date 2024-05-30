@@ -1,5 +1,6 @@
 package entspy;
 
+import entspy.ClassPropertyPanel.KVEntry;
 import entspy.Entspy.EntspyListModel;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -9,8 +10,7 @@ import javax.swing.JList;
 import javax.swing.table.AbstractTableModel;
 
 class KeyValLinkModel extends AbstractTableModel {
-	Entity ent;
-	ArrayList<JButton> button;
+	ArrayList<KVEntry> keyvalues;
 	JList list;
 
 	KeyValLinkModel() {
@@ -21,130 +21,58 @@ class KeyValLinkModel extends AbstractTableModel {
 	}
 
 	public int getRowCount() {
-		if (this.ent == null) {
+		if(keyvalues == null)
 			return 0;
-		}
-		if (this.ent.keys == null) {
-			return 0;
-		}
-		return this.ent.keys.size();
+		
+		return keyvalues.size();
 	}
 
 	public int getColumnCount() {
-		return 3;
+		return 2;
 	}
 
 	public Object getValueAt(int row, int col) {
-		int rowcopy = row;
-		if (col == 0) {
-			return this.ent.keys.get(row);
-		}
-		if (col == 1) {
-			return this.ent.values.get(row);
-		}
-		return this.button.get(row);
+		if(col == 0)
+			return keyvalues.get(row).key;
+		
+		return keyvalues.get(row).getValue();
 	}
 
 	public void setValueAt(Object setval, int row, int col) {
-		if (row < 0 || row >= this.ent.size()) {
+		if (row < 0 || row >= keyvalues.size())
 			return;
-		}
+		
 		if (col == 0) {
-			this.ent.keys.set(row, (String) setval);
-		} else if (col == 1) {
-			this.ent.values.set(row, (String) setval);
-		} else {
-			return;
-		}
-		this.ent.setnames();
-		this.reselect();
+			keyvalues.get(row).key = (String) setval;
+		} else
+			keyvalues.get(row).value = (String) setval;
 	}
 
 	public Class getColumnClass(int col) {
-		if (col == 2) {
-			return JButton.class;
-		}
 		return String.class;
 	}
 
 	public String getColumnName(int col) {
-		String[] header = new String[] { "Key", "Value", "Link" };
+		String[] header = new String[] { "Property", "Value" };
 		return header[col];
 	}
 
 	public void clear() {
-		this.ent = null;
-		this.button.clear();
 		this.fireTableDataChanged();
 	}
 
 	public boolean isCellEditable(int row, int col) {
-		if (col == 2 && this.ent.links.get(row) == null) {
-			return false;
-		}
-		return true;
+		return false;
 	}
 
-	public void set(Entity e) {
-		this.ent = e;
-		this.fireTableDataChanged();
-		this.setlinklisteners();
-	}
-
-	public void setlinklisteners() {
-		this.button = new ArrayList();
-		for (int i = 0; i < this.ent.keys.size(); ++i) {
-			final int rowcopy = i;
-			if (this.ent.links.get(i) != null) {
-				JButton lb = new JButton();
-				lb.addActionListener(new ActionListener() {
-
-					public void actionPerformed(ActionEvent ae) {
-						Entity targetent = KeyValLinkModel.this.ent.links.get(rowcopy);
-						int index = KeyValLinkModel.this.findEntityIndex(targetent, KeyValLinkModel.this.list);
-						if (index > -1) {
-							KeyValLinkModel.this.list.setSelectedIndex(index);
-							KeyValLinkModel.this.list.ensureIndexIsVisible(index);
-							return;
-						}
-						System.out.println("Cannot find node for target ent: " + targetent);
-					}
-				});
-				this.button.add(lb);
-				continue;
-			}
-			this.button.add(null);
-		}
+	public void set(ArrayList<KVEntry> keyvalues) {
+		this.keyvalues = keyvalues;
 		this.fireTableDataChanged();
 	}
-
-	public Entity getLink(int row) {
-		return this.ent.links.get(row);
-	}
-
-	public int findEntityIndex(Entity target, JList t) {
-		EntspyListModel tmodel = (EntspyListModel) this.list.getModel();
-
-		for (int i = 0; i < tmodel.entities.size(); ++i) {
-			if (tmodel.entities.get(i).equals(target))
-				return i;
-		}
-
-		return -1;
-	}
-
-	public void reselect() {
-		int index = this.list.getSelectedIndex();
-
-		if (index < 0)
-			return;
-
-		this.list.setSelectedIndex(index);
-	}
+	
 
 	public void refreshtable() {
-		this.setlinklisteners();
-		this.reselect();
+		this.fireTableDataChanged();
 	}
 
 }
