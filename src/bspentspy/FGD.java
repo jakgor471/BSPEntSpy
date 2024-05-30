@@ -171,18 +171,6 @@ public class FGD {
 				classMap.put(newClass.classname, classes.size());
 				classes.add(newClass);
 				
-				if(classMap.containsKey("BaseNPC")) {
-					FGDEntry baseNPC = classes.get(classMap.get("BaseNPC"));
-					Property spawnflags = baseNPC.propmap.get("spawnflags");
-					if(spawnflags != null && spawnflags instanceof PropertyChoices) {
-						PropertyChoices pch = (PropertyChoices)spawnflags;
-						
-						if(pch.choices.size() != 13) {
-							int debug = 1;
-						}
-					}
-				}
-				
 				continue;
 			}
 			

@@ -46,10 +46,12 @@ public class ClassPropertyPanel extends JPanel {
 	private KeyValueListener originListener;
 	private KeyValueListener keyListener;
 	private KeyValueListener valueListener;
-	private KeyValModel kvModel;
+	private KeyValTableModel kvModel;
 	private KVEntry classname;
 	private KVEntry origin;
 	private JTable kvtable;
+	private JTable flagtable;
+	private FlagTableModel flagModel;
 	private KVTableRenderer kvrenderer;
 	private JButton addkv;
 	private JButton dupkv;
@@ -69,7 +71,7 @@ public class ClassPropertyPanel extends JPanel {
 	private boolean smartEdit;
 	private boolean addDefaultParameters;
 	
-	public FGD fgdContent;
+	private FGD fgdContent;
 	
 	public ClassPropertyPanel() {
 		super(new BorderLayout());
@@ -114,7 +116,7 @@ public class ClassPropertyPanel extends JPanel {
 		
 		JPanel keyvalPanel = new JPanel(new BorderLayout());
 		
-		kvModel = new KeyValModel();
+		kvModel = new KeyValTableModel();
 		kvtable = new JTable(kvModel);
 		kvtable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		kvtable.getTableHeader().setReorderingAllowed(false);
@@ -310,10 +312,21 @@ public class ClassPropertyPanel extends JPanel {
 		tabs.addTab("Parameters", paramsPanel);
 		/*=== END OF MAIN PARAMETERS PANEL ===*/
 		
-		tabs.addTab("Flags", new JPanel());
+		flagModel = new FlagTableModel();
+		flagtable = new JTable(flagModel);
+		flagtable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		flagtable.getTableHeader().setReorderingAllowed(false);
+		flagtable.getColumnModel().getColumn(0).setMaxWidth(50);
+		flagtable.getColumnModel().getColumn(0).setMinWidth(40);
+		flagtable.setShowGrid(false);
+		tabs.addTab("Flags", new JScrollPane(flagtable));
 		
 		this.add(tabs, "Center");
 		this.add(bottomRightPanel, "South");
+	}
+	
+	public void setFGD(FGD fgdContent) {
+		this.fgdContent = fgdContent;
 	}
 	
 	public void applyKVChanges() {
@@ -346,8 +359,8 @@ public class ClassPropertyPanel extends JPanel {
 		keyTextField.setText(entry.key);
 		valueTextField.setText(entry.getValue());
 		
-		if(kvModel.fgdContent != null && kvModel.fgdContent.propmap.containsKey(entry.key.toLowerCase()))
-			valueLabel.setText("Value (" + kvModel.fgdContent.propmap.get(entry.key.toLowerCase()).type.name + "):");
+		if(kvModel.fgdData != null && kvModel.fgdData.propmap.containsKey(entry.key.toLowerCase()))
+			valueLabel.setText("Value (" + kvModel.fgdData.propmap.get(entry.key.toLowerCase()).type.name + "):");
 		else
 			valueLabel.setText("Value:");
 		
@@ -360,9 +373,9 @@ public class ClassPropertyPanel extends JPanel {
 	public void setSmartEdit(boolean smartedit) {
 		smartEdit = smartedit;
 		if(fgdContent != null && smartedit && classname != null)
-			kvModel.fgdContent = fgdContent.getFGDClass(classname.value);
+			kvModel.fgdData = fgdContent.getFGDClass(classname.value);
 		else
-			kvModel.fgdContent = null;
+			kvModel.fgdData = null;
 		
 		//kvrenderer.shouldDifferentiateColors(smartEdit && addDefaultParameters);
 		kvModel.fireTableDataChanged();
@@ -424,10 +437,10 @@ public class ClassPropertyPanel extends JPanel {
 				classTextField.setEnabled(true);
 				
 				if(fgdContent != null && smartEdit)
-					kvModel.fgdContent = fgdContent.getFGDClass(classname.value);
+					kvModel.fgdData = fgdContent.getFGDClass(classname.value);
 			} else {
 				classTextField.setEnabled(false);
-				kvModel.fgdContent = null;
+				kvModel.fgdData = null;
 			}
 		} else {
 			classnameListener.setKey(null);
@@ -469,7 +482,8 @@ public class ClassPropertyPanel extends JPanel {
 		
 		refreshClassOriginInfo();
 		
-		if(fgdContent != null && classname != null && !classname.different && smartEdit) {
+		flagModel.setFGD(null);
+		if(fgdContent != null && classname != null && !classname.different) {
 			FGDEntry entry = fgdContent.getFGDClass(classname.value);
 			
 			if(entry != null) {
@@ -483,6 +497,8 @@ public class ClassPropertyPanel extends JPanel {
 						}
 					}
 				}
+				
+				flagModel.setFGD(entry);
 			}
 		}
 		
@@ -493,6 +509,7 @@ public class ClassPropertyPanel extends JPanel {
 		}
 		
 		kvModel.set(keyvalues);
+		flagModel.setFlags(kvMap.get("spawnflags"));
 		
 		boolean enable = editingEntities.size() > 0;
 		apply.setEnabled(enable);
@@ -520,6 +537,15 @@ public class ClassPropertyPanel extends JPanel {
 		
 		ArrayList<KVEntry> edited = new ArrayList<KVEntry>();
 		ArrayList<KVEntry> renamed = new ArrayList<KVEntry>();
+		
+		if(flagModel.isChanged()) {
+			KVEntry flags = kvMap.get("spawnflags");
+			
+			if(flags != null) {
+				flags.value = flagModel.getValue();
+				flags.edited = true;
+			}
+		}
 		
 		if(editingEntities.size() <= 1) {
 			for(KVEntry e : keyvalues) {

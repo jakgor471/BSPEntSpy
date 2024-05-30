@@ -33,7 +33,7 @@ public class KVTableRenderer implements TableCellRenderer{
 	
 	public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
 			int row, int column) {		
-		KVEntry entry = ((KeyValModel)table.getModel()).getKVEntryAt(row, column);
+		KVEntry entry = ((KeyValTableModel)table.getModel()).getKVEntryAt(row, column);
 		if(!shouldDifferentiate || entry != null && entry.autoAdded) {
 			return autoAdded.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
 		}

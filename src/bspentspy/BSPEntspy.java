@@ -33,7 +33,6 @@ import java.util.ListIterator;
 import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
@@ -64,9 +63,7 @@ import javax.swing.UIManager;
 import javax.swing.event.ListDataListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-
 import bspentspy.ClassPropertyPanel.GotoEvent;
-import bspentspy.Entity.KeyValLink;
 import bspentspy.Lexer.LexerException;
 import bspentspy.Undo.Command;
 import util.SwingWorker;
@@ -84,7 +81,7 @@ public class BSPEntspy {
 	FGD fgdFile = null;
 	HashSet<Entity> previouslySelected = new HashSet<Entity>();
 	
-	static ImageIcon esIcon = new ImageIcon(JTBRenderer.class.getResource("/images/newicons/entspy.png"));
+	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
 	public static final String entspyTitle = "BSPEntSpy v1.1";
 
 	public int exec() throws IOException {
@@ -108,7 +105,7 @@ public class BSPEntspy {
 		DefaultListSelectionModel selmodel = new DefaultListSelectionModel();
 		selmodel.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
 		entList.setSelectionModel(selmodel);
-		entList.setCellRenderer(new LERenderer());
+		entList.setCellRenderer(new EntListRenderer());
 
 		this.frame.setTitle(entspyTitle + " - " + this.filename);
 		JMenu filemenu = new JMenu("File");
@@ -197,7 +194,7 @@ public class BSPEntspy {
 		});*/
 		
 		final ClassPropertyPanel rightEntPanel = new ClassPropertyPanel();
-		rightEntPanel.fgdContent = fgdFile;
+		rightEntPanel.setFGD(fgdFile);
 		
 		boolean shouldSmartEdit = fgdFile != null && preferences.getBoolean("SmartEdit", false);
 		boolean shouldAddDefaultParams = fgdFile != null && preferences.getBoolean("AutoAddParams", false);
@@ -321,7 +318,7 @@ public class BSPEntspy {
 				msmartEditOption.setEnabled(fgdFile != null);
 				maddDefaultOption.setEnabled(fgdFile != null);
 				
-				rightEntPanel.fgdContent = fgdFile;
+				rightEntPanel.setFGD(fgdFile);
 			}
 		});
 		
@@ -427,7 +424,7 @@ public class BSPEntspy {
 		importEntity.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ev) {
 				JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
-				chooser.setDialogTitle(entspyTitle + " - Export entities to a file");
+				chooser.setDialogTitle(entspyTitle + " - Import entities from a file");
 				chooser.setDialogType(JFileChooser.SAVE_DIALOG);
 				
 				int result = chooser.showOpenDialog(frame);

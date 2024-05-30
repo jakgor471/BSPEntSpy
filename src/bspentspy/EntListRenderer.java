@@ -7,7 +7,7 @@ import javax.swing.DefaultListCellRenderer;
 import javax.swing.ImageIcon;
 import javax.swing.JList;
 
-public class LERenderer
+public class EntListRenderer
 extends DefaultListCellRenderer {
     static ImageIcon pointIcon;
     static ImageIcon modelIcon;
@@ -28,20 +28,20 @@ extends DefaultListCellRenderer {
     static {
     	iconMap = new HashMap();
     	
-    	pointIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/point.png"));
-        modelIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/model.png"));
-        brushIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/brush.png"));
-        triggerIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/trigger.png"));
-        lightIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/light.png"));
-        nodeIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/node.png"));
-        soundIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/sound.png"));
-        itemIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/item.png"));
-        decalIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/decal.png"));
-        logicIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/logic.png"));
-        npcIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/npc.png"));
-        weaponIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/weapon.png"));
-        axisIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/axis.png"));
-        scrseqIcon = new ImageIcon(LERenderer.class.getResource("/images/newicons/scriptedsequence.png"));
+    	pointIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/point.png"));
+        modelIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/model.png"));
+        brushIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/brush.png"));
+        triggerIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/trigger.png"));
+        lightIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/light.png"));
+        nodeIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/node.png"));
+        soundIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/sound.png"));
+        itemIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/item.png"));
+        decalIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/decal.png"));
+        logicIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/logic.png"));
+        npcIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/npc.png"));
+        weaponIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/weapon.png"));
+        axisIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/axis.png"));
+        scrseqIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/scriptedsequence.png"));
         
         iconMap.put("light", lightIcon);
         iconMap.put("light_dynamic", lightIcon);
@@ -59,7 +59,7 @@ extends DefaultListCellRenderer {
         iconMap.put("scripted_sequence", scrseqIcon);
     }
 
-    public LERenderer() {
+    public EntListRenderer() {
     }
 
     public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean hasFocus) {
@@ -71,7 +71,7 @@ extends DefaultListCellRenderer {
 
     protected ImageIcon nodetype(Entity value) {
     	String cls = value.getKeyValue("classname");
-        if(LERenderer.iconMap.containsKey(cls)) {
+        if(EntListRenderer.iconMap.containsKey(cls)) {
         	return iconMap.get(cls);
         }
         

@@ -11,12 +11,12 @@ import bspentspy.FGDEntry.PropChoicePair;
 import bspentspy.FGDEntry.Property;
 import bspentspy.FGDEntry.PropertyChoices;
 
-class KeyValModel extends AbstractTableModel {
+class KeyValTableModel extends AbstractTableModel {
 	ArrayList<KVEntry> keyvalues;
-	FGDEntry fgdContent;
+	FGDEntry fgdData;
 
-	KeyValModel() {
-		fgdContent = null;
+	KeyValTableModel() {
+		fgdData = null;
 	}
 	
 	public int getRowCount() {
@@ -37,8 +37,8 @@ class KeyValModel extends AbstractTableModel {
 		KVEntry keyval = keyvalues.get(row);
 		String key = keyval.key.toLowerCase();
 		Property prop = null;
-		if(fgdContent != null)
-			prop = fgdContent.propmap.get(key);
+		if(fgdData != null)
+			prop = fgdData.propmap.get(key);
 		
 		if(col == 0) {
 			if(prop != null)
