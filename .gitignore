@@ -2,3 +2,6 @@ bin/
 .settings/
 .classpath
 .project
+*.png
+*.gif
+*.bsp
