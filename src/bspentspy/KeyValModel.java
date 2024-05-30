@@ -6,23 +6,19 @@ import javax.swing.JList;
 import javax.swing.table.AbstractTableModel;
 
 import bspentspy.ClassPropertyPanel.KVEntry;
+import bspentspy.FGDEntry.DataType;
 import bspentspy.FGDEntry.PropChoicePair;
 import bspentspy.FGDEntry.Property;
 import bspentspy.FGDEntry.PropertyChoices;
 
-class KeyValLinkModel extends AbstractTableModel {
+class KeyValModel extends AbstractTableModel {
 	ArrayList<KVEntry> keyvalues;
-	JList list;
 	FGDEntry fgdContent;
 
-	KeyValLinkModel() {
+	KeyValModel() {
 		fgdContent = null;
 	}
-
-	public void setMapping(JList t) {
-		this.list = t;
-	}
-
+	
 	public int getRowCount() {
 		if(keyvalues == null)
 			return 0;
@@ -35,6 +31,9 @@ class KeyValLinkModel extends AbstractTableModel {
 	}
 
 	public Object getValueAt(int row, int col) {
+		if(row < 0 || row >= keyvalues.size())
+			return null;
+		
 		KVEntry keyval = keyvalues.get(row);
 		String key = keyval.key.toLowerCase();
 		Property prop = null;
@@ -51,6 +50,21 @@ class KeyValLinkModel extends AbstractTableModel {
 		if(!keyval.different && prop != null && prop instanceof PropertyChoices) {
 			String val = keyval.value.toLowerCase().trim();
 			PropertyChoices propChoices = (PropertyChoices)prop;
+			
+			if(prop.type == DataType.flags) {
+				StringBuilder sb = new StringBuilder();
+				int bits = 0;
+				try {
+					bits = Integer.valueOf(val);
+				} catch(NumberFormatException e) {}
+				
+				for(PropChoicePair ch : propChoices.choices) {
+					if((bits & ch.intValue) != 0)
+						sb.append(ch.description).append("; ");
+				}
+				
+				return sb.toString();
+			}
 			PropChoicePair ch = propChoices.chMap.get(val);
 			if(ch != null)
 				return ch.description;
@@ -59,27 +73,24 @@ class KeyValLinkModel extends AbstractTableModel {
 		return keyval.getValue();
 	}
 
-	public void setValueAt(Object setval, int row, int col) {
-		if (row < 0 || row >= keyvalues.size())
-			return;
-		
-		if (col == 0) {
-			keyvalues.get(row).key = (String) setval;
-		} else
-			keyvalues.get(row).value = (String) setval;
-	}
-
 	public Class getColumnClass(int col) {
 		return String.class;
 	}
 
 	public String getColumnName(int col) {
-		String[] header = new String[] { "Property", "Value" };
+		final String[] header = new String[] { "Property", "Value" };
 		return header[col];
 	}
 
 	public void clear() {
 		this.fireTableDataChanged();
+	}
+	
+	public KVEntry getKVEntryAt(int row, int col) {
+		if(row < 0 || row >= keyvalues.size())
+			return null;
+		
+		return keyvalues.get(row);
 	}
 
 	public boolean isCellEditable(int row, int col) {
@@ -90,7 +101,6 @@ class KeyValLinkModel extends AbstractTableModel {
 		this.keyvalues = keyvalues;
 		this.fireTableDataChanged();
 	}
-	
 
 	public void refreshtable() {
 		this.fireTableDataChanged();

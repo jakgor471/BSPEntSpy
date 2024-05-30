@@ -173,6 +173,18 @@ public class FGD {
 				classMap.put(newClass.classname, classes.size());
 				classes.add(newClass);
 				
+				if(classMap.containsKey("BaseNPC")) {
+					FGDEntry baseNPC = classes.get(classMap.get("BaseNPC"));
+					Property spawnflags = baseNPC.propmap.get("spawnflags");
+					if(spawnflags != null && spawnflags instanceof PropertyChoices) {
+						PropertyChoices pch = (PropertyChoices)spawnflags;
+						
+						if(pch.choices.size() != 13) {
+							int debug = 1;
+						}
+					}
+				}
+				
 				continue;
 			}
 			
@@ -271,6 +283,12 @@ public class FGD {
 				choice.value = lexer.getToken().value;
 			} else if(lexer.getToken().isNumericOrSign()) {
 				choice.value = parseNumber(lexer);
+				
+				try {
+					choice.intValue = Integer.valueOf(choice.value);
+				} catch(NumberFormatException e) {
+					
+				}
 			}
 			lexer.consume();
 			
@@ -399,13 +417,13 @@ public class FGD {
 				FGDEntry base = fgdData.classes.get(fgdData.classMap.get(s));
 				
 				for(Property p : base.properties)
-					newClass.addProperty(p);
+					newClass.addProperty((Property)p.copy()); //copy for inheriting spawnflags and not messing everything up
 				
 				for(InputOutput p : base.inputs)
 					newClass.inputs.add(p);
 				
 				for(InputOutput p : base.outputs)
-					newClass.outputs.add(p);
+					newClass.addOutput(p);
 			}
 		}
 		
@@ -431,13 +449,13 @@ public class FGD {
 			
 			if(lexer.getToken().value.equals("output")) {
 				lexer.consume();
-				newClass.outputs.add(parseInputOutput(lexer));
+				newClass.addOutput(parseInputOutput(lexer));
 				continue;
 			}
 			
 			//Property
 			Property prop = parseProperty(lexer);
-			newClass.addProperty(prop);
+			newClass.addProperty(prop, prop.name.equals("spawnflags")); //
 		}
 		
 		lexer.expect(BasicTokenType.symbol, "]");

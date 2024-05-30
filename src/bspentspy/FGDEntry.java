@@ -12,6 +12,7 @@ public class FGDEntry {
 	public HashMap<String, Property> propmap;
 	public ArrayList<InputOutput> inputs;
 	public ArrayList<InputOutput> outputs;
+	public HashMap<String, InputOutput> outmap;
 	public int fgdDefinedIndex; //index of fgd file in which this class was declared
 	public int fgdDefinedLine; //line on which this class was defined
 	
@@ -22,6 +23,7 @@ public class FGDEntry {
 		classtype = ClassType.BaseClass;
 		properties = new ArrayList<Property>();
 		propmap = new HashMap<String, Property>();
+		outmap = new HashMap<String, InputOutput>();
 		inputs = new ArrayList<InputOutput>();
 		outputs = new ArrayList<InputOutput>();
 		fgdDefinedIndex = -1;
@@ -39,9 +41,34 @@ public class FGDEntry {
 			classtype = ClassType.PointClass;
 	}
 	
+	public void addProperty(Property prop, boolean appendChoices) {
+		String propname = prop.name.toLowerCase();
+		
+		if(!propmap.containsKey(propname)) {
+			propmap.put(propname, prop);
+			properties.add(prop);
+			return;
+		}
+		
+		Property existing = propmap.get(propname);
+		
+		if(appendChoices && existing instanceof PropertyChoices && prop instanceof PropertyChoices) {
+			PropertyChoices propChoices = (PropertyChoices)prop;
+			PropertyChoices propChoicesEx = (PropertyChoices)existing;
+			
+			for(PropChoicePair ch : propChoices.choices) {
+				propChoicesEx.addChoice(ch);
+			}
+		}
+	}
+	
 	public void addProperty(Property prop) {
-		propmap.put(prop.name.toLowerCase(), prop);
-		properties.add(prop);
+		addProperty(prop, false);
+	}
+	
+	public void addOutput(InputOutput io) {
+		outputs.add(io);
+		outmap.put(io.name, io);
 	}
 	
 	public String toString() {
@@ -141,12 +168,26 @@ public class FGDEntry {
 		public boolean hasChoices() {
 			return false;
 		}
+		
+		public Object copy() {
+			Property newProp = new Property();
+			
+			newProp.name = name;
+			newProp.displayName = displayName;
+			newProp.description = description;
+			newProp.defaultVal = defaultVal;
+			newProp.type = type;
+			newProp.readOnly = readOnly;
+			
+			return newProp;
+		}
 	}
 		
 	public static class PropChoicePair{
 		public String value;
 		public String description;
-		public boolean flagTicked;
+		public int intValue = 0;
+		public boolean flagTicked = false;
 	}
 	
 	//used for boolean, flags, choices
@@ -166,12 +207,35 @@ public class FGDEntry {
 			choices.add(pair);
 		}
 		
+		public void addChoice(PropChoicePair ch) {
+			String chval = ch.value.toLowerCase().trim();
+			
+			if(!chMap.containsKey(chval)) {
+				choices.add(ch);
+				chMap.put(chval, ch);
+			}
+		}
+		
 		public boolean hasChoices() {
 			return choices != null;
 		}
 		
-		public Object getChoices() {
-			return choices;
+		public Object copy() {
+			PropertyChoices newProp = new PropertyChoices();
+			
+			newProp.name = name;
+			newProp.displayName = displayName;
+			newProp.description = description;
+			newProp.defaultVal = defaultVal;
+			newProp.type = type;
+			newProp.readOnly = readOnly;
+			
+			for(PropChoicePair ch : choices) {
+				newProp.choices.add(ch);
+				newProp.chMap.put(ch.value.toLowerCase().trim(), ch);
+			}
+			
+			return newProp;
 		}
 	}
 	

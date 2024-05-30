@@ -15,6 +15,7 @@ public class Entity {
     public ArrayList<String> keys = new ArrayList();
     public ArrayList<String> values = new ArrayList();
     public ArrayList<Entity> links = new ArrayList();
+    public ArrayList<KeyValLink> keyvalues = new ArrayList<KeyValLink>();
 
     public Entity() {
     }
@@ -109,8 +110,7 @@ public class Entity {
             return;
         }
         
-        if(kvmap.containsKey(keys.get(i)))
-        	kvmap.remove(keys.get(i));
+        kvmap.remove(keys.get(i));
         
         for(int j = i + 1; j < keys.size(); ++j) {
         	kvmap.put(keys.get(j), j - 1);
@@ -193,6 +193,13 @@ public class Entity {
     		return true;
     	
         return false;
+    }
+    
+    public static class KeyValLink{
+    	public int uniqueKey;
+    	public String key;
+    	public String value;
+    	public Entity link;
     }
 }
 
