@@ -1,4 +1,4 @@
-package entspy;
+package bspentspy;
 
 import java.awt.BorderLayout;
 import java.awt.Component;

@@ -1,4 +1,4 @@
-package entspy;
+package bspentspy;
 
 //By jakgor471
 
@@ -8,14 +8,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.Callable;
 
-import entspy.FGDEntry.DataType;
-import entspy.FGDEntry.InputOutput;
-import entspy.FGDEntry.PropChoicePair;
-import entspy.FGDEntry.Property;
-import entspy.FGDEntry.PropertyChoices;
-import entspy.Lexer.BasicToken;
-import entspy.Lexer.BasicTokenType;
-import entspy.Lexer.LexerException;
+import bspentspy.FGDEntry.DataType;
+import bspentspy.FGDEntry.InputOutput;
+import bspentspy.FGDEntry.PropChoicePair;
+import bspentspy.FGDEntry.Property;
+import bspentspy.FGDEntry.PropertyChoices;
+import bspentspy.Lexer.BasicToken;
+import bspentspy.Lexer.BasicTokenType;
+import bspentspy.Lexer.LexerException;
 
 public class FGD {
 	public double mapMin = -65536;
@@ -321,7 +321,7 @@ public class FGD {
 		}
 		
 		String displayname = null;
-		String defaultValue = null;
+		String defaultValue = "";
 		String description = "";
 		
 		if(lexer.expect().isColon()) {

@@ -1,4 +1,4 @@
-package entspy;
+package bspentspy;
 
 class Lumpentry
 implements Comparable<Lumpentry> {

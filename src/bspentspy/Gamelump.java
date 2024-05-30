@@ -1,4 +1,4 @@
-package entspy;
+package bspentspy;
 
 class Gamelump {
     int id;

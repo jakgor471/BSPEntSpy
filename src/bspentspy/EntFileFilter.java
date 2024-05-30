@@ -1,4 +1,4 @@
-package entspy;
+package bspentspy;
 
 import java.io.File;
 

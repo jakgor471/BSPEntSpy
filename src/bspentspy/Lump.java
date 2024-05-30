@@ -1,4 +1,4 @@
-package entspy;
+package bspentspy;
 
 public class Lump
 implements Comparable<Lump> {

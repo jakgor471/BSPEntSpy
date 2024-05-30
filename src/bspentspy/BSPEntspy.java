@@ -1,4 +1,4 @@
-package entspy;
+package bspentspy;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -64,7 +64,7 @@ import javax.swing.event.ListDataListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
-import entspy.Lexer.LexerException;
+import bspentspy.Lexer.LexerException;
 import util.Cons;
 import util.SwingWorker;
 

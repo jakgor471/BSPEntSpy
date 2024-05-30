@@ -1,14 +1,14 @@
-package entspy;
+package bspentspy;
 
 import java.util.ArrayList;
 
 import javax.swing.JList;
 import javax.swing.table.AbstractTableModel;
 
-import entspy.ClassPropertyPanel.KVEntry;
-import entspy.FGDEntry.PropChoicePair;
-import entspy.FGDEntry.Property;
-import entspy.FGDEntry.PropertyChoices;
+import bspentspy.ClassPropertyPanel.KVEntry;
+import bspentspy.FGDEntry.PropChoicePair;
+import bspentspy.FGDEntry.Property;
+import bspentspy.FGDEntry.PropertyChoices;
 
 class KeyValLinkModel extends AbstractTableModel {
 	ArrayList<KVEntry> keyvalues;

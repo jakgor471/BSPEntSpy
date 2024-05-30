@@ -1,4 +1,4 @@
-package entspy;
+package bspentspy;
 
 import javax.swing.JFrame;
 import javax.swing.JScrollPane;

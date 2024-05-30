@@ -1,12 +1,12 @@
-package entspy;
+package bspentspy;
 
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
 
-import entspy.Lexer.BasicToken;
-import entspy.Lexer.BasicTokenType;
-import entspy.Lexer.LexerException;
+import bspentspy.Lexer.BasicToken;
+import bspentspy.Lexer.BasicTokenType;
+import bspentspy.Lexer.LexerException;
 
 public class VMF {
 	public ArrayList<Entity> ents;

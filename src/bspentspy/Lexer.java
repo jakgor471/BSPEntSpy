@@ -1,9 +1,9 @@
-package entspy;
+package bspentspy;
 
 import java.io.IOException;
 import java.io.Reader;
 
-public abstract class Lexer<T extends entspy.Lexer.LexerToken>{
+public abstract class Lexer<T extends bspentspy.Lexer.LexerToken>{
 	public static enum BasicTokenType{
 		ident,
 		string,

@@ -1,4 +1,4 @@
-package entspy;
+package bspentspy;
 
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
@@ -28,7 +28,7 @@ import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 import javax.swing.table.TableColumn;
 
-import entspy.FGDEntry.Property;
+import bspentspy.FGDEntry.Property;
 
 @SuppressWarnings("serial")
 public class ClassPropertyPanel extends JTabbedPane {
@@ -37,10 +37,10 @@ public class ClassPropertyPanel extends JTabbedPane {
 	private JTextField keyTextField;
 	private JTextField valueTextField;
 	private JLabel valueLabel;
-	private TextListen classnameListener;
-	private TextListen originListener;
-	private TextListen keyListener;
-	private TextListen valueListener;
+	private KeyValueListener classnameListener;
+	private KeyValueListener originListener;
+	private KeyValueListener keyListener;
+	private KeyValueListener valueListener;
 	private JTable table;
 	private JButton addkv;
 	private JButton cpykv;
@@ -91,8 +91,8 @@ public class ClassPropertyPanel extends JTabbedPane {
 		originTextField = new JTextField(" ");
 		originTextField.setEnabled(false);
 		
-		classnameListener = new TextListen("classname", classTextField);
-		originListener = new TextListen("origin", originTextField);
+		classnameListener = new KeyValueListener("classname", classTextField);
+		originListener = new KeyValueListener("origin", originTextField);
 		
 		classTextField.getDocument().addDocumentListener(classnameListener);
 		originTextField.getDocument().addDocumentListener(originListener);
@@ -133,8 +133,8 @@ public class ClassPropertyPanel extends JTabbedPane {
 		valueTextField.setEnabled(false);
 		valueTextField.addActionListener(kvListener);
 		
-		keyListener = new TextListen(null, keyTextField, true);
-		valueListener = new TextListen(null, valueTextField, false);
+		keyListener = new KeyValueListener(null, keyTextField, true);
+		valueListener = new KeyValueListener(null, valueTextField, false);
 		
 		keyTextField.getDocument().addDocumentListener(keyListener);
 		valueTextField.getDocument().addDocumentListener(valueListener);
@@ -428,6 +428,9 @@ public class ClassPropertyPanel extends JTabbedPane {
 			}
 		}
 		
+		if(!kvMap.containsKey("classname"))
+			addKeyValue("classname", "info_target");
+		
 		refreshClassOriginInfo();
 		
 		if(fgdContent != null && classname != null && !classname.different && addDefaultParameters) {
@@ -440,7 +443,7 @@ public class ClassPropertyPanel extends JTabbedPane {
 					KVEntry kventry = kvMap.get(p.name);
 					
 					if(kventry == null) {
-						kventry = addKeyValue(p.name, "");
+						kventry = addKeyValue(p.name, p.defaultVal);
 						kventry.autoAdded = true;
 					}
 				}
@@ -568,18 +571,18 @@ public class ClassPropertyPanel extends JTabbedPane {
 		}
 	}
 	
-	class TextListen implements DocumentListener {
+	class KeyValueListener implements DocumentListener {
 		KVEntry kv;
 		JTextField textField;
 		String oldKey;
 		String oldVal;
 		boolean key = false;
 
-		public TextListen(String keyname, JTextField field) {
+		public KeyValueListener(String keyname, JTextField field) {
 			this(keyname, field, false);
 		}
 		
-		public TextListen(String keyname, JTextField field, boolean key) {
+		public KeyValueListener(String keyname, JTextField field, boolean key) {
 			this.kv = kvMap.get(keyname);
 			textField = field;
 			this.key = key;
