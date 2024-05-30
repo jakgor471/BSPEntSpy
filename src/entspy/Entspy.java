@@ -73,7 +73,7 @@ import javax.swing.text.html.HTMLEditorKit;
 import javax.swing.text.html.StyleSheet;
 import javax.swing.tree.DefaultMutableTreeNode;
 
-import entspy.FGD.FGDException;
+import entspy.Lexer.LexerException;
 import util.Cons;
 import util.SwingWorker;
 
@@ -949,9 +949,9 @@ public class Entspy {
 				}
 			};
 			
-			fgdFile.loadFromStream(fr, file.getName(), callback);
+			fgdFile.loadFromReader(fr, file.getName(), callback);
 			fr.close();
-		} catch(Exception | FGDException e) {
+		} catch(Exception | LexerException e) {
 			JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 			return false;
 		}
