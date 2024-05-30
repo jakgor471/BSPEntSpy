@@ -4,16 +4,22 @@
 <b>Import</b><p>Imports all entities from a specified file.</p>
 <br><br>
 <b>Export selected</b><p>Exports all selected entities into a specified file.</p>
+<br><br>
+<b>Copy</b><p>Copies all selected entities to a clipboard (see the format below).</p>
+<br><br>
+<b>Paste</b><p>Tries to parse the contents of a clipboard, if successful - pastes the parsed entities.</p>
 
 <h2>File syntax HELP</h2>
 <hr>
-<p>Selected entities are outputted into a text file (.ent extension by default), of which format is as follows:</p>
+<p>Selected entities are outputted into a text file (.ent extension by default) or directly into the clipboard as a string, of which format is compliant with VMF format:</p>
+entity<br>
 {<br>
 &emsp;"key1" "value1"<br>
 &emsp;"key2" "value2"<br>
 &emsp;"key3" "value3"<br>
 &emsp;...<br>
 }<br>
+entity<br>
 {<br>
 &emsp;"key1" "value1"<br>
 &emsp;"key2" "value2"<br>
@@ -22,6 +28,12 @@
 }<br>
 ...
 
-<p>Every entity starts with a line containing "{" character and ends with a line containing "}" character. In between 
-the key-value pairs are specified.</p>
 <p>Such file can be inspected and edited with regular text-editing software like Notepad++.</p>
+
+<h2>Importing from VMF</h2>
+<hr>
+<p>Because of a compliance with VMF format it is possible to import a whole .VMF file. <b>Note</b> that some entities won't 
+get imported due to them being declared as <i>internal entities</i>, that is - they get removed during VBSP step of a map 
+compilation and should not exist in the final BSP entity lump.</p>
+<p>Allowed brush entities will have their <i>model</i> parameter set to <i>TODO: DEFINE IT!!!</i>. This parameter links 
+the entity to a BSP brush model and since brush models are separate from entities one needs to specify them manually.</p>

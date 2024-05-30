@@ -34,6 +34,26 @@ public class VMF {
 		}
 	}
 	
+	private static void parseConnections(VMFLexer lexer, Entity ent) throws LexerException {
+		lexer.expect(BasicTokenType.symbol, "{");
+		lexer.consume();
+		
+		while(lexer.getToken().value != null) {
+			if(lexer.getToken().isSymbol() && lexer.getToken().value.equals("}"))
+				break;
+			
+			String key = lexer.expect(BasicTokenType.string).value;
+			lexer.consume();
+			String value = lexer.expect(BasicTokenType.string).value;
+			lexer.consume();
+			
+			ent.addKeyVal(key, value);
+		}
+		
+		lexer.expect(BasicTokenType.symbol, "}");
+		lexer.consume();
+	}
+	
 	private static Entity parseEntity(VMFLexer lexer) throws LexerException {
 		Entity ent = new Entity();
 		
@@ -45,11 +65,17 @@ public class VMF {
 				break;
 			
 			if(lexer.getToken().isIdent()) {
-				if(lexer.getToken().value.equals("solid")) {
-					ent.addKeyVal("model", "TODO: DEFINE IT!!!");
+				if(lexer.getToken().value.equals("connections")) {
+					lexer.consume();
+					parseConnections(lexer, ent);
+				} else {
+					if(lexer.getToken().value.equals("solid")) {
+						ent.addKeyVal("model", "TODO: DEFINE IT!!!");
+					}
+					
+					lexer.consume();
+					skipClass(lexer);
 				}
-				lexer.consume();
-				skipClass(lexer);
 				continue;
 			}
 			
