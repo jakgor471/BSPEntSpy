@@ -60,23 +60,39 @@ public class Entity {
 	}
 
 	public void setKeyVal(String k, String v) {
-		if (kvmap.containsKey(k)) {
-			keyvalues.get(kvmap.get(k)).value = v;
-			setnames();
+		if (!kvmap.containsKey(k)) {
+			addKeyVal(k, v);
 			return;
 		}
-
-		addKeyVal(k, v);
+		
+		CommandSetVal command = new CommandSetVal();
+		if(duplicates.getOrDefault(k, 0) > 0) {
+			for(KeyValLink kvl : keyvalues) {
+				if(kvl.key.equals(k)) {
+					command.add(kvl, kvl.value, v);
+					kvl.value = v;
+				}
+			}
+		} else {
+			KeyValLink toChange = keyvalues.get(kvmap.get(k));
+			command.add(toChange, toChange.value, v);
+			toChange.value = v;
+		}
+		
+		Undo.addCommand(command);
+		setnames();
 	}
 	
 	public int setKeyVal(Integer uniqueId, String key, String v) {
 		if (uniqueId != null && uniqueKvmap.containsKey(uniqueId)) {
 			KeyValLink kvl = keyvalues.get(uniqueKvmap.get(uniqueId));
+			
+			CommandSetVal command = new CommandSetVal(kvl, kvl.value, v);
+			Undo.addCommand(command);
+			
 			kvl.value = v;
 			
-			if(!kvl.key.equals(key))
-				changeKey(uniqueId, key);
-			
+			changeKey(uniqueId, key);
 			setnames();
 			return uniqueId;
 		}
@@ -95,6 +111,7 @@ public class Entity {
 		kv.uniqueId = uniqueInt;
 		
 		insertKeyVal(keyvalues.size(), kv);
+		setnames();
 		
 		return uniqueInt;
 	}
@@ -104,12 +121,11 @@ public class Entity {
 			return;
 		keyvalues.add(index, kvl);
 		
-		if(Undo.isActiveUndo()) {
-			CommandInsertKV command = new CommandInsertKV(kvl, index);
-			Undo.addCommand(command);
-		}
+		CommandInsertKV command = new CommandInsertKV(kvl, index);
+		Undo.addCommand(command);
 		
-		duplicates.put(kvl.key, duplicates.getOrDefault(kvl.key, 0) + 1);
+		if(duplicates.containsKey(kvl.key))
+			duplicates.put(kvl.key, duplicates.get(kvl.key) + 1);
 		
 		for(int i = index; i < size(); ++i) {
 			kvmap.put(keyvalues.get(i).key, i);
@@ -126,13 +142,9 @@ public class Entity {
 		}
 		
 		int index = kvmap.get(from);
-		keyvalues.get(index).key = to;
-		kvmap.remove(from);
-		kvmap.put(to, index);
-		
-		CommandChangeKey command = new CommandChangeKey(from, to);
-		
+
 		if(duplicates.getOrDefault(from, 0) > 0) {
+			CommandChangeKey command = new CommandChangeKey(from, to);
 			duplicates.put(to, duplicates.get(from));
 			duplicates.remove(from);
 			
@@ -142,8 +154,10 @@ public class Entity {
 					command.add(kvl);
 				}
 			}
-			
 			Undo.addCommand(command);
+			setnames();
+		}else {
+			changeKey(keyvalues.get(index).uniqueId, to);
 		}
 	}
 	
@@ -154,17 +168,20 @@ public class Entity {
 		int index = uniqueKvmap.get(uniqueId);
 		KeyValLink toChange = keyvalues.get(index);
 		
-		if(Undo.isActiveUndo()) {
-			CommandChangeKey command = new CommandChangeKey(toChange, toChange.key, to);
-			Undo.addCommand(command);
-		}
+		if(toChange.key.equals(to))
+			return;
+		
+		CommandChangeKey command = new CommandChangeKey(toChange, toChange.key, to);
+		Undo.addCommand(command);
 		
 		duplicates.put(toChange.key, uniqueKvmap.getOrDefault(toChange.key, 1) - 1);
-		duplicates.put(to, uniqueKvmap.getOrDefault(to, 0) + 1);
+		duplicates.put(to, uniqueKvmap.getOrDefault(to, -1) + 1);
 		
 		kvmap.remove(keyvalues.get(index).key);
 		keyvalues.get(index).key = to;
 		kvmap.put(to, index);
+		
+		setnames();
 	}
 	
 	public void rehash() {
@@ -184,14 +201,19 @@ public class Entity {
 	
 		if(duplicates.getOrDefault(k, 0) > 0) {
 			duplicates.remove(k);
+			CommandDeleteKV command = new CommandDeleteKV();
 			
 			for(int i = 0; i < size(); ++i) {
 				if(keyvalues.get(i).key.equals(k)) {
+					command.add(keyvalues.get(i), i);
 					keyvalues.remove(i--);
 				}
 			}
 			
+			Undo.addCommand(command);
+			
 			rehash();
+			setnames();
 		} else {
 			delKeyVal(kvmap.get(k));
 		}
@@ -208,12 +230,11 @@ public class Entity {
 			return;
 		}
 		
-		if(Undo.isActiveUndo()) {
-			DummyCommand command = new DummyCommand();
-			command.things.add("DelKeyVal " + i);
-			Undo.addCommand(command);
-		}
 		KeyValLink toRemove = keyvalues.get(i);
+		
+		CommandDeleteKV command = new CommandDeleteKV(toRemove, i);
+		Undo.addCommand(command);
+		
 		kvmap.remove(toRemove.key);
 		uniqueKvmap.remove(toRemove.uniqueId);
 		duplicates.put(toRemove.key, duplicates.getOrDefault(toRemove.key, 1) - 1);
@@ -224,7 +245,7 @@ public class Entity {
 			uniqueKvmap.put(keyvalues.get(j).uniqueId, j);
 		}
 
-		this.setnames();
+		setnames();
 	}
 
 	public int size() {
@@ -318,6 +339,10 @@ public class Entity {
 			
 			return null;
 		}
+		
+		public int size() {
+			return keyvalues.size();
+		}
 	}
 	
 	public static class CommandInsertKV extends CommandKV{
@@ -361,14 +386,35 @@ public class Entity {
 				((Entity)target).insertKeyVal(indices.get(it.nextIndex()), it.next());
 			}
 		}
+		
+		public String toString(String indent) {
+			StringBuilder sb = new StringBuilder();
+			System.out.println("ident" + indent);
+			
+			sb.append(indent).append(this.getClass()).append("\n");
+			
+			for(int i = 0; i < keyvalues.size(); ++i) {
+				sb.append(indent).append("\t\t").append(keyvalues.get(i).toString()).append(" at index ").append(indices.get(i)).append("\n");
+			}
+			
+			return sb.toString();
+		}
 	}
 	
 	public static class CommandDeleteKV extends CommandInsertKV{		
+		public CommandDeleteKV(KeyValLink toRemove, int i) {
+			super(toRemove, i);
+		}
+
+		public CommandDeleteKV() {
+			super();
+		}
+
 		public void undo(Object target) {
 			ListIterator<KeyValLink> it = keyvalues.listIterator(keyvalues.size());
 			
 			while(it.hasPrevious()) {
-				((Entity)target).insertKeyVal(indices.get(it.nextIndex()), it.next());
+				((Entity)target).insertKeyVal(indices.get(it.previousIndex()), it.previous());
 			}
 		}
 
@@ -434,6 +480,18 @@ public class Entity {
 				((Entity)target).setKeyVal(kvl.uniqueId, kvl.key, newVal.get(index));
 			}
 		}
+		
+		public String toString(String indent) {
+			StringBuilder sb = new StringBuilder();
+			
+			sb.append(indent).append(this.getClass()).append("\n");
+			
+			for(int i = 0; i < keyvalues.size(); ++i) {
+				sb.append(indent).append("\t\t").append(keyvalues.get(i).toString()).append(", oldVal: \"").append(oldVal.get(i)).append("\", newVal: \"").append(newVal.get(i)).append("\"\n");
+			}
+			
+			return sb.toString();
+		}
 	}
 	
 	public static class CommandChangeKey extends CommandKV{
@@ -492,6 +550,18 @@ public class Entity {
 				((Entity)target).changeKey(kvl.uniqueId, newKey);
 			}
 		}
+		
+		public String toString(String indent) {
+			StringBuilder sb = new StringBuilder();
+			
+			sb.append(indent).append(this.getClass()).append(", change key from: \"").append(oldKey).append("\" to \"").append(newKey).append("\"\n");
+			
+			for(int i = 0; i < keyvalues.size(); ++i) {
+				sb.append(indent).append("\t\t").append(keyvalues.get(i).toString()).append("\n");
+			}
+			
+			return sb.toString();
+		}
 	}
 
 	public static class KeyValLink {
@@ -499,5 +569,9 @@ public class Entity {
 		public String key;
 		public String value;
 		public Entity link;
+		
+		public String toString() {
+			return "(\"" + key + "\" \"" + value + "\")";
+		}
 	}
 }

@@ -29,6 +29,7 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -65,9 +66,9 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
 import bspentspy.ClassPropertyPanel.GotoEvent;
+import bspentspy.Entity.KeyValLink;
 import bspentspy.Lexer.LexerException;
-import bspentspy.Undo.DummyCommand;
-import util.Cons;
+import bspentspy.Undo.Command;
 import util.SwingWorker;
 
 public class BSPEntspy {
@@ -84,7 +85,7 @@ public class BSPEntspy {
 	HashSet<Entity> previouslySelected = new HashSet<Entity>();
 	
 	static ImageIcon esIcon = new ImageIcon(JTBRenderer.class.getResource("/images/newicons/entspy.png"));
-	public static final String entspyTitle = "BSPEntSpy v1.0";
+	public static final String entspyTitle = "BSPEntSpy v1.1";
 
 	public int exec() throws IOException {
 		preferences = Preferences.userRoot().node(getClass().getName());
@@ -144,14 +145,16 @@ public class BSPEntspy {
 		mUndo.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				Undo.undo();
+				entList.setModel(new EntspyListModel(m.el));
 			}
 		});
 		JMenuItem mRedo = new JMenuItem("Redo");
 		mRedo.setToolTipText("Redo last edit");
-		mRedo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_R, KeyEvent.CTRL_DOWN_MASK));
+		mRedo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Y, KeyEvent.CTRL_DOWN_MASK));
 		mRedo.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				Undo.redo();
+				entList.setModel(new EntspyListModel(m.el));
 			}
 		});
 		editmenu.add(mUndo);
@@ -179,6 +182,19 @@ public class BSPEntspy {
 		helpmenu.add(mcreditHelp);
 
 		mcreditHelp.addActionListener(new HelpActionListener("/text/credits.html"));
+		
+		/*JMenuItem mundoStack = new JMenuItem("Undo stack (DEBUG)");
+		helpmenu.add(mundoStack);
+		
+		mundoStack.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				HelpWindow help = HelpWindow.openHelp("UNDO STACK (DEBUG)");
+				
+				help.setText(Undo.printStackHTML());
+				help.setSize(720, 520);
+				help.setVisible(true);
+			}
+		});*/
 		
 		final ClassPropertyPanel rightEntPanel = new ClassPropertyPanel();
 		rightEntPanel.fgdContent = fgdFile;
@@ -238,7 +254,7 @@ public class BSPEntspy {
 					BSPEntspy.this.m.loadheader();
 					BSPEntspy.this.loaddata();
 				} catch (IOException ex) {
-					Cons.println(ex);
+					System.out.println(ex);
 				}
 			}
 		});
@@ -426,9 +442,15 @@ public class BSPEntspy {
 					
 					fr.close();
 					
+					CommandAddEntity command = new CommandAddEntity();
 					for(Entity e : ents) {
+						command.addEntity(e, m.el.size());
 						m.el.add(e);
 					}
+					Undo.create();
+					Undo.setTarget(m.el);
+					Undo.addCommand(command);
+					Undo.finish();
 					
 					entList.setModel(new EntspyListModel(m.getData()));
 					preferences.put("LastFolder", f.getParent());
@@ -496,9 +518,15 @@ public class BSPEntspy {
 					if(i > 0)
 						++i;
 					
+					CommandAddEntity command = new CommandAddEntity();
 					for(Entity e : ents) {
-						m.el.add(i++, e);
+						command.addEntity(e, m.el.size());
+						m.el.add(e);
 					}
+					Undo.create();
+					Undo.setTarget(m.el);
+					Undo.addCommand(command);
+					Undo.finish();
 					
 					entList.setModel(new EntspyListModel(m.getData()));
 				} catch(Exception | LexerException e) {
@@ -540,10 +568,18 @@ public class BSPEntspy {
 			public void actionPerformed(ActionEvent e) {
 				ArrayList<Entity> toremove = new ArrayList<Entity>();
 				int j = 0;
+				
+				CommandRemoveEntity command = new CommandRemoveEntity();
 				for (int i : BSPEntspy.this.entList.getSelectedIndices()) {
+					command.addEntity(m.el.get(i), i);
 					toremove.add(m.el.get(i));
 					++j;
 				}
+				Undo.create();
+				Undo.setTarget(m.el);
+				Undo.addCommand(command);
+				Undo.finish();
+				
 				m.el.removeAll(toremove);
 				
 				j = entList.getMaxSelectionIndex() - j;
@@ -559,6 +595,8 @@ public class BSPEntspy {
 
 			public void actionPerformed(ActionEvent e) {				
 				int[] selected = entList.getSelectedIndices();
+				
+				CommandAddEntity command = new CommandAddEntity();
 				for(int j = 0; j < selected.length; ++j) {
 					selected[j] += j;
 					Entity old = m.el.get(selected[j]);
@@ -566,9 +604,14 @@ public class BSPEntspy {
 					
 					if(old != null) {
 						Entity newE = old.copy();
+						command.addEntity(newE, selected[j]);
 						m.el.add(selected[j], newE);
 					}
 				}
+				Undo.create();
+				Undo.setTarget(m.el);
+				Undo.addCommand(command);
+				Undo.finish();
 				
 				entList.setModel(new EntspyListModel(m.getData()));
 				entList.setSelectedIndices(selected);
@@ -581,14 +624,21 @@ public class BSPEntspy {
 			public void actionPerformed(ActionEvent e) {
 				Entity newent = new Entity();
 				int index = 0;
-
+				
+				CommandAddEntity command;
 				if (entList.getMaxSelectionIndex() > 0) {
-					m.el.add(entList.getMaxSelectionIndex() + 1, newent);
 					index = entList.getMaxSelectionIndex() + 1;
+					command = new CommandAddEntity(newent, index);
+					m.el.add(index, newent);
 				} else {
-					m.el.add(newent);
 					index = m.el.size() - 1;
+					command = new CommandAddEntity(newent, m.el.size());
+					m.el.add(newent);
 				}
+				Undo.create();
+				Undo.setTarget(m.el);
+				Undo.addCommand(command);
+				Undo.finish();
 
 				newent.autoedit = true;
 				BSPEntspy.this.entList.setModel(new EntspyListModel(m.getData()));
@@ -692,6 +742,7 @@ public class BSPEntspy {
 		this.frame.getContentPane().add(mainSplit);
 		this.frame.setVisible(true);
 		this.loaddata();
+		
 		return 0;
 	}
 
@@ -733,17 +784,17 @@ public class BSPEntspy {
 			chooser = null;
 			this.filename = this.infile.getName();
 			if (!(this.infile.exists() && this.infile.canRead())) {
-				Cons.println("Can't read " + this.filename + "!");
+				System.out.println("Can't read " + this.filename + "!");
 				return false;
 			}
-			Cons.println("Reading map file " + this.filename);
+			System.out.println("Reading map file " + this.filename);
 			this.raf = new RandomAccessFile(this.infile, "r");
 			
 			preferences.put("LastFolder", this.infile.getParent());
 			
 			return true;
 		} catch (IOException ioe) {
-			Cons.println(ioe);
+			System.out.println(ioe);
 			return false;
 		}
 	}
@@ -822,17 +873,17 @@ public class BSPEntspy {
 				if (this.infile.getCanonicalPath().equals(outfile.getCanonicalPath())) {
 					long ilength = this.infile.length();
 					File renfile = new File(this.infile.getAbsolutePath() + ".bak");
-					Cons.print("Copying current map file to " + renfile.getAbsolutePath() + "...");
+					System.out.print("Copying current map file to " + renfile.getAbsolutePath() + "...");
 					prog.start("Copying current map", true);
 					RandomAccessFile copyraf = new RandomAccessFile(renfile, "rw");
 					copyraf.setLength(0);
 					this.raf.seek(0);
 					this.m.blockcopy(this.raf, copyraf, ilength);
 					copyraf.close();
-					Cons.println("Done");
+					System.out.println("Done");
 					this.infile = renfile;
 					if (!this.infile.exists()) {
-						Cons.println("Cannot find renamed file - map save aborted");
+						System.out.println("Cannot find renamed file - map save aborted");
 						this.frame.setVisible(false);
 						return;
 					}
@@ -840,26 +891,26 @@ public class BSPEntspy {
 					this.raf = new RandomAccessFile(this.infile, "r");
 				}
 			}
-			Cons.print("Writing " + outfilename + "...");
+			System.out.print("Writing " + outfilename + "...");
 			this.raf.seek(0);
 			RandomAccessFile outraf = new RandomAccessFile(outfile, "rw");
 			prog.start("Saving map...", true);
 			outraf.setLength(0);
 			this.m.setfile(this.raf);
-			Cons.print("BSP header... ");
+			System.out.print("BSP header... ");
 			this.m.saveheader(outraf, entopt);
-			Cons.print("Pre-entity data... ");
+			System.out.print("Pre-entity data... ");
 			prog.setString("Writing pre-entity data...");
 			this.m.savepre(outraf);
-			Cons.print("Entity data... ");
+			System.out.print("Entity data... ");
 			prog.setString("Writing entity data...");
 			this.m.saveent(outraf);
-			Cons.print("Post-entity data... ");
+			System.out.print("Post-entity data... ");
 			prog.setString("Writing post-entity data...");
 			this.m.savepost(outraf, entopt);
 			this.m.saveglumps(outraf);
 			outraf.close();
-			Cons.println("Done");
+			System.out.println("Done");
 			this.raf.close();
 			this.infile = outfile;
 			this.raf = new RandomAccessFile(this.infile, "r");
@@ -868,7 +919,7 @@ public class BSPEntspy {
 			this.m.setfile(this.raf);
 			this.m.dirty = false;
 		} catch (IOException ioe) {
-			Cons.println(ioe);
+			System.out.println(ioe);
 		}
 	}
 	
@@ -927,7 +978,7 @@ public class BSPEntspy {
 					BSPEntspy.this.m.loadentities();
 					BSPEntspy.this.m.loadglumps();
 				} catch (IOException ex) {
-					Cons.println(ex);
+					System.out.println(ex);
 				}
 				return null;
 			}
@@ -945,7 +996,7 @@ public class BSPEntspy {
 	}
 
 	public boolean checkchanged(String title) {
-		if (!this.m.dirty) {
+		if (!this.m.dirty && Undo.isEmpty()) {
 			return false;
 		}
 		int result = JOptionPane.showConfirmDialog(this.frame,
@@ -1196,6 +1247,104 @@ public class BSPEntspy {
 		public void removeListDataListener(ListDataListener l) {
 		}
 
+	}
+	
+	private static abstract class CommandEntity implements Command{
+		ArrayList<Entity> entities;
+		
+		public CommandEntity() {
+			entities = new ArrayList<Entity>();
+		}
+		
+		public CommandEntity(Entity e) {
+			entities = new ArrayList<Entity>();
+			entities.add(e);
+		}
+
+		public Command join(Command previous) {
+			CommandEntity prev = (CommandEntity) previous;
+			prev.entities.addAll(entities);
+			
+			return null;
+		}
+
+		public int size() {
+			return entities.size();
+		}
+	}
+	
+	private static class CommandAddEntity extends CommandEntity{
+		ArrayList<Integer> indices;
+		
+		public CommandAddEntity() {
+			indices = new ArrayList<Integer>();
+		}
+		
+		public CommandAddEntity(Entity e, int index) {
+			super(e);
+			indices = new ArrayList<Integer>();
+			indices.add(index);
+		}
+		
+		public void addEntity(Entity e, int index) {
+			entities.add(e);
+			indices.add(index);
+		}
+		
+		public void undo(Object target) {
+			ListIterator<Integer> it = indices.listIterator();
+			int offset = 0;
+			
+			while(it.hasNext()) {
+				((ArrayList<Entity>)target).remove(it.next().intValue() - offset++);
+			}
+		}
+
+		public void redo(Object target) {
+			ListIterator<Entity> it = entities.listIterator();
+			while(it.hasNext()) {
+				((ArrayList<Entity>)target).add(indices.get(it.nextIndex()), it.next());
+			}
+		}
+
+		public String toString(String indent) {
+			StringBuilder sb = new StringBuilder();
+			System.out.println("ident" + indent);
+			
+			sb.append(indent).append(this.getClass()).append("\n");
+			
+			for(int i = 0; i < entities.size(); ++i) {
+				sb.append(indent).append("\t\t").append(entities.get(i).toString()).append(" at index ").append(indices.get(i)).append("\n");
+			}
+			
+			return sb.toString();
+		}
+	}
+	
+	private static class CommandRemoveEntity extends CommandAddEntity{
+		public CommandRemoveEntity() {
+			
+		}
+		public CommandRemoveEntity(Entity e, int index) {
+			super(e, index);
+		}
+		
+		public void undo(Object target) {
+			ListIterator<Entity> it = entities.listIterator();
+			
+			while(it.hasNext()) {
+				((ArrayList<Entity>)target).add(indices.get(it.nextIndex()), it.next());
+			}
+		}
+
+		public void redo(Object target) {
+			ListIterator<Integer> it = indices.listIterator();
+			int offset = 0;
+			
+			while(it.hasNext()) {
+				((ArrayList<Entity>)target).remove(it.next().intValue() - offset++);
+			}
+		}
 	}
 
 }

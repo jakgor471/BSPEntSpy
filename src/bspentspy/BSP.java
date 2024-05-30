@@ -10,8 +10,6 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.zip.CRC32;
 
-import util.Cons;
-
 public class BSP {
     int ident;
     int version;
@@ -68,18 +66,18 @@ public class BSP {
         this.ident = b.getInt();
         int idbsp = 1347633750;
         this.version = b.getInt();
-        Cons.println("Ident: " + this.ident);
-        Cons.println("Version: " + this.version);
+        System.out.println("Ident: " + this.ident);
+        System.out.println("Version: " + this.version);
         if (this.ident != idbsp) {
-            Cons.println("Unknown map file ident!");
+        	System.out.println("Unknown map file ident!");
             System.exit(1);
         }
         
         if (this.version != 20 && this.version != 19 && this.version != 17) 
-            Cons.println("Unknown map file version! EntSpy will run, but results might not be as intended.");
+        	System.out.println("Unknown map file version! EntSpy will run, but results might not be as intended.");
         
         this.lump = new Lump[64];
-        this.lumplist = new ArrayList();
+        this.lumplist = new ArrayList<Lump>();
         for (int i = 0; i < 64; ++i) {
             this.lump[i] = new Lump();
             this.lump[i].index = i;
@@ -89,21 +87,21 @@ public class BSP {
             this.lump[i].fourCC = b.getInt();
             if (this.lump[i].len <= 0) continue;
             this.lumplist.add(this.lump[i]);
-            Cons.print("" + i + ": ");
-            Cons.print("" + this.lump[i].ofs + ", " + this.lump[i].len + ", " + this.lump[i].vers + ", " + this.lump[i].fourCC);
-            Cons.print(" " + Lump.name(i) + "  " + this.lump[i].len / Lump.size(i) + (Lump.size(i) == 1 ? " bytes" : ""));
+            System.out.print("" + i + ": ");
+            System.out.print("" + this.lump[i].ofs + ", " + this.lump[i].len + ", " + this.lump[i].vers + ", " + this.lump[i].fourCC);
+            System.out.print(" " + Lump.name(i) + "  " + this.lump[i].len / Lump.size(i) + (Lump.size(i) == 1 ? " bytes" : ""));
             if (this.lump[i].len % Lump.size(i) != 0) {
-                Cons.println("    XXXXX");
+            	System.out.println("    XXXXX");
             }
-            Cons.println();
+            System.out.println();
         }
         this.maprev = b.getInt();
-        Cons.println("MapRev: " + this.maprev);
+        System.out.println("MapRev: " + this.maprev);
         Collections.sort(this.lumplist);
     }
 
     public void loadentities() throws IOException {
-        this.el = new ArrayList();
+        this.el = new ArrayList<Entity>();
         this.raf.seek(this.lump[0].ofs);
         long end = this.lump[0].ofs + this.lump[0].len;
         boolean numents = false;

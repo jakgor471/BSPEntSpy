@@ -537,6 +537,12 @@ public class ClassPropertyPanel extends JPanel {
 			}
 		}
 		
+		boolean isEdited = (edited.size() > 0 || renamed.size() > 0 || deletedKv.size() > 0);
+		boolean classOriginEdited = (classname != null && classname.edited) || (origin != null && origin.edited);
+		if(!(isEdited || classOriginEdited))
+			return;
+		
+		//TODO: duplicates etc
 		Undo.create();
 		for(Entity e : editingEntities) {
 			Undo.setTarget(e);
@@ -564,9 +570,9 @@ public class ClassPropertyPanel extends JPanel {
 				}
 			}
 			
-			if(classname != null && !classname.different)
+			if(classname != null && !classname.different && classname.edited)
 				e.setKeyVal("classname", classname.value);
-			if(origin != null && origin.edited)
+			if(origin != null && origin.edited && origin.edited)
 				e.setKeyVal("origin", origin.value);
 			
 			e.setnames();

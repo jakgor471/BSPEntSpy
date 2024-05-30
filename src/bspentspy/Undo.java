@@ -3,8 +3,11 @@ package bspentspy;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.ListIterator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Undo {
 	private ArrayList<ArrayList<UndoEntry>> stack;
@@ -70,10 +73,18 @@ public class Undo {
 		instance.stack.add(current);
 	}
 	
+	public static void pause() {
+		instance.activeUndo = false;
+	}
+	
+	public static void resume() {
+		instance.activeUndo = true;
+	}
+	
 	public static void finish() {
 		instance.activeUndo = false;
 		ArrayList<UndoEntry> current = getCurrentUndo();
-		instance.currEmpty = instance.currEmpty && current.get(current.size() - 1).empty;
+		instance.currEmpty = instance.currEmpty && current.get(current.size() - 1).isEmpty();
 		
 		if(instance.currEmpty) {
 			instance.stack.remove(instance.currLevel);
@@ -86,13 +97,15 @@ public class Undo {
 		if(!instance.activeUndo || current == null)
 			return;
 		
-		if(current.get(current.size() - 1).target != target) {
+		if(current.get(current.size() - 1).target != target && current.get(current.size() - 1).target != null) {
 			UndoEntry newue = new UndoEntry();
 			newue.target = target;
 			current.add(newue);
 			
 			instance.currEmpty = instance.currEmpty && current.get(current.size() - 1).empty;
 		}
+		
+		current.get(current.size() - 1).target = target;
 	}
 	
 	public static void addCommand(Command c) {
@@ -101,6 +114,47 @@ public class Undo {
 			return;
 		
 		current.get(current.size() - 1).addCommand(c);
+	}
+	
+	public static boolean isEmpty() {
+		return instance.stack.size() < 1;
+	}
+	
+	public static String printStack() {
+		StringBuilder sb = new StringBuilder();
+		
+		for(int i = 0; i < instance.stack.size(); ++i) {
+			if(i == instance.currLevel)
+				sb.append("(CURRENT) ");
+			sb.append("LEVEL ").append(i).append("\nENTRIES:\n");
+			ArrayList<UndoEntry> entries = instance.stack.get(i);
+			
+			for(UndoEntry ue : entries) {
+				sb.append("\t").append(ue.toString("\t")).append("\n");
+			}
+		}
+		
+		System.out.println(sb.toString());
+		return sb.toString();
+	}
+	
+	public static String printStackHTML() {
+		String str = printStack();
+		
+		final HashMap<String, String> repMap = new HashMap<String, String>();
+		StringBuffer sb = new StringBuffer();
+		repMap.put("\t", "&emsp;");
+		repMap.put("\n", "<br>");
+		
+		Pattern p = Pattern.compile("\t|\n");
+		Matcher match = p.matcher(str);
+
+		while(match.find()) {
+			match.appendReplacement(sb, repMap.getOrDefault(match.group(), ""));
+		}
+		
+		match.appendTail(sb);
+		return sb.toString();
 	}
 	
 	private static ArrayList<UndoEntry> getCurrentUndo(){
@@ -113,46 +167,29 @@ public class Undo {
 		public Command join(Command previous);
 		public void undo(Object target);
 		public void redo(Object target);
-	}
-	
-	public static class DummyCommand implements Command{
-		ArrayDeque<String> things = new ArrayDeque<String>();
 		
-		public Command join(Command other) {
-			DummyCommand otherdc = (DummyCommand)other;
-			otherdc.things.addAll(things);
-			
-			return null;
-		}
-		
-		public void undo(Object target) {
-			Iterator it = things.descendingIterator();
-			
-			System.out.println("==== UNDO ====");
-			while(it.hasNext()) {
-				System.out.println("UNDO: " + it.next());
-			}
-		}
-		
-		public void redo(Object target) {
-			Iterator it = things.iterator();
-			
-			System.out.println("==== REDO ====");
-			while(it.hasNext()) {
-				System.out.println("REDO: " + it.next());
-			}
-		}
+		public String toString(String indent);
+		public int size();
 	}
 	
 	private static class UndoEntry{
 		private ArrayDeque<Command> commands;
 		private Object target;
-		public boolean empty;
+		private boolean empty;
 		
 		public UndoEntry() {
 			commands = new ArrayDeque<Command>();
 			target = null;
 			empty = true;
+		}
+		
+		public int size() {
+			int size = 0;
+			for(Command c : commands) {
+				size += c.size();
+			}
+			
+			return size;
 		}
 		
 		public void addCommand(Command toAdd) {
@@ -179,6 +216,23 @@ public class Undo {
 			while(it.hasNext()) {
 				it.next().redo(target);
 			}
+		}
+		
+		public boolean isEmpty() {
+			return empty && target != null;
+		}
+		
+		public String toString(String indent) {
+			StringBuilder sb = new StringBuilder();
+			
+			sb.append("TARGET: ").append(target).append("\n");
+			
+			Iterator<Command> it = commands.iterator();
+			while(it.hasNext()) {
+				sb.append(indent).append(it.next().toString(indent + "\t"));
+			}
+			
+			return sb.toString();
 		}
 	}
 }
