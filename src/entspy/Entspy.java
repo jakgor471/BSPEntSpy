@@ -135,6 +135,11 @@ public class Entspy {
 		}
 		this.m = new BSP(this.raf);
 		this.m.loadheader();
+		
+		if(loadfgdfiles(null)) {
+			System.out.println("FGD loaded: " + String.join(", ", fgdFile.loadedFgds));
+		}
+		
 		this.entList = new JList<Entity>();
 		DefaultListSelectionModel selmodel = new DefaultListSelectionModel();
 		selmodel.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
@@ -251,7 +256,17 @@ public class Entspy {
 		
 		mloadfgd.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
+				JFileChooser chooser = new JFileChooser(preferences.get("LastFGDDir", System.getProperty("user.dir")));
+				chooser.setDialogTitle("Entspy - Open FGD File");
+				if(chooser.showOpenDialog(frame) == 1)
+					return;
 				
+				File f = chooser.getSelectedFile();
+				if(loadfgdfiles(f)) {
+					preferences.put("LastFGDFile", f.toString());
+					preferences.put("LastFGDDir", f.getAbsolutePath());
+					JOptionPane.showMessageDialog(frame, f.getName() + " successfuly loaded. It will load automaticaly on program start.");
+				}
 			}
 		});
 		
@@ -864,31 +879,39 @@ public class Entspy {
 		}
 	}
 	
-	public void loadfgdfile() {
-		JFileChooser chooser = new JFileChooser(preferences.get("LastFGDFolder", System.getProperty("user.dir")));
-		
-		chooser.setDialogTitle("Entspy - Open a FGD file");
-		File file = chooser.getSelectedFile();
-		chooser = null;
-		
-		if(!(file.exists() && file.canRead())) {
-			JOptionPane.showMessageDialog(frame, "Could not load " + file + "!", "ERROR!", JOptionPane.ERROR_MESSAGE);
-			return;
+	public boolean loadfgdfiles(File file) {	
+		if(file == null) {
+			String lastFgd = preferences.get("LastFGDFile", null);
+			if(lastFgd == null)
+				return false;
+			
+			file = new File(lastFgd);
 		}
+		
+		if(!file.exists() || !file.canRead())
+			return false;
+		
+		if(fgdFile == null)
+			fgdFile = new FGD();
 		
 		try(FileReader fr = new FileReader(file)) {
-			if(fgdFile == null)
-				fgdFile = new FGD();
+			final String path = file.getParent();
 			
-			fgdFile.loadFromStream(fr, file.getName());
-		} catch(Exception e) {
+			FGD.OnIncludeCallback callback = new FGD.OnIncludeCallback() {
+				public Boolean call() {
+					File f = new File(path + "/" + this.fileToLoad);
+					return loadfgdfiles(f);
+				}
+			};
 			
-		} catch (FGDException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			fgdFile.loadFromStream(fr, file.getName(), callback);
+			fr.close();
+		} catch(Exception | FGDException e) {
+			JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
+			return false;
 		}
 		
-		preferences.put("LastFGDFolder", file.getParent());
+		return true;
 	}
 
 	public void loaddata() {
@@ -1011,19 +1034,8 @@ public class Entspy {
 		
 		w.flush();
 	}
-
+	
 	public static void main(String[] args) throws Exception {
-		try(FileReader fr = new FileReader(new File("D:\\Steam\\steamapps\\common\\Half-Life 2\\bin\\halflife2.fgd"))) {
-			FGD fgdFile = new FGD();
-			
-			fgdFile.loadFromStream(fr, "halflife2.fgd");
-		} catch(Exception e) {
-			e.printStackTrace();
-		} catch (FGDException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
 		UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 		Entspy inst = new Entspy();
 		inst.exec();
