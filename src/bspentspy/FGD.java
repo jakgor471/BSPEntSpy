@@ -7,6 +7,8 @@ import java.io.Reader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.Callable;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import bspentspy.FGDEntry.DataType;
 import bspentspy.FGDEntry.InputOutput;
@@ -44,7 +46,7 @@ public class FGD {
 		
 		StringBuilder sb = new StringBuilder();
 		sb.append("<h1>").append(entry.classname).append("</h1>");
-		sb.append("<p>").append(entry.description).append("</p><br>");
+		sb.append("<p>").append(sanitiseText(entry.description)).append("</p><br>");
 		
 		sb.append("<h3>PROPERTIES</h3><hr>");
 		
@@ -59,7 +61,7 @@ public class FGD {
 				
 				sb.append("<ul>");
 				for(PropChoicePair ch : choices) {
-					sb.append("<li>").append(ch.value).append(" : ").append(ch.description).append("</li>");
+					sb.append("<li>").append(ch.value).append(" : ").append(sanitiseText(ch.description)).append("</li>");
 				}
 				sb.append("</ul>");
 			}
@@ -72,7 +74,7 @@ public class FGD {
 			
 			sb.append("<ul>");
 			for(PropChoicePair ch : choices) {
-				sb.append("<li>").append(ch.value).append(" : ").append(ch.description).append("</li>");
+				sb.append("<li>").append(ch.value).append(" : ").append(sanitiseText(ch.description)).append("</li>");
 			}
 			sb.append("</ul>");
 		}
@@ -82,10 +84,8 @@ public class FGD {
 			sb.append("<br><h3>INPUTS</h3><hr>");
 			
 			for(InputOutput e : entry.inputs) {
-				if(e.name.equals("spawnflags"))
-					continue;
 				sb.append("<p><b>").append(e.name).append("</b> ").append("&lt;").append(e.type.name).append("&gt; ");
-				sb.append(e.description).append("</p>");
+				sb.append(sanitiseText(e.description)).append("</p>");
 			}
 		}
 		
@@ -93,10 +93,8 @@ public class FGD {
 			sb.append("<br><h3>OUTPUTS</h3><hr>");
 			
 			for(InputOutput e : entry.outputs) {
-				if(e.name.equals("spawnflags"))
-					continue;
 				sb.append("<p><b>").append(e.name).append("</b> ").append("&lt;").append(e.type.name).append("&gt; ");
-				sb.append(e.description).append("</p>");
+				sb.append(sanitiseText(e.description)).append("</p>");
 			}
 		}
 		
@@ -193,8 +191,23 @@ public class FGD {
 	}
 	
 	//TODO: Replace html unsafe characters with safe ones!!!
-	private static String makeHTMLSafe(String s) {
-		return s;
+	private static String sanitiseText(String s) {
+		final HashMap<String, String> repMap = new HashMap<String, String>();
+		StringBuffer sb = new StringBuffer();
+		repMap.put("<", "&lt;");
+		repMap.put(">", "&gt;");
+		repMap.put("\\n", "<br>");
+		
+		Pattern p = Pattern.compile("<|>|\\\\n");
+		Matcher match = p.matcher(s);
+
+		while(match.find()) {
+			match.appendReplacement(sb, repMap.getOrDefault(match.group(), ""));
+		}
+		
+		match.appendTail(sb);
+		
+		return sb.toString();
 	}
 	
 	private static ArrayList<String> parseCommaList(FGDLexer lexer, BasicTokenType type) throws LexerException{
@@ -519,7 +532,7 @@ public class FGD {
 			tok = lexer.getToken();
 		}
 
-		String desc = sb.toString().replace("\\n", "\n");
+		String desc = sb.toString();
 		
 		return desc;
 	}

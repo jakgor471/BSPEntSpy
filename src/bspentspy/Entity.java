@@ -3,6 +3,7 @@ package bspentspy;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import bspentspy.Undo.*;
 
 public class Entity {
 	int index;

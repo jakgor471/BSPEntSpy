@@ -620,7 +620,7 @@ public class BSPEntspy {
 				}
 				rightEntPanel.gatherKeyValues();
 				
-				if(selected.length <= 1) {
+				if(selected.length == 1) {
 					setfindlist(m.el.get(selected[0]), findmodel);
 				}
 			}
