@@ -23,8 +23,92 @@ public class FGD {
 		classMap = new HashMap<String, Integer>();
 	}
 	
+	public String getClassHelp(String classname) {
+		if(!classMap.containsKey(classname))
+			return "No such class";
+		FGDEntry entry = classes.get(classMap.get(classname));
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("<h1>").append(entry.classname).append("</h1>");
+		sb.append("<p>").append(entry.description).append("</p><br>");
+		
+		sb.append("<h3>PROPERTIES</h3><hr>");
+		
+		for(Property e : entry.properties) {
+			if(e.name.equals("spawnflags"))
+				continue;
+			sb.append("<p><b>").append(e.displayName).append("</b> <i>").append(e.name).append("</i> &lt;").append(e.type.name).append("&gt; ");
+			sb.append(e.description).append("</p>");
+			
+			if(e.type == DataType.choices) {
+				ArrayList<PropChoicePair> choices = ((PropertyChoices)e).choices;
+				
+				sb.append("<ul>");
+				for(PropChoicePair ch : choices) {
+					sb.append("<li>").append(ch.value).append(" : ").append(ch.description).append("</li>");
+				}
+				sb.append("</ul>");
+			}
+		}
+		
+		if(entry.propmap.containsKey("spawnflags")) {
+			sb.append("<br><h3>SPAWN FLAGS</h3><hr>");
+			
+			ArrayList<PropChoicePair> choices = ((PropertyChoices)entry.properties.get(entry.propmap.get("spawnflags"))).choices;
+			
+			sb.append("<ul>");
+			for(PropChoicePair ch : choices) {
+				sb.append("<li>").append(ch.value).append(" : ").append(ch.description).append("</li>");
+			}
+			sb.append("</ul>");
+		}
+		
+		
+		if(entry.inputs.size() > 0) {
+			sb.append("<br><h3>INPUTS</h3><hr>");
+			
+			for(InputOutput e : entry.inputs) {
+				if(e.name.equals("spawnflags"))
+					continue;
+				sb.append("<p><b>").append(e.name).append("</b> ").append("&lt;").append(e.type.name).append("&gt; ");
+				sb.append(e.description).append("</p>");
+			}
+		}
+		
+		if(entry.outputs.size() > 0) {
+			sb.append("<br><h3>OUTPUTS</h3><hr>");
+			
+			for(InputOutput e : entry.outputs) {
+				if(e.name.equals("spawnflags"))
+					continue;
+				sb.append("<p><b>").append(e.name).append("</b> ").append("&lt;").append(e.type.name).append("&gt; ");
+				sb.append(e.description).append("</p>");
+			}
+		}
+		
+		sb.append("<hr>");
+		if(entry.baseclasses.size() > 0) {
+			sb.append("<p><i>Derives from: </i>");
+			for(FGDEntry e : entry.baseclasses) {
+				sb.append("<b>").append(e.classname).append("</b>, ");
+			}
+			sb.delete(sb.length() - 2, sb.length());
+			sb.append("</p>");
+		}
+		if(entry.fgdDefinedIndex > -1 && entry.fgdDefinedIndex < loadedFgds.size()) {
+			String filename = loadedFgds.get(entry.fgdDefinedIndex);
+			
+			sb.append("<p><i>Defined in '").append(filename).append("' at line ").append(entry.fgdDefinedLine).append("</i><p>");
+		}
+		
+		return sb.toString();
+	}
+	
 	public void loadFromReader(Reader in, String fgdName, OnIncludeCallback onInclude) throws LexerException {
 		FGDLexer lexer = new FGDLexer(in, fgdName);
+		
+		int fgdIndex = loadedFgds.size();
+		loadedFgds.add(fgdName);
 		
 		while(lexer.getToken() != null) {
 			FGDToken tok = lexer.getToken();
@@ -71,7 +155,7 @@ public class FGD {
 					continue;
 				}
 				
-				FGDEntry newClass = parseClass(lexer, this);
+				FGDEntry newClass = parseClass(lexer, this, fgdIndex);
 				classMap.put(newClass.classname, classes.size());
 				classes.add(newClass);
 				
@@ -80,8 +164,6 @@ public class FGD {
 			
 			throw new LexerException(lexer, "Unknown token!");
 		}
-		
-		loadedFgds.add(fgdName);
 	}
 	
 	private static ArrayList<String> parseCommaList(FGDLexer lexer, BasicTokenType type) throws LexerException{
@@ -178,7 +260,7 @@ public class FGD {
 			lexer.expect(BasicTokenType.symbol, ":");
 			lexer.consume();
 			
-			choice.name = lexer.expect().value;
+			choice.description = lexer.expect().value;
 			lexer.consume();
 			
 			if(lexer.expect().isColon()) {
@@ -273,8 +355,10 @@ public class FGD {
 		return prop;
 	}
 	
-	private static FGDEntry parseClass(FGDLexer lexer, FGD fgdData) throws LexerException {
+	private static FGDEntry parseClass(FGDLexer lexer, FGD fgdData, int fileIndex) throws LexerException {
 		FGDEntry newClass = new FGDEntry();
+		newClass.fgdDefinedIndex = fileIndex;
+		newClass.fgdDefinedLine = lexer.line;
 		
 		if(!FGDEntry.isValidClass(lexer.expect(BasicTokenType.ident).value)) throw new LexerException(lexer, "Unknown class type '" + lexer.getToken().value + "'!");
 		newClass.setClass(lexer.getToken().value);
@@ -282,19 +366,31 @@ public class FGD {
 		
 		ArrayList<String> baseClasses = parseBaseClassesAndSkip(lexer);
 		
-		if(baseClasses != null) {
-			newClass.baseclasses = new ArrayList<FGDEntry>();
-			for(String s : baseClasses) {
-				if(!fgdData.classMap.containsKey(s)) continue;
-				
-				newClass.baseclasses.add(fgdData.classes.get(fgdData.classMap.get(s)));
-			}
-		}
 		lexer.expect(BasicTokenType.symbol, "=");
 		lexer.consume();
 		
 		newClass.classname = lexer.expect().value;
 		lexer.consume();
+		
+		if(baseClasses != null) {
+			newClass.baseclasses = new ArrayList<FGDEntry>();
+			for(String s : baseClasses) {
+				if(!fgdData.classMap.containsKey(s)) throw new LexerException(lexer, "Class '" + newClass.classname + "' derives from not existing '" + s + "'!!!");
+				
+				newClass.baseclasses.add(fgdData.classes.get(fgdData.classMap.get(s)));
+				
+				FGDEntry base = fgdData.classes.get(fgdData.classMap.get(s));
+				
+				for(Property p : base.properties)
+					newClass.addProperty(p);
+				
+				for(InputOutput p : base.inputs)
+					newClass.inputs.add(p);
+				
+				for(InputOutput p : base.outputs)
+					newClass.outputs.add(p);
+			}
+		}
 		
 		if(lexer.expect().isColon()) {
 			lexer.consume();

@@ -12,6 +12,8 @@ public class FGDEntry {
 	public HashMap<String, Integer> propmap;
 	public ArrayList<InputOutput> inputs;
 	public ArrayList<InputOutput> outputs;
+	public int fgdDefinedIndex; //index of fgd file in which this class was declared
+	public int fgdDefinedLine; //line on which this class was defined
 	
 	public FGDEntry(String classname) {
 		this.classname = classname;
@@ -22,6 +24,8 @@ public class FGDEntry {
 		propmap = new HashMap<String, Integer>();
 		inputs = new ArrayList<InputOutput>();
 		outputs = new ArrayList<InputOutput>();
+		fgdDefinedIndex = -1;
+		fgdDefinedIndex = -1;
 	}
 	
 	public FGDEntry() {
@@ -95,16 +99,21 @@ public class FGDEntry {
 	}
 	
 	public static enum DataType{
-		integer,
-		string,
-		floating,
-		bool,
-		flags,
-		choices,
-		voidT,
-		targetDestination,
-		origin,
-		angle,
+		integer("Integer"),
+		string("String"),
+		floating("Float"),
+		bool("Boolean"),
+		flags("Flags"),
+		choices("Choices"),
+		voidT("void"),
+		targetDestination("Target entity"),
+		origin("Vector"),
+		angle("Angle");
+		
+		public String name;
+		DataType(String name) {
+			this.name = name;
+		}
 	}
 	
 	//used for int, string, float
@@ -130,7 +139,7 @@ public class FGDEntry {
 		
 	public static class PropChoicePair{
 		public String value;
-		public String name;
+		public String description;
 		public boolean flagTicked;
 	}
 	
@@ -145,7 +154,7 @@ public class FGDEntry {
 		public void addChoice(String value, String name) {
 			PropChoicePair pair = new PropChoicePair();
 			pair.value = value;
-			pair.name = name;
+			pair.description = name;
 			choices.add(pair);
 		}
 		

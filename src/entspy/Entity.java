@@ -88,6 +88,12 @@ public class Entity {
         this.links.add(null);
         this.setnames();
     }
+    
+    public void delKeyVal(String k) {
+    	if(!kvmap.containsKey(k))
+    		return;
+    	delKeyVal(kvmap.get(k));
+    }
 
     public void delKeyVal(int i) {
         if (i < 0 || i >= this.size()) {

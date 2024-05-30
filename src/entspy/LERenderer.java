@@ -80,8 +80,6 @@ extends DefaultListCellRenderer {
         		return triggerIcon;
         	
         	return brushIcon;
-        } else if(!value.getKeyValue("model").equals("")) {
-        	return modelIcon;
         }
         
         if(cls.indexOf("node") > -1)
@@ -98,6 +96,10 @@ extends DefaultListCellRenderer {
         
         if(cls.indexOf("npc_") > -1 && cls.indexOf("_make") < 0)
     		return npcIcon;
+        
+        if(!value.getKeyValue("model").equals("")) {
+        	return modelIcon;
+        }
         
         return pointIcon;
     }

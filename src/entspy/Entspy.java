@@ -5,7 +5,6 @@ import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.GridLayout;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
@@ -17,12 +16,10 @@ import java.awt.event.KeyEvent;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.io.RandomAccessFile;
 import java.io.Reader;
 import java.io.StringReader;
@@ -35,7 +32,7 @@ import java.util.List;
 import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.swing.BorderFactory;
+
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
@@ -43,7 +40,7 @@ import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListSelectionModel;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -57,7 +54,6 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
-import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.KeyStroke;
@@ -65,15 +61,10 @@ import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.Timer;
 import javax.swing.UIManager;
-import javax.swing.border.BevelBorder;
 import javax.swing.event.ListDataListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-import javax.swing.table.TableCellEditor;
-import javax.swing.table.TableColumn;
 import javax.swing.text.html.HTMLEditorKit;
-import javax.swing.text.html.StyleSheet;
-import javax.swing.tree.DefaultMutableTreeNode;
 
 import entspy.Lexer.LexerException;
 import util.Cons;
@@ -90,9 +81,9 @@ public class Entspy {
 	MapInfo info;
 	Preferences preferences;
 	FGD fgdFile = null;
+	HashSet<Entity> previouslySelected = new HashSet<Entity>();
 	
 	static ImageIcon esIcon = new ImageIcon(JTBRenderer.class.getResource("/images/newicons/entspy.png"));
-	
 	public static final String entspyTitle = "Entspy v2.0";
 
 	public int exec() throws IOException {
@@ -168,11 +159,28 @@ public class Entspy {
 		helpmenu.add(mcreditHelp);
 
 		mcreditHelp.addActionListener(new HelpActionListener("/text/credits.html"));
-
+		
+		final ClassPropertyPanel rightEntPanel = new ClassPropertyPanel();
+		rightEntPanel.fgdContent = fgdFile;
+		
+		JMenu optionmenu = new JMenu("Options");
+		JCheckBoxMenuItem msmartEditOption = new JCheckBoxMenuItem("Smart Edit");
+		msmartEditOption.setToolTipText("If FGD file is loaded Smart Edit can be enabled. See more in Help");
+		msmartEditOption.setEnabled(fgdFile != null);
+		msmartEditOption.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				rightEntPanel.smartEdit = msmartEditOption.getState();
+			}
+		});
+		
+		optionmenu.add(msmartEditOption);
+		
 		JMenuBar menubar = new JMenuBar();
 		menubar.add(filemenu);
+		menubar.add(optionmenu);
 		menubar.add(helpmenu);
 		this.frame.setJMenuBar(menubar);
+		
 		mload.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
@@ -233,6 +241,8 @@ public class Entspy {
 		
 		mloadfgd.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
+				fgdFile = null;
+				
 				JFileChooser chooser = new JFileChooser(preferences.get("LastFGDDir", System.getProperty("user.dir")));
 				chooser.setDialogTitle(entspyTitle + " - Open FGD File");
 				if(chooser.showOpenDialog(frame) == 1)
@@ -243,7 +253,15 @@ public class Entspy {
 					preferences.put("LastFGDFile", f.toString());
 					preferences.put("LastFGDDir", f.getAbsolutePath());
 					JOptionPane.showMessageDialog(frame, f.getName() + " successfuly loaded. It will load automaticaly on program start.");
+				} else {
+					preferences.remove("LastFGDFile");
+					rightEntPanel.smartEdit = false;
+					msmartEditOption.setState(false);
 				}
+				
+				msmartEditOption.setEnabled(fgdFile != null);
+				
+				rightEntPanel.fgdContent = fgdFile;
 			}
 		});
 		
@@ -268,8 +286,6 @@ public class Entspy {
 		findlabel.setEnabled(false);
 		findbutton.setEnabled(false);
 		findcombo.setEnabled(false);
-		
-		final ClassPropertyPanel rightEntPanel = new ClassPropertyPanel();
 		
 		JPanel leftPanel = new JPanel(new BorderLayout());
 		leftPanel.add((Component) new JScrollPane(this.entList), "Center");
@@ -466,7 +482,6 @@ public class Entspy {
 		findtext.addActionListener(new FindListen(findtext));
 		findall.addActionListener(new FindSelectListen(findtext));
 		updent.addActionListener(new ActionListener() {
-
 			public void actionPerformed(ActionEvent e) {
 				entList.setModel(new EntspyListModel(m.getData()));
 			}
@@ -537,13 +552,48 @@ public class Entspy {
 		this.entList.addListSelectionListener(new ListSelectionListener() {
 
 			@Override
-			public void valueChanged(ListSelectionEvent e) {
-				rightEntPanel.clearEntities();
-				for(int i : entList.getSelectedIndices()) {
-					rightEntPanel.addEntity(m.el.get(i));
+			public void valueChanged(ListSelectionEvent ev) {
+				int[] selected = entList.getSelectedIndices();
+				
+				boolean enable = selected.length > 0;
+				
+				delent.setEnabled(enable);
+				cpyent.setEnabled(enable);
+				exportEntity.setEnabled(enable);
+				cpToClipEnt.setEnabled(enable);
+				
+				/*
+				 * Emulates hammer editor behaviour. If a new selection is made
+				 * that does not contain the previously selected entities,
+				 * then the changes are applied automatically
+				 */
+				HashSet<Entity> newSelection = new HashSet<Entity>();
+				boolean shouldApply = true;
+				for(int i : selected) {
+					Entity e = m.el.get(i);
+					newSelection.add(e);
+					
+					if(shouldApply)
+						shouldApply = !previouslySelected.contains(e);
 				}
+				previouslySelected = newSelection;
+				if(shouldApply) {
+					rightEntPanel.apply();
+				}
+				
+				rightEntPanel.clearEntities();
+				for(int i : selected) {
+					rightEntPanel.addEntity(m.el.get(i), false);
+				}
+				rightEntPanel.gatherKeyValues();
 			}
 
+		});
+		
+		rightEntPanel.addApplyListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				entList.setSelectedIndices(entList.getSelectedIndices());
+			}
 		});
 		
 		JPanel rightPanel = new JPanel(new BorderLayout());
@@ -766,6 +816,7 @@ public class Entspy {
 			fr.close();
 		} catch(Exception | LexerException e) {
 			JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
+			fgdFile = null;
 			return false;
 		}
 		
@@ -976,14 +1027,7 @@ public class Entspy {
 		}
 		
 		public void actionPerformed(ActionEvent ev) {
-			JFrame hframe = new JFrame("Help");
-			hframe.setIconImage(Entspy.esIcon.getImage());
-			
-			JTextPane textp = new JTextPane();
-			textp.setEditable(false);
-			
-			HTMLEditorKit ek = new HTMLEditorKit();
-			textp.setEditorKit(ek);
+			HelpWindow help = HelpWindow.openHelp("Help");
 			
 			try(BufferedReader rd = new BufferedReader(
 					new InputStreamReader(Entspy.class.getResourceAsStream(file)))) {
@@ -995,22 +1039,13 @@ public class Entspy {
 					line = rd.readLine();
 				}
 				
-				textp.setText(sb.toString());
-			} catch (IOException e) {
-				textp.setText("Couldn't find " + file + "<br>"+e);
-			} catch (NullPointerException e) {
-				textp.setText("Couldn't find " + file + "<br>"+e);
+				help.setText(sb.toString());
+			} catch (IOException | NullPointerException e) {
+				help.setText("Couldn't find " + file + "<br>"+e);
 			}
 			
-			textp.setCaretPosition(0);
-			JScrollPane scp = new JScrollPane(textp);
-
-			hframe.add(scp);
-			scp.getVerticalScrollBar().setValue(0);
-			
-			hframe.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-			hframe.setSize(720, 520);
-			hframe.setVisible(true);
+			help.setSize(720, 520);
+			help.setVisible(true);
 		}
 	}
 
