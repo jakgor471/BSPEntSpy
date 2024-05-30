@@ -7,8 +7,15 @@ import java.io.Reader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.Callable;
-import entspy.FGDEntry.*;
-import entspy.Lexer.*;
+
+import entspy.FGDEntry.DataType;
+import entspy.FGDEntry.InputOutput;
+import entspy.FGDEntry.PropChoicePair;
+import entspy.FGDEntry.Property;
+import entspy.FGDEntry.PropertyChoices;
+import entspy.Lexer.BasicToken;
+import entspy.Lexer.BasicTokenType;
+import entspy.Lexer.LexerException;
 
 public class FGD {
 	public double mapMin = -65536;
@@ -21,6 +28,13 @@ public class FGD {
 		loadedFgds = new ArrayList<String>();
 		classes = new ArrayList<FGDEntry>();
 		classMap = new HashMap<String, Integer>();
+	}
+	
+	public FGDEntry getFGDClass(String classname) {
+		if(classMap.containsKey(classname))
+			return classes.get(classMap.get(classname));
+		
+		return null;
 	}
 	
 	public String getClassHelp(String classname) {
@@ -37,7 +51,7 @@ public class FGD {
 		for(Property e : entry.properties) {
 			if(e.name.equals("spawnflags"))
 				continue;
-			sb.append("<p><b>").append(e.displayName).append("</b> <i>").append(e.name).append("</i> &lt;").append(e.type.name).append("&gt; ");
+			sb.append("<p><b>").append(e.getDisplayName()).append("</b> <i>").append(e.name).append("</i> &lt;").append(e.type.name).append("&gt; ");
 			sb.append(e.description).append("</p>");
 			
 			if(e.type == DataType.choices) {
@@ -54,7 +68,7 @@ public class FGD {
 		if(entry.propmap.containsKey("spawnflags")) {
 			sb.append("<br><h3>SPAWN FLAGS</h3><hr>");
 			
-			ArrayList<PropChoicePair> choices = ((PropertyChoices)entry.properties.get(entry.propmap.get("spawnflags"))).choices;
+			ArrayList<PropChoicePair> choices = ((PropertyChoices)entry.propmap.get("spawnflags")).choices;
 			
 			sb.append("<ul>");
 			for(PropChoicePair ch : choices) {

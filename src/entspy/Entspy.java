@@ -55,7 +55,6 @@ import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextField;
-import javax.swing.JTextPane;
 import javax.swing.KeyStroke;
 import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
@@ -64,7 +63,6 @@ import javax.swing.UIManager;
 import javax.swing.event.ListDataListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-import javax.swing.text.html.HTMLEditorKit;
 
 import entspy.Lexer.LexerException;
 import util.Cons;
@@ -169,7 +167,7 @@ public class Entspy {
 		msmartEditOption.setEnabled(fgdFile != null);
 		msmartEditOption.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
-				rightEntPanel.smartEdit = msmartEditOption.getState();
+				rightEntPanel.setSmartEdit(msmartEditOption.getState());
 			}
 		});
 		
@@ -255,7 +253,7 @@ public class Entspy {
 					JOptionPane.showMessageDialog(frame, f.getName() + " successfuly loaded. It will load automaticaly on program start.");
 				} else {
 					preferences.remove("LastFGDFile");
-					rightEntPanel.smartEdit = false;
+					rightEntPanel.setSmartEdit(false);
 					msmartEditOption.setState(false);
 				}
 				
@@ -612,7 +610,7 @@ public class Entspy {
 
 	public boolean setfindlist(Entity sel, DefaultComboBoxModel model) {
 		model.removeAllElements();
-		block0: for (int i = 0; i < this.m.el.size(); ++i) {
+		loop1: for (int i = 0; i < this.m.el.size(); ++i) {
 			Entity lent = this.m.el.get(i);
 			if (lent.keys == null)
 				continue;
@@ -621,7 +619,7 @@ public class Entspy {
 				if (linkent == null || !linkent.targetname.equals(sel.targetname))
 					continue;
 				model.addElement(lent);
-				continue block0;
+				continue loop1;
 			}
 		}
 		if (model.getSize() == 0) {

@@ -1,11 +1,8 @@
 package entspy;
 
-import entspy.BSP;
-import entspy.Lump;
-import entspy.Lumpentry;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
+
 import javax.swing.table.AbstractTableModel;
 
 class Lumpdata

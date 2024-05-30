@@ -1,6 +1,5 @@
 package entspy;
 
-import java.io.BufferedWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -93,6 +92,16 @@ public class Entity {
     	if(!kvmap.containsKey(k))
     		return;
     	delKeyVal(kvmap.get(k));
+    }
+    
+    public void changeKey(String from, String to) {
+    	if(!kvmap.containsKey(from))
+    		return;
+    	
+    	int index = kvmap.get(from);
+    	kvmap.remove(from);
+    	keys.set(index, to);
+    	kvmap.put(to, index);
     }
 
     public void delKeyVal(int i) {

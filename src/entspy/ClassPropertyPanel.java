@@ -1,39 +1,41 @@
 package entspy;
 
 import java.awt.BorderLayout;
-import java.awt.Component;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.swing.BorderFactory;
-import javax.swing.ImageIcon;
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.border.BevelBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+import javax.swing.event.TableModelEvent;
+import javax.swing.event.TableModelListener;
 import javax.swing.table.TableColumn;
-
-import entspy.FGDEntry.DataType;
-import entspy.FGDEntry.InputOutput;
-import entspy.FGDEntry.PropChoicePair;
-import entspy.FGDEntry.Property;
-import entspy.FGDEntry.PropertyChoices;
 
 @SuppressWarnings("serial")
 public class ClassPropertyPanel extends JPanel {
 	private JTextField classTextField;
 	private JTextField originTextField;
+	private JTextField keyTextField;
+	private JTextField valueTextField;
+	private JLabel valueLabel;
+	private TextListen classnameListener;
+	private TextListen originListener;
+	private TextListen keyListener;
+	private TextListen valueListener;
 	private JTable table;
 	private JButton addkv;
 	private JButton cpykv;
@@ -47,13 +49,9 @@ public class ClassPropertyPanel extends JPanel {
 	private ArrayList<KVEntry> keyvalues;
 	private ArrayList<KVEntry> deletedKv;
 	private HashMap<String, KVEntry> kvMap;
-	private TextListen classnameListener;
-	private TextListen originListener;
-	
 	private ActionListener onApply;
 	
 	public FGD fgdContent;
-	public boolean smartEdit;
 	
 	public ClassPropertyPanel() {
 		editingEntities = new ArrayList<Entity>();
@@ -61,7 +59,6 @@ public class ClassPropertyPanel extends JPanel {
 		deletedKv = new ArrayList<KVEntry>();
 		kvMap = new HashMap<String, KVEntry>();
 		fgdContent = null;
-		smartEdit = false;
 		
 		BorderLayout panelBLayout = new BorderLayout();
 		panelBLayout.setVgap(5);
@@ -69,11 +66,10 @@ public class ClassPropertyPanel extends JPanel {
 		this.setLayout(panelBLayout);
 		this.setBorder(BorderFactory.createEtchedBorder());
 		
-		JPanel grid = new JPanel();
 		GridLayout gridLayout = new GridLayout(2, 2);
+		JPanel grid = new JPanel(gridLayout);
 		gridLayout.setHgap(10);
 		gridLayout.setVgap(5);
-		grid.setLayout(gridLayout);
 		
 		classTextField = new JTextField(" ");
 		classTextField.setEnabled(false);
@@ -93,18 +89,57 @@ public class ClassPropertyPanel extends JPanel {
 		
 		this.add(grid, "North");
 		
-		JPanel keyvalPanel = new JPanel();
+		JPanel keyvalPanel = new JPanel(new BorderLayout());
+		keyvalPanel.setBorder(BorderFactory.createBevelBorder(BevelBorder.RAISED));
 		
 		kvModel = new KeyValLinkModel();
-		this.table = new JTable(kvModel);
-		this.table.setSelectionMode(0);
-		this.table.getTableHeader().setReorderingAllowed(false);
+		table = new JTable(kvModel);
+		table.setSelectionMode(0);
+		table.getTableHeader().setReorderingAllowed(false);
 		
-		TableColumn keycol = this.table.getColumn("Value");
+		TableColumn keycol = table.getColumn("Value");
 		keycol.setPreferredWidth(175);
 		
-		keyvalPanel.setLayout(new GridLayout(1, 1));
-		keyvalPanel.add(new JScrollPane(this.table));
+		JPanel kveditPanel = new JPanel(gridLayout);
+		
+		//TODO: Renaming seems to not work :c
+		ActionListener kvListener = new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				applyKVChanges();
+				int selected = table.getSelectedRow();
+				kvModel.refreshtable();
+				table.getSelectionModel().setSelectionInterval(selected, selected);
+			}
+		};
+		
+		keyTextField = new JTextField(" ");
+		keyTextField.setEnabled(false);
+		keyTextField.addActionListener(kvListener);
+		valueTextField = new JTextField(" ");
+		valueTextField.setEnabled(false);
+		valueTextField.addActionListener(kvListener);
+		
+		keyListener = new TextListen(null, keyTextField, true);
+		valueListener = new TextListen(null, valueTextField, false);
+		
+		keyTextField.getDocument().addDocumentListener(keyListener);
+		valueTextField.getDocument().addDocumentListener(valueListener);
+		
+		table.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+			@Override
+			public void valueChanged(ListSelectionEvent e) {
+				applyKVChanges();
+			}
+		});
+		
+		kveditPanel.add(new JLabel("Key:", 4));
+		kveditPanel.add(keyTextField);
+		valueLabel = new JLabel("Value:", 4);
+		kveditPanel.add(valueLabel);
+		kveditPanel.add(valueTextField);
+		
+		keyvalPanel.add(kveditPanel, "North");
+		keyvalPanel.add(new JScrollPane(this.table), "Center");
 		
 		this.add(keyvalPanel, "Center");
 		
@@ -222,8 +257,48 @@ public class ClassPropertyPanel extends JPanel {
 		});
 	}
 	
-	public void updateClassAndOrigin() {
+	public void applyKVChanges() {
+		if(keyListener.keyChanged()) {
+			kvMap.remove(keyListener.oldKey);
+			kvMap.put(keyListener.kv.key, keyListener.kv);
+		}
 		
+		int selectedIndex = table.getSelectedRow();
+		if(selectedIndex < 0 || selectedIndex >= keyvalues.size()) {
+			keyListener.kv = null;
+			valueListener.kv = null;
+			keyTextField.setEnabled(false);
+			keyTextField.setText("");
+			valueTextField.setText("");
+			valueTextField.setEnabled(false);
+			valueLabel.setText("Value: ");
+			return;
+		}
+		keyListener.kv = null;
+		valueListener.kv = null;
+		keyTextField.setEnabled(true);
+		valueTextField.setEnabled(true);
+		
+		KVEntry entry = keyvalues.get(selectedIndex);
+		keyTextField.setText(entry.key);
+		valueTextField.setText(entry.getValue());
+		
+		if(kvModel.fgdContent != null && kvModel.fgdContent.propmap.containsKey(entry.key.toLowerCase()))
+			valueLabel.setText("Value (" + kvModel.fgdContent.propmap.get(entry.key.toLowerCase()).type.name + "):");
+		else
+			valueLabel.setText("Value:");
+		
+		keyListener.setKey(entry.key);
+		valueListener.kv = kvMap.get(entry.key);
+	}
+	
+	public void setSmartEdit(boolean smartedit) {
+		if(fgdContent != null && smartedit)
+			kvModel.fgdContent = fgdContent.getFGDClass(classname.value);
+		else
+			kvModel.fgdContent = null;
+		
+		kvModel.refreshtable();
 	}
 	
 	public int entityCount() {
@@ -285,27 +360,32 @@ public class ClassPropertyPanel extends JPanel {
 		kvModel.set(keyvalues);
 		
 		if(origin != null) {
-			originListener.key = null;
+			originListener.kv = null;
 			originTextField.setText(origin.getValue());
 			originTextField.setEnabled(true);
-			originListener.key = "origin";
+			originListener.setKey("origin");
 		} else {
-			originListener.key = null;
+			originListener.kv = null;
 			originTextField.setText("");
 			originTextField.setEnabled(false);
 		}
 		
 		if(classname != null) {
-			classnameListener.key = null;
+			classnameListener.kv = null;
 			classTextField.setText(classname.getValue());
 			
 			if(!classname.different) {
-				classnameListener.key = "classname";
+				classnameListener.setKey("classname");
 				classTextField.setEnabled(true);
-			} else
+				
+				if(fgdContent != null)
+					kvModel.fgdContent = fgdContent.getFGDClass(classname.value);
+			} else {
 				classTextField.setEnabled(false);
+				kvModel.fgdContent = null;
+			}
 		} else {
-			classnameListener.key = null;
+			classnameListener.kv = null;
 			classTextField.setText("");
 			classTextField.setEnabled(false);
 		}
@@ -330,15 +410,25 @@ public class ClassPropertyPanel extends JPanel {
 	
 	public void apply() {
 		ArrayList<KVEntry> edited = new ArrayList<KVEntry>();
+		ArrayList<KVEntry> renamed = new ArrayList<KVEntry>();
 		
 		for(KVEntry e : keyvalues) {
 			if(e.edited)
 				edited.add(e);
 		}
 		
+		for(KVEntry e : keyvalues) {
+			if(e.renamed)
+				renamed.add(e);
+		}
+		
 		for(Entity e : editingEntities) {
 			for(KVEntry entry : deletedKv) {
 				e.delKeyVal(entry.key);
+			}
+			
+			for(KVEntry entry : renamed) {
+				e.changeKey(entry.originalKey, entry.key);
 			}
 			
 			for(KVEntry entry : edited) {
@@ -384,18 +474,39 @@ public class ClassPropertyPanel extends JPanel {
 		} else
 			keyvalues.add(entry);
 		
+		entry.originalKey = key;
 		kvMap.put(key, entry);
 		
 		return entry;
 	}
 	
 	class TextListen implements DocumentListener {
-		String key = null;
+		KVEntry kv;
 		JTextField textField;
+		String oldKey;
+		boolean key = false;
 
-		public TextListen(String type, JTextField field) {
-			this.key = type;
+		public TextListen(String keyname, JTextField field) {
+			this(keyname, field, false);
+		}
+		
+		public TextListen(String keyname, JTextField field, boolean key) {
+			this.kv = kvMap.get(keyname);
 			textField = field;
+			this.key = key;
+			oldKey = keyname;
+		}
+		
+		public void setKey(String keyname) {
+			this.kv = kvMap.get(keyname);
+			oldKey = keyname;
+		}
+		
+		public boolean keyChanged() {
+			if(oldKey == null || kv == null)
+				return false;
+			
+			return !oldKey.equals(kv.key);
 		}
 
 		@Override
@@ -411,10 +522,16 @@ public class ClassPropertyPanel extends JPanel {
 		public void changed(DocumentEvent e) {
 			String text = textField.getText().trim();
 			
-			if(key == null || !ClassPropertyPanel.this.kvMap.containsKey(key)) return;
+			if(kv == null)
+				return;
 			
-			ClassPropertyPanel.this.kvMap.get(key).value = text;
-			ClassPropertyPanel.this.kvMap.get(key).edited = true;
+			if(key) {
+				kv.key = text;
+				kv.renamed = true;
+			}else {
+				kv.value = text;
+				kv.edited = true;
+			}
 		}
 
 		public void changedUpdate(DocumentEvent e) {
@@ -422,11 +539,13 @@ public class ClassPropertyPanel extends JPanel {
 	}
 	
 	protected static class KVEntry{
+		public String originalKey = "";
 		public String key = "";
 		public String value = "";
 
 		public boolean different = false;
 		public boolean edited = false;
+		public boolean renamed = false;
 		
 		public String getValue() {
 			if(different) return "(different)";

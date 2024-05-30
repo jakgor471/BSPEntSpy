@@ -3,9 +3,10 @@ package entspy;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
+
 import entspy.Lexer.BasicToken;
-import entspy.Lexer.LexerException;
 import entspy.Lexer.BasicTokenType;
+import entspy.Lexer.LexerException;
 
 public class VMF {
 	public ArrayList<Entity> ents;

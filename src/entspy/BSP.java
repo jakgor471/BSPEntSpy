@@ -6,11 +6,10 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.zip.CRC32;
-import javax.swing.tree.DefaultMutableTreeNode;
+
 import util.Cons;
 
 public class BSP {

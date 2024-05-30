@@ -9,7 +9,7 @@ public class FGDEntry {
 	public ArrayList<FGDEntry> baseclasses;
 	public ClassType classtype;
 	public ArrayList<Property> properties;
-	public HashMap<String, Integer> propmap;
+	public HashMap<String, Property> propmap;
 	public ArrayList<InputOutput> inputs;
 	public ArrayList<InputOutput> outputs;
 	public int fgdDefinedIndex; //index of fgd file in which this class was declared
@@ -21,7 +21,7 @@ public class FGDEntry {
 		baseclasses = null;
 		classtype = ClassType.BaseClass;
 		properties = new ArrayList<Property>();
-		propmap = new HashMap<String, Integer>();
+		propmap = new HashMap<String, Property>();
 		inputs = new ArrayList<InputOutput>();
 		outputs = new ArrayList<InputOutput>();
 		fgdDefinedIndex = -1;
@@ -40,7 +40,7 @@ public class FGDEntry {
 	}
 	
 	public void addProperty(Property prop) {
-		propmap.put(prop.name, properties.size());
+		propmap.put(prop.name.toLowerCase(), prop);
 		properties.add(prop);
 	}
 	
@@ -130,6 +130,12 @@ public class FGDEntry {
 			
 			if(type == null)
 				type = DataType.voidT;
+		}
+		
+		public String getDisplayName() {
+			if(displayName != null)
+				return displayName;
+			return name;
 		}
 		
 		public boolean hasChoices() {

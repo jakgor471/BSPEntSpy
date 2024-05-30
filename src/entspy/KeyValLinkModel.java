@@ -1,19 +1,19 @@
 package entspy;
 
-import entspy.ClassPropertyPanel.KVEntry;
-import entspy.Entspy.EntspyListModel;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.util.ArrayList;
-import javax.swing.JButton;
+
 import javax.swing.JList;
 import javax.swing.table.AbstractTableModel;
+
+import entspy.ClassPropertyPanel.KVEntry;
 
 class KeyValLinkModel extends AbstractTableModel {
 	ArrayList<KVEntry> keyvalues;
 	JList list;
+	FGDEntry fgdContent;
 
 	KeyValLinkModel() {
+		fgdContent = null;
 	}
 
 	public void setMapping(JList t) {
@@ -32,8 +32,14 @@ class KeyValLinkModel extends AbstractTableModel {
 	}
 
 	public Object getValueAt(int row, int col) {
-		if(col == 0)
+		if(col == 0) {
+			String key = keyvalues.get(row).key.toLowerCase();
+			
+			if(fgdContent != null && fgdContent.propmap.containsKey(key))
+				return fgdContent.propmap.get(key).getDisplayName();
+			
 			return keyvalues.get(row).key;
+		}
 		
 		return keyvalues.get(row).getValue();
 	}
