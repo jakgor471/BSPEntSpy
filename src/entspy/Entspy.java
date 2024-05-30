@@ -101,6 +101,7 @@ public class Entspy {
 				textp.setText("Couldn't find " + file + "<br>"+e);
 			}
 			
+			textp.setCaretPosition(0);
 			JScrollPane scp = new JScrollPane(textp);
 
 			hframe.add(scp);
@@ -138,6 +139,8 @@ public class Entspy {
 		
 		if(loadfgdfiles(null)) {
 			System.out.println("FGD loaded: " + String.join(", ", fgdFile.loadedFgds));
+		} else {
+			preferences.remove("LastFGDFile");
 		}
 		
 		this.entList = new JList<Entity>();
@@ -184,6 +187,11 @@ public class Entspy {
 		helpmenu.add(mexportHelp);
 
 		mexportHelp.addActionListener(new HelpActionListener("/text/exporthelp.html"));
+		
+		JMenuItem fgdhelp = new JMenuItem("FGD help");
+		helpmenu.add(fgdhelp);
+
+		fgdhelp.addActionListener(new HelpActionListener("/text/fgdhelp.html"));
 		
 		helpmenu.addSeparator();
 		
