@@ -455,14 +455,16 @@ public class ClassPropertyPanel extends JPanel {
 		deletedOutputs.clear();
 		kvMap.clear();
 		outputs.clear();
+		flagModel.setFlags(null);
+		flagModel.setFGD(null);
+		
+		if(editingEntities.size() < 1) {
+			kvModel.fireTableDataChanged();
+			flagModel.fireTableDataChanged();
+			return;
+		}
 		
 		for(Entity e : editingEntities) {
-			FGDEntry fgdent = null;
-			
-			if(fgdContent != null && e.classname != null) {
-				fgdent = fgdContent.getFGDClass(e.classname);
-			}
-			
 			for(int i = 0; i < e.size(); ++i) {
 				KeyValLink kvl = e.keyvalues.get(i);
 				KVEntry entry = kvMap.get(kvl.key);
@@ -477,8 +479,10 @@ public class ClassPropertyPanel extends JPanel {
 			}
 		}
 		
-		if(!kvMap.containsKey("classname"))
+		if(!kvMap.containsKey("classname")) {
 			addKeyValue("classname", "info_target", null);
+			kvMap.get("classname").edited = true;
+		}
 		
 		refreshClassOriginInfo();
 		

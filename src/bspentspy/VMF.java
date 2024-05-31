@@ -3,6 +3,7 @@ package bspentspy;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
+import java.util.HashSet;
 
 import bspentspy.Lexer.BasicToken;
 import bspentspy.Lexer.BasicTokenType;
@@ -21,9 +22,10 @@ public class VMF {
 		while(lexer.getToken() != null) {
 			if(lexer.getToken().type == BasicTokenType.ident) {
 				//care only about entities
-				if(lexer.getToken().value.equals("entity")) {
+				boolean isWorld = lexer.getToken().value.equals("world");
+				if(lexer.getToken().value.equals("entity") || isWorld) {
 					lexer.consume();
-					ents.add(parseEntity(lexer));
+					ents.add(parseEntity(lexer, isWorld));
 				} else {
 					lexer.consume();
 					skipClass(lexer);
@@ -55,7 +57,7 @@ public class VMF {
 		lexer.consume();
 	}
 	
-	private static Entity parseEntity(VMFLexer lexer) throws LexerException {
+	private static Entity parseEntity(VMFLexer lexer, boolean world) throws LexerException {
 		Entity ent = new Entity();
 		
 		lexer.expect(BasicTokenType.symbol, "{");
@@ -70,7 +72,7 @@ public class VMF {
 					lexer.consume();
 					parseConnections(lexer, ent);
 				} else {
-					if(lexer.getToken().value.equals("solid")) {
+					if(lexer.getToken().value.equals("solid") && !world) {
 						ent.addKeyVal("model", "TODO: DEFINE IT!!!");
 					}
 					
@@ -109,6 +111,19 @@ public class VMF {
 				--depth;
 			lexer.consume();
 		}
+	}
+	
+	public static HashSet<String> ignoredClasses = new HashSet<String>();
+	static {
+		ignoredClasses.add("prop_static");
+		ignoredClasses.add("prop_detail");
+		ignoredClasses.add("func_instance");
+		ignoredClasses.add("prop_detail_sprite");
+		ignoredClasses.add("env_cubemap");
+		ignoredClasses.add("info_lighting");
+		ignoredClasses.add("func_detail");
+		ignoredClasses.add("func_ladder");
+		ignoredClasses.add("func_viscluster");
 	}
 	
 	private static class VMFToken extends BasicToken{		

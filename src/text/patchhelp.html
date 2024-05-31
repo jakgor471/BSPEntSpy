@@ -1,0 +1,26 @@
+<h2>Patching from VMF HELP</h2>
+<hr>
+
+<p>Decompiling a map using software like <b>Valve Map Extractor</b> ("vmex") allows to edit the map in Hammer Editor. The process of decompilation however
+does not necessarily yields a file valid enough to recompile unless the map is fixed manually. In such cases it is possible to use the patching functionality 
+of BSPEntSpy.</p>
+<p>Patching is a process of matching the entities present in a VMF file to those present in BSP and replacing matched entities with those from VMF. 
+Such approach allows to edit the entities in Hammer Editor and then transfer the changes directly into the BSP, no recompilation needed. 
+Described process is not always accurate - entities in the BSP, unless named, have no means of identifying them other than the order in which 
+they are defined, which matches that of a source (or decompiled) VMF file, therefore mismatches may occur.</p>
+
+<h3>Patching named entities</h3>
+<hr>
+<p>Once the source VMF file has been chosen (<b>File &gt; Patch from VMF</b>) the user will be prompted whether the patching should be done only for named entities 
+or all entities. Patching named entities is safer, meaning it is less prone to mismatches. The entities will be matched by their class name, target name and by their 
+order.</p>
+
+<h3>Patching all entities</h3>
+<hr>
+<p>While patching all entities, the entities will be matched only by class name and order. In case of a class mismatch the user will be prompted should the program 
+continue patching and try to match the entities or abort the patching process. After the procedure user should inspect the entities for possible errors.</p>
+
+<h2>IMPORTANT</h2>
+<hr>
+<p>Patching process does not add any new entities, only replaces the one present in the BSP with those from the VMF file. It also does not delete any entities not present 
+in the VMF file. Such edits need to be done manually.</p>

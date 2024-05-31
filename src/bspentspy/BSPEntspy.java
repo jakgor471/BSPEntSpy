@@ -16,6 +16,7 @@ import java.awt.event.KeyEvent;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -27,7 +28,9 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.prefs.Preferences;
@@ -64,6 +67,7 @@ import javax.swing.event.ListDataListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import bspentspy.ClassPropertyPanel.GotoEvent;
+import bspentspy.Entity.KeyValLink;
 import bspentspy.Lexer.LexerException;
 import bspentspy.Undo.Command;
 import util.SwingWorker;
@@ -118,6 +122,10 @@ public class BSPEntspy {
 		filemenu.add(mload);
 		filemenu.add(msave);
 		
+		JMenuItem mpatchvmf = new JMenuItem("Patch from VMF");
+		mpatchvmf.setToolTipText("Update entity properties based on a VMF file (see more in Help)");
+		filemenu.add(mpatchvmf);
+		
 		filemenu.addSeparator();
 		
 		JMenuItem mloadfgd = new JMenuItem("Load FGD file");
@@ -168,6 +176,11 @@ public class BSPEntspy {
 
 		mexportHelp.addActionListener(new HelpActionListener("/text/exporthelp.html"));
 		
+		JMenuItem mpatchHelp = new JMenuItem("Patching help");
+		helpmenu.add(mpatchHelp);
+
+		mpatchHelp.addActionListener(new HelpActionListener("/text/patchhelp.html"));
+		
 		JMenuItem fgdhelp = new JMenuItem("FGD help");
 		helpmenu.add(fgdhelp);
 
@@ -179,19 +192,6 @@ public class BSPEntspy {
 		helpmenu.add(mcreditHelp);
 
 		mcreditHelp.addActionListener(new HelpActionListener("/text/credits.html"));
-		
-		/*JMenuItem mundoStack = new JMenuItem("Undo stack (DEBUG)");
-		helpmenu.add(mundoStack);
-		
-		mundoStack.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent ae) {
-				HelpWindow help = HelpWindow.openHelp("UNDO STACK (DEBUG)");
-				
-				help.setText(Undo.printStackHTML());
-				help.setSize(720, 520);
-				help.setVisible(true);
-			}
-		});*/
 		
 		final ClassPropertyPanel rightEntPanel = new ClassPropertyPanel();
 		rightEntPanel.setFGD(fgdFile);
@@ -251,7 +251,7 @@ public class BSPEntspy {
 					BSPEntspy.this.m.loadheader();
 					BSPEntspy.this.loaddata();
 				} catch (IOException ex) {
-					System.out.println(ex);
+					ex.printStackTrace();
 				}
 			}
 		});
@@ -275,6 +275,29 @@ public class BSPEntspy {
 			}
 
 		});
+		
+		mpatchvmf.addActionListener(new ActionListener() {
+
+			public void actionPerformed(ActionEvent e) {
+				JFileChooser chooser = new JFileChooser(preferences.get("LastVMFFolder", System.getProperty("user.dir")));
+				chooser.setDialogTitle(entspyTitle + " - Open FGD File");
+				if(chooser.showOpenDialog(frame) == 1)
+					return;
+				
+				File f = chooser.getSelectedFile();
+				try {
+					patchFromVMF(f);
+				} catch (FileNotFoundException | LexerException e1) {
+					JOptionPane.showMessageDialog(frame, "Error while loading VMF: " + e1.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
+					e1.printStackTrace();
+				}
+				
+				preferences.put("LastVMFFolder", f.getParent());
+				entList.setModel(new EntspyListModel(m.el));
+			}
+
+		});
+		
 		mquit.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
@@ -415,6 +438,7 @@ public class BSPEntspy {
 					JOptionPane.showMessageDialog(frame, ents.size() + " entities successfuly exported to " + f, "Info", JOptionPane.INFORMATION_MESSAGE);
 				} catch(IOException e) {
 					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
+					e.printStackTrace();
 				}
 				
 				return;
@@ -455,6 +479,7 @@ public class BSPEntspy {
 					JOptionPane.showMessageDialog(frame, ents.size() + " entities successfuly imported from " + f, "Info", JOptionPane.INFORMATION_MESSAGE);
 				} catch(Exception | LexerException e) {
 					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
+					e.printStackTrace();
 				}
 				
 				return;
@@ -488,6 +513,7 @@ public class BSPEntspy {
 					cb.setContents(new StringSelection(sw.toString()), null);
 				} catch(IOException e) {
 					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
+					e.printStackTrace();
 				}
 				
 				return;
@@ -528,6 +554,7 @@ public class BSPEntspy {
 					entList.setModel(new EntspyListModel(m.getData()));
 				} catch(Exception | LexerException e) {
 					JOptionPane.showMessageDialog(frame, "Could not parse data from clipboard!\n" + e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
+					e.printStackTrace();
 				}
 				
 				return;
@@ -791,7 +818,7 @@ public class BSPEntspy {
 			
 			return true;
 		} catch (IOException ioe) {
-			System.out.println(ioe);
+			ioe.printStackTrace();
 			return false;
 		}
 	}
@@ -916,7 +943,7 @@ public class BSPEntspy {
 			this.m.setfile(this.raf);
 			this.m.dirty = false;
 		} catch (IOException ioe) {
-			System.out.println(ioe);
+			ioe.printStackTrace();
 		}
 	}
 	
@@ -949,6 +976,7 @@ public class BSPEntspy {
 			fr.close();
 		} catch(Exception | LexerException e) {
 			JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
+			e.printStackTrace();
 			fgdFile = null;
 			return false;
 		}
@@ -975,7 +1003,7 @@ public class BSPEntspy {
 					BSPEntspy.this.m.loadentities();
 					BSPEntspy.this.m.loadglumps();
 				} catch (IOException ex) {
-					System.out.println(ex);
+					ex.printStackTrace();
 				}
 				return null;
 			}
@@ -1020,25 +1048,139 @@ public class BSPEntspy {
 		return m.el.get(index);
 	}
 	
-	public ArrayList<Entity> loadEntsFromReader(Reader in) throws Exception, LexerException {
+	public boolean patchFromVMF(File vmfFile) throws LexerException, FileNotFoundException {
 		VMF temp = new VMF();
 		
-		final HashSet<String> ignoredClasses = new HashSet<String>();
-		//these entity classes get removed during VBSP, these should not be present in final BSP file
-		ignoredClasses.add("prop_static");
-		ignoredClasses.add("prop_detail");
-		ignoredClasses.add("func_instance");
-		ignoredClasses.add("prop_detail_sprite");
-		ignoredClasses.add("env_cubemap");
-		ignoredClasses.add("info_lighting");
-		ignoredClasses.add("func_detail");
-		ignoredClasses.add("func_ladder");
-		ignoredClasses.add("func_viscluster");
+		FileReader fr = new FileReader(vmfFile);
+		temp.loadFromReader(fr, vmfFile.getName());
+		
+		Object[] options = new Object[] {"Only named entities", "All entities"};
+		Object[] options2 = new Object[] {"Continue", "Continue all", "Abort"};
+		
+		int selected = JOptionPane.showOptionDialog(frame, "Patch only named entities (safe) or try to patch entities based on order?",
+				"Patch VMF", JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, options[0]);
+		boolean ignoreDisorder = false;
+		
+		int replaced = 0;
+		int missmatches = 0;
+		CommandReplaceEntity command = new CommandReplaceEntity();
+		if(selected == 0) {
+			HashMap<String, Integer> nameMap = new HashMap<String, Integer>();
+			HashMap<String, Integer> dupMap = new HashMap<String, Integer>();
+			
+			for(int i = 0; i < m.el.size(); ++i) {
+				Entity ent = m.el.get(i);
+				if(ent.targetname.isEmpty())
+					continue;
+				String key = "\""+ent.classname + "\" \"" + ent.targetname + "\"";
+
+				if(nameMap.containsKey(key)) {
+					int count = dupMap.getOrDefault(key, 1);
+					dupMap.put(key, count + 1);
+					key += count;
+				}
+				
+				nameMap.put(key, i);
+			}
+			
+			dupMap.clear();
+			for(int i = 0; i < temp.ents.size(); ++i) {
+				Entity ent = temp.ents.get(i);
+				if(ent.targetname.isEmpty())
+					continue;
+				String key = "\""+ent.classname + "\" \"" + ent.targetname + "\"";
+				
+				int count = dupMap.getOrDefault(key, -1);
+				dupMap.put(key, ++count);
+				
+				if(count > 0) {
+					key += count;
+				}
+				
+				if(!nameMap.containsKey(key)) {
+					continue;
+				}
+				
+				int index = nameMap.get(key);
+				Entity original = m.el.get(index);
+				Entity finalReplacement = replaceEntity(original, ent);
+				m.el.set(index, finalReplacement);
+				command.addEntity(original, finalReplacement, index);
+				++replaced;
+			}
+		} else {
+			for(int i = 0, j = 0; i < m.el.size() && j < temp.ents.size(); ) {
+				Entity original = m.el.get(i);
+				Entity replacement = temp.ents.get(j);
+				
+				if(VMF.ignoredClasses.contains(original.classname)) {
+					++i;
+					continue;
+				}
+				if(VMF.ignoredClasses.contains(replacement.classname) || selected == 0 && replacement.targetname.isEmpty()) {
+					++j;
+					continue;
+				}
+				
+				//only classname needs to match
+				boolean shouldReplace = original.classname.equals(replacement.classname);
+				
+				if(!shouldReplace)
+					++missmatches;
+				
+				if(selected == 1 && !(ignoreDisorder || shouldReplace)) {
+					int selected2 = JOptionPane.showOptionDialog(frame, "Entity mismatch detected (" 
+							+ original.classname + "[\"" + original.targetname + "\"], " + replacement.classname + "[\"" + replacement.targetname + "\"])!\n"
+							+ "The program will try to match entities as best as possible. Continue?",
+							"Patch VMF", JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, options2, options2[1]);
+					ignoreDisorder = selected2 == 1;
+					
+					if(selected2 == 2)
+						break;
+				}
+				
+				if(shouldReplace) {
+					Entity finalReplacement = replaceEntity(original, replacement);
+					m.el.set(i, finalReplacement);
+					command.addEntity(original, finalReplacement, i);
+					
+					++i;
+					++j;
+					++replaced;
+				}else //if entities do not match advance bsp entities until they match with vmf entities
+					++i;
+			}
+		}
+		
+		Undo.create();
+		Undo.setTarget(m.el);
+		Undo.addCommand(command);
+		Undo.finish();
+		
+		JOptionPane.showMessageDialog(frame, "Patched " + replaced + " entities (" + missmatches + " mismatches).");
+		
+		return false;
+	}
+	
+	private static Entity replaceEntity(Entity original, Entity replacement) {
+		for(KeyValLink kvl : original.keyvalues) {
+			if(!replacement.kvmap.containsKey(kvl.key)) {
+				replacement.addKeyVal(kvl.key, kvl.value);
+			}
+			
+			if(kvl.key.equals("model") && kvl.value.startsWith("*"))
+				replacement.setKeyVal("model", kvl.value);
+		}
+		return replacement;
+	}
+	
+	public ArrayList<Entity> loadEntsFromReader(Reader in) throws Exception, LexerException {
+		VMF temp = new VMF();
 		
 		temp.loadFromReader(in, "clipboard");
 		
 		for(int i = 0; i < temp.ents.size(); ++i) {
-			if(ignoredClasses.contains(temp.ents.get(i).classname)) {
+			if(VMF.ignoredClasses.contains(temp.ents.get(i).classname)) {
 				temp.ents.remove(i--);
 			}
 		}
@@ -1107,6 +1249,7 @@ public class BSPEntspy {
 				special = isSpecialMatch(ftext, keysToSearch, valuesToSearch);
 			} catch (Exception e) {
 				JOptionPane.showMessageDialog(frame, e.getMessage());
+				e.printStackTrace();
 			}
 
 			int i = entList.getSelectedIndex() + 1;
@@ -1176,6 +1319,7 @@ public class BSPEntspy {
 				help.setText(sb.toString());
 			} catch (IOException | NullPointerException e) {
 				help.setText("Couldn't find " + file + "<br>"+e);
+				e.printStackTrace();
 			}
 			
 			help.setSize(720, 520);
@@ -1267,6 +1411,46 @@ public class BSPEntspy {
 
 		public int size() {
 			return entities.size();
+		}
+	}
+	
+	private static class CommandReplaceEntity extends CommandEntity{
+		ArrayList<Entity> replacements;
+		ArrayList<Integer> indices;
+		
+		public CommandReplaceEntity() {
+			indices = new ArrayList<Integer>();
+			replacements = new ArrayList<Entity>();
+		}
+		
+		public void addEntity(Entity original, Entity replacement, int index) {
+			indices.add(index);
+			entities.add(original);
+			replacements.add(replacement);
+		}
+		
+		public void undo(Object target) {
+			ListIterator<Integer> it = indices.listIterator();
+			
+			while(it.hasNext()) {
+				int index = it.nextIndex();
+				int entindex = it.next();
+				((ArrayList<Entity>)target).set(entindex, entities.get(index));
+			}
+		}
+
+		public void redo(Object target) {
+			ListIterator<Integer> it = indices.listIterator();
+			
+			while(it.hasNext()) {
+				int index = it.nextIndex();
+				int entindex = it.next();
+				((ArrayList<Entity>)target).set(entindex, replacements.get(index));
+			}
+		}
+
+		public String toString(String indent) {
+			return "";
 		}
 	}
 	
