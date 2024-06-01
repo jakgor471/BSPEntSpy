@@ -5,3 +5,4 @@ bin/
 **/*.png
 **/*.gif
 **/*.bsp
+releases/
