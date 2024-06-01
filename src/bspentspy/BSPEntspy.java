@@ -32,12 +32,12 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
@@ -69,6 +69,7 @@ import javax.swing.WindowConstants;
 import javax.swing.event.ListDataListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+
 import bspentspy.ClassPropertyPanel.GotoEvent;
 import bspentspy.Entity.KeyValLink;
 import bspentspy.Lexer.LexerException;
@@ -81,7 +82,6 @@ public class BSPEntspy {
 	File infile;
 	RandomAccessFile raf;
 	JFrame frame = null;
-	final Entity blank = new Entity("");
 	JList<Entity> entList;
 	MapInfo info;
 	Preferences preferences;
