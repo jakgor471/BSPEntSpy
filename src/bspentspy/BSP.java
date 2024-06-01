@@ -89,8 +89,7 @@ public class BSP {
 				continue;
 			lumplist.add(lump[i]);
 			System.out.print("" + i + ": ");
-			System.out.print("" + lump[i].ofs + ", " + lump[i].len + ", " + lump[i].vers + ", "
-					+ lump[i].fourCC);
+			System.out.print("" + lump[i].ofs + ", " + lump[i].len + ", " + lump[i].vers + ", " + lump[i].fourCC);
 			System.out.print(
 					" " + Lump.name(i) + "  " + lump[i].len / Lump.size(i) + (Lump.size(i) == 1 ? " bytes" : ""));
 			if (lump[i].len % Lump.size(i) != 0) {
@@ -209,8 +208,7 @@ public class BSP {
 		biggestgap = 0;
 		gapoffset = 0;
 		for (i = 0; i < lumplist.size() - 1; ++i) {
-			int gap = lumplist.get((int) (i + 1)).ofs
-					- (lumplist.get((int) i).ofs + lumplist.get((int) i).len);
+			int gap = lumplist.get((int) (i + 1)).ofs - (lumplist.get((int) i).ofs + lumplist.get((int) i).len);
 			if (gap <= 4 || gap <= biggestgap)
 				continue;
 			gapoffset = roundupto4(lumplist.get((int) i).ofs + lumplist.get((int) i).len);

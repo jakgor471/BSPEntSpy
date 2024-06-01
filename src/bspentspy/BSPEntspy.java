@@ -13,6 +13,8 @@ import java.awt.datatransfer.Transferable;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -63,6 +65,7 @@ import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.Timer;
 import javax.swing.UIManager;
+import javax.swing.WindowConstants;
 import javax.swing.event.ListDataListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
@@ -84,13 +87,13 @@ public class BSPEntspy {
 	Preferences preferences;
 	FGD fgdFile = null;
 	HashSet<Entity> previouslySelected = new HashSet<Entity>();
-	
+
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
 	public static final String entspyTitle = "BSPEntSpy v1.1";
 
 	public int exec() throws IOException {
 		preferences = Preferences.userRoot().node(getClass().getName());
-		
+
 		this.frame = new JFrame(entspyTitle);
 		this.frame.setIconImage(esIcon.getImage());
 		if (!this.loadfile()) {
@@ -98,13 +101,13 @@ public class BSPEntspy {
 		}
 		this.m = new BSP(this.raf);
 		this.m.loadheader();
-		
-		if(loadfgdfiles(null)) {
+
+		if (loadfgdfiles(null)) {
 			System.out.println("FGD loaded: " + String.join(", ", fgdFile.loadedFgds));
 		} else {
 			preferences.remove("LastFGDFile");
 		}
-		
+
 		this.entList = new JList<Entity>();
 		DefaultListSelectionModel selmodel = new DefaultListSelectionModel();
 		selmodel.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
@@ -121,17 +124,17 @@ public class BSPEntspy {
 		msave.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.CTRL_DOWN_MASK));
 		filemenu.add(mload);
 		filemenu.add(msave);
-		
+
 		JMenuItem mpatchvmf = new JMenuItem("Patch from VMF");
 		mpatchvmf.setToolTipText("Update entity properties based on a VMF file (see more in Help)");
 		filemenu.add(mpatchvmf);
-		
+
 		filemenu.addSeparator();
-		
+
 		JMenuItem mloadfgd = new JMenuItem("Load FGD file");
 		mloadfgd.setToolTipText("Load an FGD file to enable Smart Edit");
 		filemenu.add(mloadfgd);
-		
+
 		filemenu.addSeparator();
 		JMenuItem minfo = new JMenuItem("Map info...");
 		minfo.setToolTipText("Map header information");
@@ -142,101 +145,117 @@ public class BSPEntspy {
 		mquit.setToolTipText("Quit Entspy");
 		mquit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Q, KeyEvent.CTRL_DOWN_MASK));
 		filemenu.add(mquit);
-		
+
 		JMenu editmenu = new JMenu("Edit");
 		JMenuItem mUndo = new JMenuItem("Undo");
 		mUndo.setToolTipText("Undo last edit");
+		mUndo.setEnabled(false);
 		mUndo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, KeyEvent.CTRL_DOWN_MASK));
+
+		JMenuItem mRedo = new JMenuItem("Redo");
+		mRedo.setEnabled(false);
+		mRedo.setToolTipText("Redo last edit");
+		mRedo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Y, KeyEvent.CTRL_DOWN_MASK));
+
 		mUndo.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				Undo.undo();
 				entList.setModel(new EntspyListModel(m.el));
+				mRedo.setEnabled(Undo.canRedo());
+				mUndo.setEnabled(Undo.canUndo());
 			}
 		});
-		JMenuItem mRedo = new JMenuItem("Redo");
-		mRedo.setToolTipText("Redo last edit");
-		mRedo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Y, KeyEvent.CTRL_DOWN_MASK));
 		mRedo.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				Undo.redo();
 				entList.setModel(new EntspyListModel(m.el));
+				mRedo.setEnabled(Undo.canRedo());
+				mUndo.setEnabled(Undo.canUndo());
 			}
 		});
 		editmenu.add(mUndo);
 		editmenu.add(mRedo);
+
+		Undo.addUpdateListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				mUndo.setEnabled(Undo.canUndo());
+				mRedo.setEnabled(Undo.canRedo());
+			}
+		});
 
 		JMenu helpmenu = new JMenu("Help");
 		JMenuItem mhelpSearch = new JMenuItem("Search help");
 		helpmenu.add(mhelpSearch);
 
 		mhelpSearch.addActionListener(new HelpActionListener("/text/searchhelp.html"));
-		
+
 		JMenuItem mexportHelp = new JMenuItem("Export / Import help");
 		helpmenu.add(mexportHelp);
 
 		mexportHelp.addActionListener(new HelpActionListener("/text/exporthelp.html"));
-		
+
 		JMenuItem mpatchHelp = new JMenuItem("Patching help");
 		helpmenu.add(mpatchHelp);
 
 		mpatchHelp.addActionListener(new HelpActionListener("/text/patchhelp.html"));
-		
+
 		JMenuItem fgdhelp = new JMenuItem("FGD help");
 		helpmenu.add(fgdhelp);
 
 		fgdhelp.addActionListener(new HelpActionListener("/text/fgdhelp.html"));
-		
+
 		helpmenu.addSeparator();
-		
+
 		JMenuItem mcreditHelp = new JMenuItem("Credits");
 		helpmenu.add(mcreditHelp);
 
 		mcreditHelp.addActionListener(new HelpActionListener("/text/credits.html"));
-		
+
 		final ClassPropertyPanel rightEntPanel = new ClassPropertyPanel();
 		rightEntPanel.setFGD(fgdFile);
-		
+
 		boolean shouldSmartEdit = fgdFile != null && preferences.getBoolean("SmartEdit", false);
 		boolean shouldAddDefaultParams = fgdFile != null && preferences.getBoolean("AutoAddParams", false);
 		rightEntPanel.setSmartEdit(shouldSmartEdit);
 		rightEntPanel.shouldAddDefaultParameters(shouldAddDefaultParams);
-		
+
 		JMenu optionmenu = new JMenu("Options");
-		
+
 		JCheckBoxMenuItem msmartEditOption = new JCheckBoxMenuItem("Smart Edit");
 		msmartEditOption.setToolTipText("If FGD file is loaded Smart Edit can be enabled. See more in Help");
 		msmartEditOption.setEnabled(fgdFile != null);
 		msmartEditOption.setState(shouldSmartEdit);
-		
+
 		JCheckBoxMenuItem maddDefaultOption = new JCheckBoxMenuItem("Auto-add default parameters");
-		maddDefaultOption.setToolTipText("If FGD file is loaded the default class parameters will be added but not applied unless edited");
+		maddDefaultOption.setToolTipText(
+				"If FGD file is loaded the default class parameters will be added but not applied unless edited");
 		maddDefaultOption.setEnabled(fgdFile != null);
 		maddDefaultOption.setState(shouldAddDefaultParams);
-		
+
 		maddDefaultOption.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				rightEntPanel.shouldAddDefaultParameters(maddDefaultOption.getState());
 				preferences.putBoolean("AutoAddParams", maddDefaultOption.getState());
 			}
 		});
-		
+
 		msmartEditOption.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				rightEntPanel.setSmartEdit(msmartEditOption.getState());
 				preferences.putBoolean("SmartEdit", msmartEditOption.getState());
 			}
 		});
-		
+
 		optionmenu.add(msmartEditOption);
 		optionmenu.add(maddDefaultOption);
-		
+
 		JMenuBar menubar = new JMenuBar();
 		menubar.add(filemenu);
 		menubar.add(editmenu);
 		menubar.add(optionmenu);
 		menubar.add(helpmenu);
 		this.frame.setJMenuBar(menubar);
-		
+
 		mload.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
@@ -275,36 +294,38 @@ public class BSPEntspy {
 			}
 
 		});
-		
+
 		mpatchvmf.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
-				JFileChooser chooser = new JFileChooser(preferences.get("LastVMFFolder", System.getProperty("user.dir")));
+				JFileChooser chooser = new JFileChooser(
+						preferences.get("LastVMFFolder", System.getProperty("user.dir")));
 				chooser.setDialogTitle(entspyTitle + " - Open FGD File");
-				if(chooser.showOpenDialog(frame) == 1)
+				if (chooser.showOpenDialog(frame) == 1)
 					return;
-				
+
 				File f = chooser.getSelectedFile();
 				try {
 					patchFromVMF(f);
 				} catch (FileNotFoundException | LexerException e1) {
-					JOptionPane.showMessageDialog(frame, "Error while loading VMF: " + e1.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
+					JOptionPane.showMessageDialog(frame, "Error while loading VMF: " + e1.getMessage(), "ERROR!",
+							JOptionPane.ERROR_MESSAGE);
 					e1.printStackTrace();
 				}
-				
+
 				preferences.put("LastVMFFolder", f.getParent());
 				entList.setModel(new EntspyListModel(m.el));
 			}
 
 		});
-		
+
 		mquit.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
 				if (BSPEntspy.this.checkchanged("Quit Entspy")) {
 					return;
 				}
-				System.exit(0);
+				frame.dispose();
 			}
 		});
 		minfo.addActionListener(new ActionListener() {
@@ -317,36 +338,37 @@ public class BSPEntspy {
 				BSPEntspy.this.info = new MapInfo(BSPEntspy.this.frame, BSPEntspy.this.m, BSPEntspy.this.filename);
 			}
 		});
-		
+
 		mloadfgd.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				fgdFile = null;
-				
+
 				JFileChooser chooser = new JFileChooser(preferences.get("LastFGDDir", System.getProperty("user.dir")));
 				chooser.setDialogTitle(entspyTitle + " - Open FGD File");
-				if(chooser.showOpenDialog(frame) == 1)
+				if (chooser.showOpenDialog(frame) == 1)
 					return;
-				
+
 				File f = chooser.getSelectedFile();
-				if(loadfgdfiles(f)) {
+				if (loadfgdfiles(f)) {
 					preferences.put("LastFGDFile", f.toString());
 					preferences.put("LastFGDDir", f.getAbsolutePath());
-					JOptionPane.showMessageDialog(frame, f.getName() + " successfuly loaded. It will load automaticaly on program start.");
+					JOptionPane.showMessageDialog(frame,
+							f.getName() + " successfuly loaded. It will load automaticaly on program start.");
 				} else {
 					preferences.remove("LastFGDFile");
 					rightEntPanel.setSmartEdit(false);
 					msmartEditOption.setState(false);
 				}
-				
+
 				msmartEditOption.setEnabled(fgdFile != null);
 				maddDefaultOption.setEnabled(fgdFile != null);
-				
+
 				rightEntPanel.setFGD(fgdFile);
 			}
 		});
-		
+
 		JPanel findpanel = new JPanel();
-		
+
 		final JLabel findlabel = new JLabel("Linked from ");
 		findpanel.add(findlabel);
 		final DefaultComboBoxModel findmodel = new DefaultComboBoxModel();
@@ -361,8 +383,8 @@ public class BSPEntspy {
 		findpanel.add(findbutton);
 		findbutton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				Entity jump = ((Entity)findmodel.getSelectedItem());
-				
+				Entity jump = ((Entity) findmodel.getSelectedItem());
+
 				int ind = m.el.indexOf(jump);
 				entList.setSelectedIndex(ind);
 				entList.ensureIndexIsVisible(ind);
@@ -371,14 +393,14 @@ public class BSPEntspy {
 		findlabel.setEnabled(false);
 		findbutton.setEnabled(false);
 		findcombo.setEnabled(false);
-		
+
 		JPanel leftPanel = new JPanel(new BorderLayout());
 		leftPanel.add((Component) new JScrollPane(this.entList), "Center");
 		JPanel entcpl = new JPanel();
 		entcpl.setLayout(new BoxLayout(entcpl, BoxLayout.PAGE_AXIS));
 
 		JPanel entbut = new JPanel();
-		
+
 		JButton updent = new JButton("Update");
 		updent.setToolTipText("Update entity links");
 		JButton addent = new JButton("Add");
@@ -405,66 +427,67 @@ public class BSPEntspy {
 		exportEntity.setToolTipText("Export selected entities to a file");
 		exportEntity.setEnabled(false);
 		entexp.add(exportEntity);
-		
+
 		exportEntity.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ev) {
 				ArrayList<Entity> ents = new ArrayList<Entity>();
-				
-				for(int i : entList.getSelectedIndices()) {
+
+				for (int i : entList.getSelectedIndices()) {
 					ents.add(m.el.get(i));
 				}
-				
+
 				JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
 				chooser.setDialogTitle(entspyTitle + " - Export entities to a file");
 				chooser.setDialogType(JFileChooser.SAVE_DIALOG);
-				
+
 				int result = chooser.showOpenDialog(frame);
 				if (result == 1) {
 					return;
 				}
-				
+
 				File f = chooser.getSelectedFile();
-				
+
 				String ext = ".ent";
-				if(f.getName().indexOf('.') > -1)
+				if (f.getName().indexOf('.') > -1)
 					ext = "";
-				
-				try(FileWriter fw = new FileWriter(f + ext)){
+
+				try (FileWriter fw = new FileWriter(f + ext)) {
 					writeEntsToWriter(ents, fw);
-					
+
 					fw.close();
-					
+
 					preferences.put("LastFolder", f.getParent());
-					JOptionPane.showMessageDialog(frame, ents.size() + " entities successfuly exported to " + f, "Info", JOptionPane.INFORMATION_MESSAGE);
-				} catch(IOException e) {
+					JOptionPane.showMessageDialog(frame, ents.size() + " entities successfuly exported to " + f, "Info",
+							JOptionPane.INFORMATION_MESSAGE);
+				} catch (IOException e) {
 					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 					e.printStackTrace();
 				}
-				
+
 				return;
 			}
 		});
-		
+
 		importEntity.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ev) {
 				JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
 				chooser.setDialogTitle(entspyTitle + " - Import entities from a file");
 				chooser.setDialogType(JFileChooser.SAVE_DIALOG);
-				
+
 				int result = chooser.showOpenDialog(frame);
 				if (result == 1) {
 					return;
 				}
-				
+
 				File f = chooser.getSelectedFile();
-				
-				try(FileReader fr = new FileReader(f)){
+
+				try (FileReader fr = new FileReader(f)) {
 					ArrayList<Entity> ents = loadEntsFromReader(fr);
-					
+
 					fr.close();
-					
+
 					CommandAddEntity command = new CommandAddEntity();
-					for(Entity e : ents) {
+					for (Entity e : ents) {
 						command.addEntity(e, m.el.size());
 						m.el.add(e);
 					}
@@ -472,77 +495,78 @@ public class BSPEntspy {
 					Undo.setTarget(m.el);
 					Undo.addCommand(command);
 					Undo.finish();
-					
+
 					entList.setModel(new EntspyListModel(m.getData()));
 					preferences.put("LastFolder", f.getParent());
-					
-					JOptionPane.showMessageDialog(frame, ents.size() + " entities successfuly imported from " + f, "Info", JOptionPane.INFORMATION_MESSAGE);
-				} catch(Exception | LexerException e) {
+
+					JOptionPane.showMessageDialog(frame, ents.size() + " entities successfuly imported from " + f,
+							"Info", JOptionPane.INFORMATION_MESSAGE);
+				} catch (Exception | LexerException e) {
 					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 					e.printStackTrace();
 				}
-				
+
 				return;
 			}
 		});
-		
+
 		final JButton cpToClipEnt = new JButton("Copy");
 		cpToClipEnt.setToolTipText("Copy selected entities to clipboard");
 		cpToClipEnt.setEnabled(false);
 		entexp.add(cpToClipEnt);
-		
+
 		final JButton pstFromClipEnt = new JButton("Paste");
 		pstFromClipEnt.setToolTipText("Paste entities from clipboard");
 		pstFromClipEnt.setEnabled(true);
 		entexp.add(pstFromClipEnt);
-		
+
 		cpToClipEnt.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ev) {
 				ArrayList<Entity> ents = new ArrayList<Entity>();
-				
-				for(int i : entList.getSelectedIndices()) {
+
+				for (int i : entList.getSelectedIndices()) {
 					ents.add(m.el.get(i));
 				}
-				
-				try(StringWriter sw = new StringWriter(ents.size() * 256)){
+
+				try (StringWriter sw = new StringWriter(ents.size() * 256)) {
 					writeEntsToWriter(ents, sw);
-					
+
 					sw.close();
-					
+
 					Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
 					cb.setContents(new StringSelection(sw.toString()), null);
-				} catch(IOException e) {
+				} catch (IOException e) {
 					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 					e.printStackTrace();
 				}
-				
+
 				return;
 			}
 		});
-		
+
 		pstFromClipEnt.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ev) {
-				try{
+				try {
 					Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
 					Transferable cbcontent = cb.getContents(null);
-					
-					if(cbcontent == null)
+
+					if (cbcontent == null)
 						return;
-					
+
 					StringReader sr = new StringReader(cbcontent.getTransferData(DataFlavor.stringFlavor).toString());
 					ArrayList<Entity> ents = loadEntsFromReader(sr);
-					
+
 					sr.close();
-					
+
 					int i = entList.getMaxSelectionIndex();
-					
-					if(i < 0)
+
+					if (i < 0)
 						i = Math.max(m.el.size() - 1, 0);
-					if(i > 0)
+					if (i > 0)
 						++i;
-					
+
 					CommandAddEntity command = new CommandAddEntity();
-					for(Entity e : ents) {
+					for (Entity e : ents) {
 						command.addEntity(e, m.el.size());
 						m.el.add(e);
 					}
@@ -550,13 +574,14 @@ public class BSPEntspy {
 					Undo.setTarget(m.el);
 					Undo.addCommand(command);
 					Undo.finish();
-					
+
 					entList.setModel(new EntspyListModel(m.getData()));
-				} catch(Exception | LexerException e) {
-					JOptionPane.showMessageDialog(frame, "Could not parse data from clipboard!\n" + e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
+				} catch (Exception | LexerException e) {
+					JOptionPane.showMessageDialog(frame, "Could not parse data from clipboard!\n" + e.getMessage(),
+							"ERROR!", JOptionPane.ERROR_MESSAGE);
 					e.printStackTrace();
 				}
-				
+
 				return;
 			}
 		});
@@ -569,7 +594,7 @@ public class BSPEntspy {
 		JTextField findtext = new JTextField();
 		findtext.setToolTipText("Text to search for");
 		Box fbox = Box.createHorizontalBox();
-		
+
 		fbox.add(findtext);
 		fbox.add(findent);
 		fbox.add(findall);
@@ -592,7 +617,7 @@ public class BSPEntspy {
 			public void actionPerformed(ActionEvent e) {
 				ArrayList<Entity> toremove = new ArrayList<Entity>();
 				int j = 0;
-				
+
 				CommandRemoveEntity command = new CommandRemoveEntity();
 				for (int i : BSPEntspy.this.entList.getSelectedIndices()) {
 					command.addEntity(m.el.get(i), i);
@@ -603,30 +628,30 @@ public class BSPEntspy {
 				Undo.setTarget(m.el);
 				Undo.addCommand(command);
 				Undo.finish();
-				
+
 				m.el.removeAll(toremove);
-				
+
 				j = entList.getMaxSelectionIndex() - j;
 
 				BSPEntspy.this.entList.setModel(new EntspyListModel(BSPEntspy.this.m.getData()));
-				
+
 				entList.setSelectedIndex(j + 1);
-				
+
 				BSPEntspy.this.m.dirty = true;
 			}
 		});
 		cpyent.addActionListener(new ActionListener() {
 
-			public void actionPerformed(ActionEvent e) {				
+			public void actionPerformed(ActionEvent e) {
 				int[] selected = entList.getSelectedIndices();
-				
+
 				CommandAddEntity command = new CommandAddEntity();
-				for(int j = 0; j < selected.length; ++j) {
+				for (int j = 0; j < selected.length; ++j) {
 					selected[j] += j;
 					Entity old = m.el.get(selected[j]);
 					++selected[j];
-					
-					if(old != null) {
+
+					if (old != null) {
 						Entity newE = old.copy();
 						command.addEntity(newE, selected[j]);
 						m.el.add(selected[j], newE);
@@ -636,7 +661,7 @@ public class BSPEntspy {
 				Undo.setTarget(m.el);
 				Undo.addCommand(command);
 				Undo.finish();
-				
+
 				entList.setModel(new EntspyListModel(m.getData()));
 				entList.setSelectedIndices(selected);
 
@@ -648,7 +673,7 @@ public class BSPEntspy {
 			public void actionPerformed(ActionEvent e) {
 				Entity newent = new Entity();
 				int index = 0;
-				
+
 				CommandAddEntity command;
 				if (entList.getMaxSelectionIndex() > 0) {
 					index = entList.getMaxSelectionIndex() + 1;
@@ -676,12 +701,12 @@ public class BSPEntspy {
 
 			@Override
 			public void valueChanged(ListSelectionEvent ev) {
-				if(ev.getValueIsAdjusting())
+				if (ev.getValueIsAdjusting())
 					return;
 				int[] selected = entList.getSelectedIndices();
-				
+
 				boolean enable = selected.length > 0;
-				
+
 				delent.setEnabled(enable);
 				cpyent.setEnabled(enable);
 				exportEntity.setEnabled(enable);
@@ -689,40 +714,40 @@ public class BSPEntspy {
 				findbutton.setEnabled(selected.length == 1);
 				findcombo.setEnabled(selected.length == 1);
 				findmodel.removeAllElements();
-				
+
 				/*
-				 * Emulates hammer editor behaviour. If a new selection is made
-				 * that does not contain the previously selected entities,
-				 * then the changes are applied automatically
+				 * Emulates hammer editor behaviour. If a new selection is made that does not
+				 * contain the previously selected entities, then the changes are applied
+				 * automatically
 				 */
 				HashSet<Entity> newSelection = new HashSet<Entity>();
 				boolean shouldApply = selected.length > 0 && previouslySelected.size() > 0;
-				for(int i : selected) {
+				for (int i : selected) {
 					Entity e = m.el.get(i);
 					newSelection.add(e);
-					
-					if(previouslySelected.contains(e)) {
+
+					if (previouslySelected.contains(e)) {
 						shouldApply = false;
 					}
 				}
 				previouslySelected = newSelection;
-				if(shouldApply) {
+				if (shouldApply) {
 					rightEntPanel.apply();
 				}
-				
+
 				rightEntPanel.clearEntities();
-				for(int i : selected) {
+				for (int i : selected) {
 					rightEntPanel.addEntity(m.el.get(i), false);
 				}
 				rightEntPanel.gatherKeyValues();
-				
-				if(selected.length == 1) {
+
+				if (selected.length == 1) {
 					setfindlist(m.el.get(selected[0]), findmodel);
 				}
 			}
 
 		});
-		
+
 		rightEntPanel.addApplyListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				int[] selected = entList.getSelectedIndices();
@@ -730,17 +755,17 @@ public class BSPEntspy {
 				entList.setSelectedIndices(selected);
 			}
 		});
-		
+
 		rightEntPanel.addGotoListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				GotoEvent ge = (GotoEvent)e;
+				GotoEvent ge = (GotoEvent) e;
 				String name = ge.entname.trim();
-				
+
 				boolean found = false;
 				int j = 0;
-				for(int i = 0; i < 2 && !found; ++i) {
-					for(; j < m.el.size(); ++j) {
-						if(m.el.get(j).targetname.equals(name)) {
+				for (int i = 0; i < 2 && !found; ++i) {
+					for (; j < m.el.size(); ++j) {
+						if (m.el.get(j).targetname.equals(name)) {
 							entList.setSelectedIndex(j);
 							found = true;
 							break;
@@ -748,25 +773,34 @@ public class BSPEntspy {
 					}
 					j = entList.getSelectedIndex() + 1;
 				}
-				
-				if(!found) {
+
+				if (!found) {
 					JOptionPane.showMessageDialog(frame, "Couldn't find entity named '" + name + "'.");
 				}
 			}
 		});
-		
+
 		JPanel rightPanel = new JPanel(new BorderLayout());
 		rightPanel.add((Component) findpanel, "South");
 		rightPanel.add((Component) rightEntPanel, "Center");
-		
+
 		JSplitPane mainSplit = new JSplitPane(1, leftPanel, rightPanel);
 		mainSplit.setDividerLocation(275);
-		this.frame.setDefaultCloseOperation(3);
+
+		frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+		frame.addWindowListener(new WindowAdapter() {
+			public void windowClosing(WindowEvent ev) {
+				if (BSPEntspy.this.checkchanged("Quit Entspy")) {
+					return;
+				}
+				frame.dispose();
+			}
+		});
 		this.frame.setSize(720, 520);
 		this.frame.getContentPane().add(mainSplit);
 		this.frame.setVisible(true);
 		this.loaddata();
-		
+
 		return 0;
 	}
 
@@ -797,7 +831,7 @@ public class BSPEntspy {
 	public boolean loadfile() {
 		try {
 			JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
-			
+
 			chooser.setDialogTitle(entspyTitle + " - Open a BSP file");
 			chooser.setFileFilter(new EntFileFilter());
 			int result = chooser.showOpenDialog(this.frame);
@@ -813,9 +847,9 @@ public class BSPEntspy {
 			}
 			System.out.println("Reading map file " + this.filename);
 			this.raf = new RandomAccessFile(this.infile, "r");
-			
+
 			preferences.put("LastFolder", this.infile.getParent());
-			
+
 			return true;
 		} catch (IOException ioe) {
 			ioe.printStackTrace();
@@ -946,41 +980,41 @@ public class BSPEntspy {
 			ioe.printStackTrace();
 		}
 	}
-	
-	public boolean loadfgdfiles(File file) {	
-		if(file == null) {
+
+	public boolean loadfgdfiles(File file) {
+		if (file == null) {
 			String lastFgd = preferences.get("LastFGDFile", null);
-			if(lastFgd == null)
+			if (lastFgd == null)
 				return false;
-			
+
 			file = new File(lastFgd);
 		}
-		
-		if(!file.exists() || !file.canRead())
+
+		if (!file.exists() || !file.canRead())
 			return false;
-		
-		if(fgdFile == null)
+
+		if (fgdFile == null)
 			fgdFile = new FGD();
-		
-		try(FileReader fr = new FileReader(file)) {
+
+		try (FileReader fr = new FileReader(file)) {
 			final String path = file.getParent();
-			
+
 			FGD.OnIncludeCallback callback = new FGD.OnIncludeCallback() {
 				public Boolean call() {
 					File f = new File(path + "/" + this.fileToLoad);
 					return loadfgdfiles(f);
 				}
 			};
-			
+
 			fgdFile.loadFromReader(fr, file.getName(), callback);
 			fr.close();
-		} catch(Exception | LexerException e) {
+		} catch (Exception | LexerException e) {
 			JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 			e.printStackTrace();
 			fgdFile = null;
 			return false;
 		}
-		
+
 		return true;
 	}
 
@@ -1047,60 +1081,61 @@ public class BSPEntspy {
 
 		return m.el.get(index);
 	}
-	
+
 	public boolean patchFromVMF(File vmfFile) throws LexerException, FileNotFoundException {
 		VMF temp = new VMF();
-		
+
 		FileReader fr = new FileReader(vmfFile);
 		temp.loadFromReader(fr, vmfFile.getName());
-		
-		Object[] options = new Object[] {"Only named entities", "All entities"};
-		Object[] options2 = new Object[] {"Continue", "Continue all", "Abort"};
-		
-		int selected = JOptionPane.showOptionDialog(frame, "Patch only named entities (safe) or try to patch entities based on order?",
-				"Patch VMF", JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, options[0]);
+
+		Object[] options = new Object[] { "Only named entities", "All entities" };
+		Object[] options2 = new Object[] { "Continue", "Continue all", "Abort" };
+
+		int selected = JOptionPane.showOptionDialog(frame,
+				"Patch only named entities (safe) or try to patch entities based on order?", "Patch VMF",
+				JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, options[0]);
 		boolean ignoreDisorder = false;
-		
+
 		int replaced = 0;
 		int missmatches = 0;
 		CommandReplaceEntity command = new CommandReplaceEntity();
-		if(selected == 0) {
+		if (selected == 0) {
 			HashMap<String, Integer> nameMap = new HashMap<String, Integer>();
 			HashMap<String, Integer> dupMap = new HashMap<String, Integer>();
-			
-			for(int i = 0; i < m.el.size(); ++i) {
-				Entity ent = m.el.get(i);
-				if(ent.targetname.isEmpty())
-					continue;
-				String key = "\""+ent.classname + "\" \"" + ent.targetname + "\"";
 
-				if(nameMap.containsKey(key)) {
+			for (int i = 0; i < m.el.size(); ++i) {
+				Entity ent = m.el.get(i);
+				if (ent.targetname.isEmpty())
+					continue;
+				String key = "\"" + ent.classname + "\" \"" + ent.targetname + "\"";
+
+				if (nameMap.containsKey(key)) {
 					int count = dupMap.getOrDefault(key, 1);
 					dupMap.put(key, count + 1);
 					key += count;
 				}
-				
+
 				nameMap.put(key, i);
 			}
-			
+
 			dupMap.clear();
-			for(int i = 0; i < temp.ents.size(); ++i) {
+			for (int i = 0; i < temp.ents.size(); ++i) {
 				Entity ent = temp.ents.get(i);
-				if(ent.targetname.isEmpty())
+				if (ent.targetname.isEmpty())
 					continue;
-				String key = "\""+ent.classname + "\" \"" + ent.targetname + "\"";
-				
+				String key = "\"" + ent.classname + "\" \"" + ent.targetname + "\"";
+
 				int count = dupMap.getOrDefault(key, -1);
 				dupMap.put(key, ++count);
-				
-				if(count > 0) {
+
+				if (count > 0) {
 					key += count;
 				}
-				
-				if(!nameMap.containsKey(key)) {
+
+				if (!nameMap.containsKey(key)) {
 					continue;
 				}
-				
+
 				int index = nameMap.get(key);
 				Entity original = m.el.get(index);
 				Entity finalReplacement = replaceEntity(original, ent);
@@ -1109,98 +1144,102 @@ public class BSPEntspy {
 				++replaced;
 			}
 		} else {
-			for(int i = 0, j = 0; i < m.el.size() && j < temp.ents.size(); ) {
+			for (int i = 0, j = 0; i < m.el.size() && j < temp.ents.size();) {
 				Entity original = m.el.get(i);
 				Entity replacement = temp.ents.get(j);
-				
-				if(VMF.ignoredClasses.contains(original.classname)) {
+
+				if (VMF.ignoredClasses.contains(original.classname)) {
 					++i;
 					continue;
 				}
-				if(VMF.ignoredClasses.contains(replacement.classname) || selected == 0 && replacement.targetname.isEmpty()) {
+				if (VMF.ignoredClasses.contains(replacement.classname)
+						|| selected == 0 && replacement.targetname.isEmpty()) {
 					++j;
 					continue;
 				}
-				
-				//only classname needs to match
+
+				// only classname needs to match
 				boolean shouldReplace = original.classname.equals(replacement.classname);
-				
-				if(!shouldReplace)
+
+				if (!shouldReplace)
 					++missmatches;
-				
-				if(selected == 1 && !(ignoreDisorder || shouldReplace)) {
-					int selected2 = JOptionPane.showOptionDialog(frame, "Entity mismatch detected (" 
-							+ original.classname + "[\"" + original.targetname + "\"], " + replacement.classname + "[\"" + replacement.targetname + "\"])!\n"
-							+ "The program will try to match entities as best as possible. Continue?",
-							"Patch VMF", JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, options2, options2[1]);
+
+				if (selected == 1 && !(ignoreDisorder || shouldReplace)) {
+					int selected2 = JOptionPane.showOptionDialog(frame,
+							"Entity mismatch detected (" + original.classname + "[\"" + original.targetname + "\"], "
+									+ replacement.classname + "[\"" + replacement.targetname + "\"])!\n"
+									+ "The program will try to match entities as best as possible. Continue?",
+							"Patch VMF", JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, options2,
+							options2[1]);
 					ignoreDisorder = selected2 == 1;
-					
-					if(selected2 == 2)
+
+					if (selected2 == 2)
 						break;
 				}
-				
-				if(shouldReplace) {
+
+				if (shouldReplace) {
 					Entity finalReplacement = replaceEntity(original, replacement);
 					m.el.set(i, finalReplacement);
 					command.addEntity(original, finalReplacement, i);
-					
+
 					++i;
 					++j;
 					++replaced;
-				}else //if entities do not match advance bsp entities until they match with vmf entities
+				} else // if entities do not match advance bsp entities until they match with vmf
+						// entities
 					++i;
 			}
 		}
-		
+
 		Undo.create();
 		Undo.setTarget(m.el);
 		Undo.addCommand(command);
 		Undo.finish();
-		
+
 		JOptionPane.showMessageDialog(frame, "Patched " + replaced + " entities (" + missmatches + " mismatches).");
-		
+
 		return false;
 	}
-	
+
 	private static Entity replaceEntity(Entity original, Entity replacement) {
-		for(KeyValLink kvl : original.keyvalues) {
-			if(!replacement.kvmap.containsKey(kvl.key)) {
+		for (KeyValLink kvl : original.keyvalues) {
+			if (!replacement.kvmap.containsKey(kvl.key)) {
 				replacement.addKeyVal(kvl.key, kvl.value);
 			}
-			
-			if(kvl.key.equals("model") && kvl.value.startsWith("*"))
+
+			if (kvl.key.equals("model") && kvl.value.startsWith("*"))
 				replacement.setKeyVal("model", kvl.value);
 		}
 		return replacement;
 	}
-	
+
 	public ArrayList<Entity> loadEntsFromReader(Reader in) throws Exception, LexerException {
 		VMF temp = new VMF();
-		
+
 		temp.loadFromReader(in, "clipboard");
-		
-		for(int i = 0; i < temp.ents.size(); ++i) {
-			if(VMF.ignoredClasses.contains(temp.ents.get(i).classname)) {
+
+		for (int i = 0; i < temp.ents.size(); ++i) {
+			if (VMF.ignoredClasses.contains(temp.ents.get(i).classname)) {
 				temp.ents.remove(i--);
 			}
 		}
-		
+
 		return temp.ents;
 	}
-	
+
 	public void writeEntsToWriter(List<Entity> ents, Writer out) throws IOException {
 		BufferedWriter w = new BufferedWriter(out);
-		
-		for(Entity e : ents) {
+
+		for (Entity e : ents) {
 			w.append(e.toStringSpecial());
 		}
-		
+
 		w.flush();
 	}
-	
-	public static void main(String[] args) throws Exception {		
+
+	public static void main(String[] args) throws Exception {
 		UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-		
+
 		BSPEntspy inst = new BSPEntspy();
 		inst.exec();
 	}
@@ -1253,10 +1292,11 @@ public class BSPEntspy {
 			}
 
 			int i = entList.getSelectedIndex() + 1;
-			for(int j = 0; j < 2 && !found; ++j) {
+			for (int j = 0; j < 2 && !found; ++j) {
 				if (special) {
 					for (; i < ((EntspyListModel) entList.getModel()).entities.size(); ++i) {
-						if (((EntspyListModel) entList.getModel()).entities.get(i).isMatch(keysToSearch, valuesToSearch)) {
+						if (((EntspyListModel) entList.getModel()).entities.get(i).isMatch(keysToSearch,
+								valuesToSearch)) {
 							found = true;
 							break;
 						}
@@ -1269,8 +1309,8 @@ public class BSPEntspy {
 						}
 					}
 				}
-				
-				if(!found)
+
+				if (!found)
 					i = 0;
 			}
 
@@ -1296,32 +1336,33 @@ public class BSPEntspy {
 			}
 		}
 	}
-	
-	class HelpActionListener implements ActionListener{
+
+	class HelpActionListener implements ActionListener {
 		String file;
+
 		public HelpActionListener(String file) {
 			this.file = file;
 		}
-		
+
 		public void actionPerformed(ActionEvent ev) {
 			HelpWindow help = HelpWindow.openHelp("Help");
-			
-			try(BufferedReader rd = new BufferedReader(
+
+			try (BufferedReader rd = new BufferedReader(
 					new InputStreamReader(BSPEntspy.class.getResourceAsStream(file)))) {
 				StringBuilder sb = new StringBuilder();
-				
+
 				String line = rd.readLine();
-				while(line != null) {
+				while (line != null) {
 					sb.append(line);
 					line = rd.readLine();
 				}
-				
+
 				help.setText(sb.toString());
 			} catch (IOException | NullPointerException e) {
-				help.setText("Couldn't find " + file + "<br>"+e);
+				help.setText("Couldn't find " + file + "<br>" + e);
 				e.printStackTrace();
 			}
-			
+
 			help.setSize(720, 520);
 			help.setVisible(true);
 		}
@@ -1389,14 +1430,14 @@ public class BSPEntspy {
 		}
 
 	}
-	
-	private static abstract class CommandEntity implements Command{
+
+	private static abstract class CommandEntity implements Command {
 		ArrayList<Entity> entities;
-		
+
 		public CommandEntity() {
 			entities = new ArrayList<Entity>();
 		}
-		
+
 		public CommandEntity(Entity e) {
 			entities = new ArrayList<Entity>();
 			entities.add(e);
@@ -1405,7 +1446,7 @@ public class BSPEntspy {
 		public Command join(Command previous) {
 			CommandEntity prev = (CommandEntity) previous;
 			prev.entities.addAll(entities);
-			
+
 			return null;
 		}
 
@@ -1413,39 +1454,39 @@ public class BSPEntspy {
 			return entities.size();
 		}
 	}
-	
-	private static class CommandReplaceEntity extends CommandEntity{
+
+	private static class CommandReplaceEntity extends CommandEntity {
 		ArrayList<Entity> replacements;
 		ArrayList<Integer> indices;
-		
+
 		public CommandReplaceEntity() {
 			indices = new ArrayList<Integer>();
 			replacements = new ArrayList<Entity>();
 		}
-		
+
 		public void addEntity(Entity original, Entity replacement, int index) {
 			indices.add(index);
 			entities.add(original);
 			replacements.add(replacement);
 		}
-		
+
 		public void undo(Object target) {
 			ListIterator<Integer> it = indices.listIterator();
-			
-			while(it.hasNext()) {
+
+			while (it.hasNext()) {
 				int index = it.nextIndex();
 				int entindex = it.next();
-				((ArrayList<Entity>)target).set(entindex, entities.get(index));
+				((ArrayList<Entity>) target).set(entindex, entities.get(index));
 			}
 		}
 
 		public void redo(Object target) {
 			ListIterator<Integer> it = indices.listIterator();
-			
-			while(it.hasNext()) {
+
+			while (it.hasNext()) {
 				int index = it.nextIndex();
 				int entindex = it.next();
-				((ArrayList<Entity>)target).set(entindex, replacements.get(index));
+				((ArrayList<Entity>) target).set(entindex, replacements.get(index));
 			}
 		}
 
@@ -1453,77 +1494,79 @@ public class BSPEntspy {
 			return "";
 		}
 	}
-	
-	private static class CommandAddEntity extends CommandEntity{
+
+	private static class CommandAddEntity extends CommandEntity {
 		ArrayList<Integer> indices;
-		
+
 		public CommandAddEntity() {
 			indices = new ArrayList<Integer>();
 		}
-		
+
 		public CommandAddEntity(Entity e, int index) {
 			super(e);
 			indices = new ArrayList<Integer>();
 			indices.add(index);
 		}
-		
+
 		public void addEntity(Entity e, int index) {
 			entities.add(e);
 			indices.add(index);
 		}
-		
+
 		public void undo(Object target) {
 			ListIterator<Integer> it = indices.listIterator();
 			int offset = 0;
-			
-			while(it.hasNext()) {
-				((ArrayList<Entity>)target).remove(it.next().intValue() - offset++);
+
+			while (it.hasNext()) {
+				((ArrayList<Entity>) target).remove(it.next().intValue() - offset++);
 			}
 		}
 
 		public void redo(Object target) {
 			ListIterator<Entity> it = entities.listIterator();
-			while(it.hasNext()) {
-				((ArrayList<Entity>)target).add(indices.get(it.nextIndex()), it.next());
+			while (it.hasNext()) {
+				((ArrayList<Entity>) target).add(indices.get(it.nextIndex()), it.next());
 			}
 		}
 
 		public String toString(String indent) {
 			StringBuilder sb = new StringBuilder();
 			System.out.println("ident" + indent);
-			
+
 			sb.append(indent).append(this.getClass()).append("\n");
-			
-			for(int i = 0; i < entities.size(); ++i) {
-				sb.append(indent).append("\t\t").append(entities.get(i).toString()).append(" at index ").append(indices.get(i)).append("\n");
+
+			for (int i = 0; i < entities.size(); ++i) {
+				sb.append(indent).append("\t\t").append(entities.get(i).toString()).append(" at index ")
+						.append(indices.get(i)).append("\n");
 			}
-			
+
 			return sb.toString();
 		}
 	}
-	
-	private static class CommandRemoveEntity extends CommandAddEntity{
+
+	private static class CommandRemoveEntity extends CommandAddEntity {
 		public CommandRemoveEntity() {
-			
+
 		}
+
 		public CommandRemoveEntity(Entity e, int index) {
 			super(e, index);
 		}
-		
+
 		public void undo(Object target) {
 			ListIterator<Entity> it = entities.listIterator();
-			
-			while(it.hasNext()) {
-				((ArrayList<Entity>)target).add(indices.get(it.nextIndex()), it.next());
+
+			while (it.hasNext()) {
+				((ArrayList<Entity>) target).add(indices.get(it.nextIndex()), it.next());
 			}
 		}
 
 		public void redo(Object target) {
 			ListIterator<Integer> it = indices.listIterator();
 			int offset = 0;
-			
-			while(it.hasNext()) {
-				((ArrayList<Entity>)target).remove(it.next().intValue() - offset++);
+
+			while (it.hasNext()) {
+				((ArrayList<Entity>) target).remove(it.next().intValue() - offset++);
 			}
 		}
 	}
