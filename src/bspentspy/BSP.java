@@ -1,5 +1,7 @@
 package bspentspy;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -9,6 +11,8 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.zip.CRC32;
+
+import SevenZip.Compression.LZMA.Decoder;
 
 public class BSP {
 	int ident;
@@ -42,6 +46,7 @@ public class BSP {
 	int opts;
 	JProgFrame prog;
 	int progress;
+	int tasklength;
 
 	public BSP(RandomAccessFile raf) {
 		this.raf = raf;
@@ -101,51 +106,77 @@ public class BSP {
 		System.out.println("MapRev: " + maprev);
 		Collections.sort(lumplist);
 	}
+	
+	private byte[] decompressEntities() throws IOException {
+		int id = Integer.reverseBytes(raf.readInt());
+		int actualSize = Integer.reverseBytes(raf.readInt());
+		int lzmaSize = Integer.reverseBytes(raf.readInt());
+		byte[] properties = new byte[5];
+		raf.read(properties);
+		
+		if(id != 0x414D5A4C) {
+			raf.seek(raf.getFilePointer() - 17);
+			return null;
+		}
+		
+		byte[] contents = new byte[lzmaSize];
+		raf.read(contents);
+		ByteArrayInputStream instream = new ByteArrayInputStream(contents);
+		ByteArrayOutputStream outstream = new ByteArrayOutputStream(actualSize);
+		
+		Decoder decoder = new Decoder();
+		decoder.SetDecoderProperties(properties);
+		decoder.Code(instream, outstream, actualSize);
+		
+		return outstream.toByteArray();
+	}
 
 	public void loadentities() throws IOException {
 		el = new ArrayList<Entity>();
 		raf.seek(lump[0].ofs);
-		long end = lump[0].ofs + lump[0].len;
-		boolean numents = false;
-		boolean last = false;
+		
+		byte[] decompressed = decompressEntities();
+		
+		if(decompressed == null) {
+			decompressed = new byte[lump[0].len];
+			raf.read(decompressed);
+		}
+		
+		StringBuilder sb = new StringBuilder();
+		
 		progress = 0;
-		while (!last) {
-			long fp = raf.getFilePointer();
-			if (fp >= end) {
-				last = true;
-				break;
-			}
-			progress = (int) fp - lump[0].ofs;
-			String line = raf.readLine();
-			if (line == null) {
-				System.out.println("End of file");
-				last = true;
-				break;
-			}
-			if (!line.equals("{")) {
-				last = true;
-				System.out.println("End of entities");
+		tasklength = decompressed.length;
+		
+		Entity currEnt = null;
+		int i = 0;
+		while(i < decompressed.length) {
+			progress = i;
+			sb.setLength(0);
+			char read;
+			while(i < decompressed.length && (read = (char)decompressed[i++]) > -1 && read != '\n')
+				sb.append(read);
+			String line = sb.toString();
+			
+			if (line.equals("{")) {
+				currEnt = new Entity();
+				currEnt.index = el.size();
 				continue;
 			}
-			Entity cent = new Entity();
-			while ((line = raf.readLine()) != null) {
-				if (line.equals("}")) {
-					cent.index = el.size();
-					el.add(cent);
-					break;
-				}
-				String[] fields = line.split("\"", -1);
-				if (fields.length == 5) {
-					String ckey = fields[1];
-					String cval = fields[3];
-					cent.addKeyVal(ckey, cval);
-				}
-				if (!line.equals("}"))
-					continue;
+			
+			if(line.equals("}")) {
+				el.add(currEnt);
+				currEnt = null;
+				continue;
 			}
-			cent.setnames();
+			
+			String[] fields = line.split("\"", -1);
+			if (fields.length == 5) {
+				String ckey = fields[1];
+				String cval = fields[3];
+				//seems like commas are replaced with ESC character in newer versions of BSP (Gmod, TF2)
+				currEnt.addKeyVal(ckey, cval.replaceAll("\u001b", ","));
+			}
 		}
-		System.out.println("Size: " + el.size() + " entities");
 	}
 
 	public void buildlinks() {
@@ -385,7 +416,7 @@ public class BSP {
 	}
 
 	public int loadtasklength() {
-		return lump[0].len;
+		return tasklength;
 	}
 
 	public void computecrc() throws IOException {

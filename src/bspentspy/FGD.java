@@ -100,7 +100,7 @@ public class FGD {
 		}
 
 		sb.append("<hr>");
-		if (entry.baseclasses.size() > 0) {
+		if (entry.baseclasses != null && entry.baseclasses.size() > 0) {
 			sb.append("<p><i>Derives from: </i>");
 			for (FGDEntry e : entry.baseclasses) {
 				sb.append("<b>").append(e.classname).append("</b>, ");

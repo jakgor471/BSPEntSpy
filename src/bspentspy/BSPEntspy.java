@@ -87,9 +87,10 @@ public class BSPEntspy {
 	Preferences preferences;
 	FGD fgdFile = null;
 	HashSet<Entity> previouslySelected = new HashSet<Entity>();
+	Obfuscator obfuscator;
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String entspyTitle = "BSPEntSpy v1.1";
+	public static final String entspyTitle = "BSPEntSpy v1.2";
 
 	public int exec() throws IOException {
 		preferences = Preferences.userRoot().node(getClass().getName());
@@ -248,10 +249,27 @@ public class BSPEntspy {
 
 		optionmenu.add(msmartEditOption);
 		optionmenu.add(maddDefaultOption);
+		
+		JMenu entitymenu = new JMenu("Entity");
+		final JMenuItem importEntity = new JMenuItem("Import");
+		importEntity.setToolTipText("Import entities from a file");
+		importEntity.setEnabled(true);
+		entitymenu.add(importEntity);
+
+		final JMenuItem exportEntity = new JMenuItem("Export");
+		exportEntity.setToolTipText("Export selected entities to a file");
+		exportEntity.setEnabled(false);
+		entitymenu.add(exportEntity);
+		
+		final JMenuItem obfEntity = new JMenuItem("Obfuscate");
+		obfEntity.setToolTipText("Obfuscate selected entities (see more in Help)");
+		obfEntity.setEnabled(false);
+		//entitymenu.add(obfEntity); //Work in progress
 
 		JMenuBar menubar = new JMenuBar();
 		menubar.add(filemenu);
 		menubar.add(editmenu);
+		menubar.add(entitymenu);
 		menubar.add(optionmenu);
 		menubar.add(helpmenu);
 		this.frame.setJMenuBar(menubar);
@@ -366,6 +384,23 @@ public class BSPEntspy {
 				rightEntPanel.setFGD(fgdFile);
 			}
 		});
+		
+		obfuscator = new Obfuscator();
+		obfEntity.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				ArrayList<Entity> ents = getSelectedEntities();
+				
+				if(fgdFile == null) {
+					int result = JOptionPane.showConfirmDialog(frame, "No FGD files loaded! Obfuscator's functionality will be limited to only name mangling. Do you want to continue?");
+					
+					if(result != 0)
+						return;
+				}
+				
+				obfuscator.setFGD(fgdFile);
+				obfuscator.obfuscate(m.el, ents);
+			}
+		});
 
 		JPanel findpanel = new JPanel();
 
@@ -418,24 +453,10 @@ public class BSPEntspy {
 
 		JPanel entexp = new JPanel();
 
-		final JButton importEntity = new JButton("Import");
-		importEntity.setToolTipText("Import entities from a file");
-		importEntity.setEnabled(true);
-		entexp.add(importEntity);
-
-		final JButton exportEntity = new JButton("Export");
-		exportEntity.setToolTipText("Export selected entities to a file");
-		exportEntity.setEnabled(false);
-		entexp.add(exportEntity);
-
 		exportEntity.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ev) {
-				ArrayList<Entity> ents = new ArrayList<Entity>();
-
-				for (int i : entList.getSelectedIndices()) {
-					ents.add(m.el.get(i));
-				}
-
+				ArrayList<Entity> ents = getSelectedEntities();
+				
 				JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
 				chooser.setDialogTitle(entspyTitle + " - Export entities to a file");
 				chooser.setDialogType(JFileChooser.SAVE_DIALOG);
@@ -522,11 +543,7 @@ public class BSPEntspy {
 
 		cpToClipEnt.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ev) {
-				ArrayList<Entity> ents = new ArrayList<Entity>();
-
-				for (int i : entList.getSelectedIndices()) {
-					ents.add(m.el.get(i));
-				}
+				ArrayList<Entity> ents = getSelectedEntities();
 
 				try (StringWriter sw = new StringWriter(ents.size() * 256)) {
 					writeEntsToWriter(ents, sw);
@@ -711,6 +728,7 @@ public class BSPEntspy {
 				cpyent.setEnabled(enable);
 				exportEntity.setEnabled(enable);
 				cpToClipEnt.setEnabled(enable);
+				obfEntity.setEnabled(enable);
 				findbutton.setEnabled(selected.length == 1);
 				findcombo.setEnabled(selected.length == 1);
 				findmodel.removeAllElements();
@@ -1080,6 +1098,16 @@ public class BSPEntspy {
 			return null;
 
 		return m.el.get(index);
+	}
+	
+	public ArrayList<Entity> getSelectedEntities(){
+		ArrayList<Entity> ents = new ArrayList<Entity>();
+
+		for (int i : entList.getSelectedIndices()) {
+			ents.add(m.el.get(i));
+		}
+		
+		return ents;
 	}
 
 	public boolean patchFromVMF(File vmfFile) throws LexerException, FileNotFoundException {

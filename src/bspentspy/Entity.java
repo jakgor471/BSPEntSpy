@@ -5,6 +5,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import bspentspy.Undo.*;
 
@@ -28,6 +30,31 @@ public class Entity {
 	public Entity(String s) {
 		this.classname = s;
 	}
+	
+	public long keyValHash() {
+		long hash = 76646989558427L;
+		for(KeyValLink kvl : keyvalues) {
+			if(kvl.key.equals("targetname"))
+				continue;
+			int keyhash = kvl.key.hashCode();
+			int valhash = kvl.value.hashCode();
+			hash ^= keyhash + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+			hash ^= valhash + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+		}
+		
+		return hash;
+	}
+	
+	public long entHash() {
+		long hash = keyValHash();
+		hash ^= getKeyValue("targetname").hashCode() + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+		
+		return hash;
+	}
+	
+	public int getUniqueInt() {
+		return uniqueInt;
+	}
 
 	public void clear() {
 		this.classname = null;
@@ -36,6 +63,18 @@ public class Entity {
 		keyvalues.clear();
 		kvmap.clear();
 		uniqueKvmap.clear();
+	}
+	
+	public void setClass(String classname) {
+		setKeyVal("classname", classname);
+	}
+	
+	public void setName(String targetname) {
+		setKeyVal("targetname", targetname);
+	}
+	
+	public void setOrigin(double x, double y, double z) {
+		setKeyVal("classname", String.format("%4f", x) + " " + String.format("%4f", y) + " " + String.format("%4f", z));
 	}
 
 	public String getKeyValue(String keyword) {
@@ -579,5 +618,45 @@ public class Entity {
 		public String toString() {
 			return "(\"" + key + "\" \"" + value + "\")";
 		}
+	}
+	
+	public static class OutputData{
+		public String outputName;
+		public String targetEnt;
+		public String inputName;
+		public String param;
+		public float delay;
+		public boolean onlyOnce;
+		
+		public OutputData() {
+			
+		}
+		
+		public String getValue() {
+			return getValue(targetEnt, inputName, param, delay, onlyOnce);
+		}
+		
+		public static String getValue(String targetEnt, String inputName, String param, float delay, boolean onlyOnce) {
+			return targetEnt + "," + inputName + "," + param + "," + String.format("%2f", delay) + "," + (onlyOnce ? "1" : "-1");
+		}
+		
+		public static OutputData parseOutput(KeyValLink kvl) {
+			Matcher match = regex.matcher(kvl.value);
+			
+			if(!match.matches())
+				return null;
+			OutputData output = new OutputData();
+			
+			output.outputName = kvl.key;
+			output.targetEnt = match.group(1);
+			output.inputName = match.group(2);
+			output.param = match.group(3);
+			output.delay = Float.valueOf(match.group(4));
+			output.onlyOnce = match.group(4).equals("1");
+			
+			return output;
+		}
+		
+		private static Pattern regex = Pattern.compile("(.*?),(.*?),(.*?),(.*?),(.*)");
 	}
 }

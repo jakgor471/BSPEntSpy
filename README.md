@@ -28,6 +28,8 @@ Detailed description and instructions are included in **Help** menu tab in BSPEn
 ![comparison](https://github.com/jakgor471/BSPEntSpy/blob/main/images/image2.jpg?raw=true)
 
 ## Changelog
+### BSPEntSpy v1.2 build 06/06/2024
+* Added support for new Team Fortress 2 BSP format (LZMA compressed entity lump)
 ### BSPEntSpy v1.1 build 30/05/2024
 * Added Undo/Redo functionality
 * Added Flag edition panel
