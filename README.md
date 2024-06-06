@@ -1,7 +1,7 @@
 # BSPEntSpy - enhanced Entity Lump editor
 BSPEntSpy is an updated version of **EntSpy** originaly made by Rof (http://www.bagthorpe.org/bob/cofrdrbob/).  
 
-**Latest version** of BSPEntSpy is available to **download** here: https://github.com/jakgor471/BSPEntSpy/releases/tag/v1.1
+**Latest version** of BSPEntSpy is available to **download** here: https://github.com/jakgor471/BSPEntSpy/releases/tag/v1.2
 
 ## Features
 * **Importing and exporting** entities
