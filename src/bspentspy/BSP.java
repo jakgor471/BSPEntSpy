@@ -174,7 +174,8 @@ public class BSP {
 				String ckey = fields[1];
 				String cval = fields[3];
 				//seems like commas are replaced with ESC character in newer versions of BSP (Gmod, TF2)
-				currEnt.addKeyVal(ckey, cval.replaceAll("\u001b", ","));
+				//currEnt.addKeyVal(ckey, cval.replaceAll("\u001b", ","));
+				currEnt.addKeyVal(ckey, cval);
 			}
 		}
 	}
