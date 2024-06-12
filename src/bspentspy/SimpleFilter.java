@@ -21,7 +21,7 @@ public class SimpleFilter implements IFilter {
 	
 	private static LinkedList<SimpleFilter> recent = new LinkedList<SimpleFilter>();
 	
-	public static SimpleFilter create(String criterium) {
+	public static SimpleFilter create(String criterium) throws Exception {
 		SimpleFilter found = null;
 		int hash = criterium.hashCode();
 		
@@ -48,7 +48,7 @@ public class SimpleFilter implements IFilter {
 		return found;
 	}
 	
-	private SimpleFilter(String criterium) {
+	private SimpleFilter(String criterium) throws Exception {
 		hash = criterium.hashCode();
 		
 		String query = null;
@@ -61,11 +61,14 @@ public class SimpleFilter implements IFilter {
 			
 			Matcher match = p.matcher(query);
 			
+			int i = 0;
 			while(match.find()) {
+				++i;
+				
 				String part = match.group(1);
 				Matcher match2 = p2.matcher(part);
-				if(!match2.find())
-					continue;
+				if(!match2.find()) 
+					throw new Exception();
 				String paramName = match2.group(1);
 				String op = match2.group(2);
 				
@@ -78,7 +81,7 @@ public class SimpleFilter implements IFilter {
 					finalVal = value;
 				} else if(op.equals("in")) {
 					if(!value.startsWith("(") || !value.endsWith(")"))
-						continue;
+						throw new Exception();
 					Matcher inmatch = inp.matcher(value);
 					HashSet<String> set = new HashSet<String>();
 					
@@ -95,6 +98,9 @@ public class SimpleFilter implements IFilter {
 				paramNames.add(paramName);
 				values.add(finalVal);
 			}
+			
+			if(i < 1)
+				throw new Exception();
 		}
 		
 		this.criterium = criterium;

@@ -1346,7 +1346,11 @@ public class BSPEntspy {
 				entModel.setFilter(null);
 				return;
 			}
-			entModel.setFilter(SimpleFilter.create(ftext));
+			try {
+				entModel.setFilter(SimpleFilter.create(ftext));
+			} catch(Exception e) {
+				JOptionPane.showMessageDialog(frame, "Invalid filter format!", "ERROR", JOptionPane.ERROR_MESSAGE);
+			}
 		}
 	}
 	
@@ -1363,7 +1367,13 @@ public class BSPEntspy {
 				return;
 			}
 			
-			IFilter filter = SimpleFilter.create(ftext);
+			IFilter filter;
+			try {
+				filter = SimpleFilter.create(ftext);
+			} catch(Exception e) {
+				JOptionPane.showMessageDialog(frame, "Invalid filter format!", "ERROR", JOptionPane.ERROR_MESSAGE);
+				return;
+			}
 			
 			if((ae.getModifiers() & ae.SHIFT_MASK) > 0) {
 				List<Entity> filtered = entModel.getFilteredEntities();
