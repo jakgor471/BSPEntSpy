@@ -92,7 +92,7 @@ public class BSPEntspy {
 	Obfuscator obfuscator;
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String entspyTitle = "BSPEntSpy v1.2";
+	public static final String entspyTitle = "BSPEntSpy v1.25";
 	
 	private void updateEntList(ArrayList<Entity> ents) {
 		entModel.setEntityList(ents);
