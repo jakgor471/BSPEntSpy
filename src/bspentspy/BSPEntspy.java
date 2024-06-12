@@ -150,7 +150,6 @@ public class BSPEntspy {
 		filemenu.addSeparator();
 		JMenuItem minfo = new JMenuItem("Map info...");
 		minfo.setToolTipText("Map header information");
-		minfo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_I, KeyEvent.CTRL_DOWN_MASK));
 		filemenu.add(minfo);
 		filemenu.addSeparator();
 		JMenuItem mquit = new JMenuItem("Quit");
@@ -192,6 +191,43 @@ public class BSPEntspy {
 			public void actionPerformed(ActionEvent ae) {
 				mUndo.setEnabled(Undo.canUndo());
 				mRedo.setEnabled(Undo.canRedo());
+			}
+		});
+		
+		JMenuItem mInvertSel = new JMenuItem("Invert selection");
+		mInvertSel.setEnabled(true);
+		mInvertSel.setToolTipText("Invert the selection");
+		mInvertSel.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_I, KeyEvent.CTRL_DOWN_MASK));
+		editmenu.addSeparator();
+		editmenu.add(mInvertSel);
+		
+		mInvertSel.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				int[] selected = entList.getSelectedIndices();
+				
+				entList.clearSelection();
+				
+				int j = 0;
+				int intervalStart = -1;
+				int intervalEnd = 0;
+				
+				for(int i = 0; i < entModel.getSize(); ++i) {
+					if(j < selected.length && selected[j] == i) {
+						entList.addSelectionInterval(intervalStart, intervalEnd - 1);
+						intervalStart = -1;
+						++j;
+						continue;
+					}
+					
+					if(intervalStart < 0) {
+						intervalStart = i;
+						intervalEnd = i;
+					}
+					
+					++intervalEnd;
+				}
+				
+				entList.addSelectionInterval(intervalStart, intervalEnd - 1);
 			}
 		});
 
@@ -626,11 +662,11 @@ public class BSPEntspy {
 			}
 		});
 
-		JButton findent = new JButton("Find Next");
-		findent.setToolTipText("Find entity, hold Shift to add to selection");
+		JButton findent = new JButton("Find");
+		findent.setToolTipText("Find and select next entity, hold Shift to select all");
 		findent.setMnemonic(KeyEvent.VK_F);
 		JButton filterEnt = new JButton("Filter");
-		filterEnt.setToolTipText("Filter the entitiy list based on classname and targetname");
+		filterEnt.setToolTipText("Filter the entitiy list, hold Shift to clear the filter");
 		JTextField findtext = new JTextField();
 		findtext.setToolTipText("Text to search for");
 		Box fbox = Box.createHorizontalBox();
@@ -1304,12 +1340,12 @@ public class BSPEntspy {
 		}
 
 		public void actionPerformed(ActionEvent ae) {
+			entList.clearSelection();
 			String ftext = textf.getText().trim();
-			if(ftext.equals("")) {
+			if(ftext.equals("") || (ae.getModifiers() & ae.SHIFT_MASK) > 0) {
 				entModel.setFilter(null);
 				return;
 			}
-			
 			entModel.setFilter(SimpleFilter.create(ftext));
 		}
 	}
@@ -1329,29 +1365,36 @@ public class BSPEntspy {
 			
 			IFilter filter = SimpleFilter.create(ftext);
 			
-			int found = -1;
-			int j = entList.getMaxSelectionIndex() + 1;
-			int k = entModel.getSize();
-			for(int i = 0; i < 2 && found < 0; ++i) {
+			if((ae.getModifiers() & ae.SHIFT_MASK) > 0) {
 				List<Entity> filtered = entModel.getFilteredEntities();
 				
-				for(; j < k; ++j) {
-					if(filter.match(filtered.get(j))) {
-						found = j;
-						break;
+				for(int i = 0; i < filtered.size(); ++i) {
+					if(filter.match(filtered.get(i))) {
+						entList.addSelectionInterval(i, i);
 					}
 				}
+			} else {
+				int found = -1;
+				int j = entList.getMaxSelectionIndex() + 1;
+				int k = entModel.getSize();
+				for(int i = 0; i < 2 && found < 0; ++i) {
+					List<Entity> filtered = entModel.getFilteredEntities();
+					
+					for(; j < k; ++j) {
+						if(filter.match(filtered.get(j))) {
+							found = j;
+							break;
+						}
+					}
+					
+					j = 0;
+					k = entList.getMinSelectionIndex();
+				}
 				
-				j = 0;
-				k = entList.getMinSelectionIndex();
-			}
-			
-			if(found > -1) {
-				if((ae.getModifiers() & ae.SHIFT_MASK) > 0)
-					entList.addSelectionInterval(found, found);
-				else
+				if(found > -1) {
 					entList.setSelectedIndex(found);
-				entList.ensureIndexIsVisible(found);
+					entList.ensureIndexIsVisible(found);
+				}
 			}
 		}
 	}
