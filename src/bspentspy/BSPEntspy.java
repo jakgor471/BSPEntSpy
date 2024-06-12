@@ -42,6 +42,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.DefaultComboBoxModel;
+import javax.swing.DefaultListModel;
 import javax.swing.DefaultListSelectionModel;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -83,6 +84,7 @@ public class BSPEntspy {
 	RandomAccessFile raf;
 	JFrame frame = null;
 	JList<Entity> entList;
+	FilteredEntListModel entModel;
 	MapInfo info;
 	Preferences preferences;
 	FGD fgdFile = null;
@@ -91,6 +93,11 @@ public class BSPEntspy {
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
 	public static final String entspyTitle = "BSPEntSpy v1.2";
+	
+	private void updateEntList(ArrayList<Entity> ents) {
+		entModel.setEntityList(ents);
+		entList.setModel(entModel);
+	}
 
 	public int exec() throws IOException {
 		preferences = Preferences.userRoot().node(getClass().getName());
@@ -108,7 +115,11 @@ public class BSPEntspy {
 		} else {
 			preferences.remove("LastFGDFile");
 		}
-
+		
+		DefaultListModel<Entity> dfm = new DefaultListModel();
+		dfm.add(0, new Entity());
+		
+		entModel = new FilteredEntListModel();
 		this.entList = new JList<Entity>();
 		DefaultListSelectionModel selmodel = new DefaultListSelectionModel();
 		selmodel.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
@@ -161,7 +172,7 @@ public class BSPEntspy {
 		mUndo.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				Undo.undo();
-				entList.setModel(new EntspyListModel(m.el));
+				updateEntList(m.getData());
 				mRedo.setEnabled(Undo.canRedo());
 				mUndo.setEnabled(Undo.canUndo());
 			}
@@ -169,7 +180,7 @@ public class BSPEntspy {
 		mRedo.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				Undo.redo();
-				entList.setModel(new EntspyListModel(m.el));
+				updateEntList(m.getData());
 				mRedo.setEnabled(Undo.canRedo());
 				mUndo.setEnabled(Undo.canUndo());
 			}
@@ -261,10 +272,10 @@ public class BSPEntspy {
 		exportEntity.setEnabled(false);
 		entitymenu.add(exportEntity);
 		
-		final JMenuItem obfEntity = new JMenuItem("Obfuscate");
+		/*final JMenuItem obfEntity = new JMenuItem("Obfuscate");
 		obfEntity.setToolTipText("Obfuscate selected entities (see more in Help)");
 		obfEntity.setEnabled(false);
-		//entitymenu.add(obfEntity); //Work in progress
+		entitymenu.add(obfEntity); //Work in progress*/
 
 		JMenuBar menubar = new JMenuBar();
 		menubar.add(filemenu);
@@ -332,7 +343,7 @@ public class BSPEntspy {
 				}
 
 				preferences.put("LastVMFFolder", f.getParent());
-				entList.setModel(new EntspyListModel(m.el));
+				updateEntList(m.getData());
 			}
 
 		});
@@ -386,7 +397,7 @@ public class BSPEntspy {
 		});
 		
 		obfuscator = new Obfuscator();
-		obfEntity.addActionListener(new ActionListener() {
+		/*obfEntity.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				ArrayList<Entity> ents = getSelectedEntities();
 				
@@ -400,7 +411,7 @@ public class BSPEntspy {
 				obfuscator.setFGD(fgdFile);
 				obfuscator.obfuscate(m.el, ents);
 			}
-		});
+		});*/
 
 		JPanel findpanel = new JPanel();
 
@@ -421,8 +432,14 @@ public class BSPEntspy {
 				Entity jump = ((Entity) findmodel.getSelectedItem());
 
 				int ind = m.el.indexOf(jump);
-				entList.setSelectedIndex(ind);
-				entList.ensureIndexIsVisible(ind);
+				
+				if(entModel.indexOf(ind) > -1) {
+					entList.setSelectedIndex(ind);
+					entList.ensureIndexIsVisible(ind);
+				} else {
+					rightEntPanel.apply();
+					rightEntPanel.setEntity(jump);
+				}
 			}
 		});
 		findlabel.setEnabled(false);
@@ -516,8 +533,8 @@ public class BSPEntspy {
 					Undo.setTarget(m.el);
 					Undo.addCommand(command);
 					Undo.finish();
-
-					entList.setModel(new EntspyListModel(m.getData()));
+					
+					updateEntList(m.getData());
 					preferences.put("LastFolder", f.getParent());
 
 					JOptionPane.showMessageDialog(frame, ents.size() + " entities successfuly imported from " + f,
@@ -574,25 +591,31 @@ public class BSPEntspy {
 					ArrayList<Entity> ents = loadEntsFromReader(sr);
 
 					sr.close();
-
+					
 					int i = entList.getMaxSelectionIndex();
-
-					if (i < 0)
-						i = Math.max(m.el.size() - 1, 0);
-					if (i > 0)
-						++i;
-
+					
+					if(i > -1)
+						i = Math.min(i + 1, entModel.getSize() - 1);
+					else
+						i = entModel.getSize() - 1;
+					
+					int[] selectedIndices = new int[ents.size()];
+					int j = 0;
 					CommandAddEntity command = new CommandAddEntity();
 					for (Entity e : ents) {
-						command.addEntity(e, m.el.size());
-						m.el.add(e);
+						int originalIndex = entModel.getIndexAt(i);
+						command.addEntity(e, originalIndex);
+						selectedIndices[j++] = i++;
+						m.el.add(originalIndex, e);
 					}
 					Undo.create();
 					Undo.setTarget(m.el);
 					Undo.addCommand(command);
 					Undo.finish();
-
-					entList.setModel(new EntspyListModel(m.getData()));
+					
+					updateEntList(m.getData());
+					
+					entList.setSelectedIndices(selectedIndices);
 				} catch (Exception | LexerException e) {
 					JOptionPane.showMessageDialog(frame, "Could not parse data from clipboard!\n" + e.getMessage(),
 							"ERROR!", JOptionPane.ERROR_MESSAGE);
@@ -606,80 +629,84 @@ public class BSPEntspy {
 		JButton findent = new JButton("Find Next");
 		findent.setToolTipText("Find entity, hold Shift to add to selection");
 		findent.setMnemonic(KeyEvent.VK_F);
-		JButton findall = new JButton("Find all");
-		findall.setToolTipText("Select all matching entities, hold Shift to add to selection");
+		JButton filterEnt = new JButton("Filter");
+		filterEnt.setToolTipText("Filter the entitiy list based on classname and targetname");
 		JTextField findtext = new JTextField();
 		findtext.setToolTipText("Text to search for");
 		Box fbox = Box.createHorizontalBox();
 
 		fbox.add(findtext);
 		fbox.add(findent);
-		fbox.add(findall);
+		fbox.add(filterEnt);
 
 		entcpl.add((Component) fbox);
 		entcpl.add((Component) entbut);
 		entcpl.add((Component) entexp);
 
 		leftPanel.add((Component) entcpl, "South");
-		findent.addActionListener(new FindListen(findtext));
-		findtext.addActionListener(new FindListen(findtext));
-		findall.addActionListener(new FindSelectListen(findtext));
+		findent.addActionListener(new GotoListen(findtext));
+		findtext.addActionListener(new FilterListen(findtext));
+		filterEnt.addActionListener(new FilterListen(findtext));
 		updent.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				entList.setModel(new EntspyListModel(m.getData()));
+				updateEntList(m.getData());
 			}
 		});
 		delent.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
-				ArrayList<Entity> toremove = new ArrayList<Entity>();
-				int j = 0;
-
 				CommandRemoveEntity command = new CommandRemoveEntity();
-				for (int i : BSPEntspy.this.entList.getSelectedIndices()) {
-					command.addEntity(m.el.get(i), i);
-					toremove.add(m.el.get(i));
-					++j;
+				
+				int[] selected = entList.getSelectedIndices();
+				for(int i = 0; i < selected.length; ++i) {
+					int index = entModel.getIndexAt(selected[i]);
+					command.addEntity(m.el.get(index), index);
+					selected[i] = index;
 				}
+				
+				for(int i = selected.length - 1; i >= 0; --i) {
+					m.el.remove(selected[i]);
+				}
+				
 				Undo.create();
 				Undo.setTarget(m.el);
 				Undo.addCommand(command);
 				Undo.finish();
-
-				m.el.removeAll(toremove);
-
-				j = entList.getMaxSelectionIndex() - j;
-
-				BSPEntspy.this.entList.setModel(new EntspyListModel(BSPEntspy.this.m.getData()));
+				
+				int j = entList.getMaxSelectionIndex() - selected.length;
+				updateEntList(m.getData());
 
 				entList.setSelectedIndex(j + 1);
 
-				BSPEntspy.this.m.dirty = true;
+				m.dirty = true;
 			}
 		});
 		cpyent.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
 				int[] selected = entList.getSelectedIndices();
+				int[] transIndices = entModel.translateIndices(selected);
 
 				CommandAddEntity command = new CommandAddEntity();
 				for (int j = 0; j < selected.length; ++j) {
 					selected[j] += j;
-					Entity old = m.el.get(selected[j]);
+					transIndices[j] += j;
+					Entity old = m.el.get(transIndices[j]);
 					++selected[j];
+					++transIndices[j];
 
 					if (old != null) {
 						Entity newE = old.copy();
-						command.addEntity(newE, selected[j]);
-						m.el.add(selected[j], newE);
+						command.addEntity(newE, transIndices[j]);
+						m.el.add(transIndices[j], newE);
 					}
 				}
 				Undo.create();
 				Undo.setTarget(m.el);
 				Undo.addCommand(command);
 				Undo.finish();
-
-				entList.setModel(new EntspyListModel(m.getData()));
+				
+				updateEntList(m.getData());
 				entList.setSelectedIndices(selected);
 
 				BSPEntspy.this.m.dirty = true;
@@ -707,7 +734,8 @@ public class BSPEntspy {
 				Undo.finish();
 
 				newent.autoedit = true;
-				BSPEntspy.this.entList.setModel(new EntspyListModel(m.getData()));
+				
+				updateEntList(m.getData());
 				entList.setSelectedIndex(index);
 				entList.ensureIndexIsVisible(index);
 
@@ -728,7 +756,7 @@ public class BSPEntspy {
 				cpyent.setEnabled(enable);
 				exportEntity.setEnabled(enable);
 				cpToClipEnt.setEnabled(enable);
-				obfEntity.setEnabled(enable);
+				//obfEntity.setEnabled(enable);
 				findbutton.setEnabled(selected.length == 1);
 				findcombo.setEnabled(selected.length == 1);
 				findmodel.removeAllElements();
@@ -741,7 +769,7 @@ public class BSPEntspy {
 				HashSet<Entity> newSelection = new HashSet<Entity>();
 				boolean shouldApply = selected.length > 0 && previouslySelected.size() > 0;
 				for (int i : selected) {
-					Entity e = m.el.get(i);
+					Entity e = entModel.getElementAt(i);
 					newSelection.add(e);
 
 					if (previouslySelected.contains(e)) {
@@ -755,12 +783,12 @@ public class BSPEntspy {
 
 				rightEntPanel.clearEntities();
 				for (int i : selected) {
-					rightEntPanel.addEntity(m.el.get(i), false);
+					rightEntPanel.addEntity(entModel.getElementAt(i), false);
 				}
 				rightEntPanel.gatherKeyValues();
 
 				if (selected.length == 1) {
-					setfindlist(m.el.get(selected[0]), findmodel);
+					setfindlist(entModel.getElementAt(selected[0]), findmodel);
 				}
 			}
 
@@ -769,7 +797,7 @@ public class BSPEntspy {
 		rightEntPanel.addApplyListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				int[] selected = entList.getSelectedIndices();
-				entList.setModel(new EntspyListModel(m.getData()));
+				updateEntList(m.getData());
 				entList.setSelectedIndices(selected);
 			}
 		});
@@ -840,10 +868,6 @@ public class BSPEntspy {
 			return false;
 		}
 		return true;
-	}
-
-	public int ubyte(byte b) {
-		return b & 255;
 	}
 
 	public boolean loadfile() {
@@ -1062,10 +1086,10 @@ public class BSPEntspy {
 
 			public void finished() {
 				timer.stop();
-				BSPEntspy.this.entList.setModel(new EntspyListModel(BSPEntspy.this.m.getData()));
-				BSPEntspy.this.frame.setCursor(null);
+				updateEntList(m.getData());
+				frame.setCursor(null);
 				prog.end();
-				BSPEntspy.this.frame.setTitle(entspyTitle + " - " + BSPEntspy.this.filename);
+				frame.setTitle(entspyTitle + " - " + BSPEntspy.this.filename);
 			}
 		};
 		timer.start();
@@ -1076,8 +1100,8 @@ public class BSPEntspy {
 		if (!this.m.dirty && Undo.isEmpty()) {
 			return false;
 		}
-		int result = JOptionPane.showConfirmDialog(this.frame,
-				new Object[] { "File " + this.filename + " has been edited.", "Discard changes?" }, title, 0);
+		int result = JOptionPane.showConfirmDialog(frame,
+				new Object[] { "File " + filename + " has been edited.", "Discard changes?" }, title, 0);
 		if (result == 0) {
 			return false;
 		}
@@ -1104,7 +1128,7 @@ public class BSPEntspy {
 		ArrayList<Entity> ents = new ArrayList<Entity>();
 
 		for (int i : entList.getSelectedIndices()) {
-			ents.add(m.el.get(i));
+			ents.add(entModel.getElementAt(i));
 		}
 		
 		return ents;
@@ -1272,95 +1296,62 @@ public class BSPEntspy {
 		inst.exec();
 	}
 
-	class FindListen implements ActionListener {
+	class FilterListen implements ActionListener {
 		JTextField textf;
 
-		public FindListen(JTextField textf) {
+		public FilterListen(JTextField textf) {
 			this.textf = textf;
 		}
 
-		public boolean isSpecialMatch(String text, List<String> keys, List<String> values) throws Exception {
-			if (!text.startsWith("@") || keys == null || values == null)
-				return false;
-
-			Pattern reg = Pattern.compile("@\"(.*?)\"\\s*=\\s*\"(.*?)\"");
-			Matcher match = reg.matcher(text);
-
-			boolean valid = false;
-			while (match.find()) {
-				valid = true;
-
-				keys.add(match.group(1));
-				values.add(match.group(2).toLowerCase());
+		public void actionPerformed(ActionEvent ae) {
+			String ftext = textf.getText().trim();
+			if(ftext.equals("")) {
+				entModel.setFilter(null);
+				return;
 			}
+			
+			entModel.setFilter(SimpleFilter.create(ftext));
+		}
+	}
+	
+	class GotoListen implements ActionListener {
+		JTextField textf;
 
-			if (!valid) {
-				throw new Exception("Invalid syntax!");
-			}
-
-			return true;
+		public GotoListen(JTextField textf) {
+			this.textf = textf;
 		}
 
 		public void actionPerformed(ActionEvent ae) {
-			boolean found = false;
-			String ftext = this.textf.getText().trim();
-			if (ftext.equals("")) {
+			String ftext = textf.getText().trim();
+			if(ftext.equals("")) {
 				return;
 			}
-
-			ArrayList<String> keysToSearch = new ArrayList<String>();
-			ArrayList<String> valuesToSearch = new ArrayList<String>();
-			boolean special = false;
-
-			try {
-				special = isSpecialMatch(ftext, keysToSearch, valuesToSearch);
-			} catch (Exception e) {
-				JOptionPane.showMessageDialog(frame, e.getMessage());
-				e.printStackTrace();
+			
+			IFilter filter = SimpleFilter.create(ftext);
+			
+			int found = -1;
+			int j = entList.getMaxSelectionIndex() + 1;
+			int k = entModel.getSize();
+			for(int i = 0; i < 2 && found < 0; ++i) {
+				List<Entity> filtered = entModel.getFilteredEntities();
+				
+				for(; j < k; ++j) {
+					if(filter.match(filtered.get(j))) {
+						found = j;
+						break;
+					}
+				}
+				
+				j = 0;
+				k = entList.getMinSelectionIndex();
 			}
-
-			int i = entList.getSelectedIndex() + 1;
-			for (int j = 0; j < 2 && !found; ++j) {
-				if (special) {
-					for (; i < ((EntspyListModel) entList.getModel()).entities.size(); ++i) {
-						if (((EntspyListModel) entList.getModel()).entities.get(i).isMatch(keysToSearch,
-								valuesToSearch)) {
-							found = true;
-							break;
-						}
-					}
-				} else {
-					for (; i < ((EntspyListModel) entList.getModel()).entities.size(); ++i) {
-						if (((EntspyListModel) entList.getModel()).entities.get(i).isMatch(ftext)) {
-							found = true;
-							break;
-						}
-					}
-				}
-
-				if (!found)
-					i = 0;
-			}
-
-			if (found) {
-				ArrayList<Integer> selected = new ArrayList<Integer>();
-
-				if ((ae.getModifiers() & ActionEvent.SHIFT_MASK) == 1) {
-					for (int j : entList.getSelectedIndices()) {
-						selected.add(j);
-					}
-				}
-
-				selected.add(i);
-
-				int[] indices = new int[selected.size()];
-
-				for (int j = 0; j < selected.size(); ++j) {
-					indices[j] = selected.get(j);
-				}
-
-				entList.setSelectedIndices(indices);
-				entList.ensureIndexIsVisible(indices[indices.length - 1]);
+			
+			if(found > -1) {
+				if((ae.getModifiers() & ae.SHIFT_MASK) > 0)
+					entList.addSelectionInterval(found, found);
+				else
+					entList.setSelectedIndex(found);
+				entList.ensureIndexIsVisible(found);
 			}
 		}
 	}
@@ -1394,69 +1385,6 @@ public class BSPEntspy {
 			help.setSize(720, 520);
 			help.setVisible(true);
 		}
-	}
-
-	class FindSelectListen extends FindListen implements ActionListener {
-		public FindSelectListen(JTextField textf) {
-			super(textf);
-		}
-
-		public void actionPerformed(ActionEvent ae) {
-			String ftext = this.textf.getText().trim();
-			if (ftext.equals("")) {
-				return;
-			}
-
-			ArrayList<Integer> indices = new ArrayList<Integer>();
-			for (int i = 0; i < ((EntspyListModel) entList.getModel()).entities.size(); ++i) {
-				if (((EntspyListModel) entList.getModel()).entities.get(i).isMatch(ftext)) {
-					indices.add(i);
-				}
-			}
-
-			if ((ae.getModifiers() & ActionEvent.SHIFT_MASK) == 1) {
-				for (int j : entList.getSelectedIndices()) {
-					indices.add(j);
-				}
-			}
-
-			if (indices.size() > 0) {
-				int[] arr = new int[indices.size()];
-
-				for (int i = 0; i < indices.size(); ++i) {
-					arr[i] = indices.get(i);
-				}
-
-				entList.setSelectedIndices(arr);
-			}
-		}
-	}
-
-	class EntspyListModel implements ListModel<Entity> {
-		ArrayList<Entity> entities;
-
-		public EntspyListModel(ArrayList<Entity> ents) {
-			entities = ents;
-		}
-
-		@Override
-		public int getSize() {
-			return entities.size();
-		}
-
-		@Override
-		public Entity getElementAt(int index) {
-			return entities.get(index);
-		}
-
-		@Override
-		public void addListDataListener(ListDataListener l) {
-		}
-
-		@Override
-		public void removeListDataListener(ListDataListener l) {
-		}
-
 	}
 
 	private static abstract class CommandEntity implements Command {

@@ -1,13 +1,32 @@
 package bspentspy;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import javax.swing.AbstractListModel;
+import javax.swing.DefaultListModel;
 import javax.swing.event.ListDataListener;
 
 @SuppressWarnings("serial")
 public class FilteredEntListModel extends AbstractListModel<Entity> {
-	public List<Entity> entities;
+	private IFilter filter;
+	private List<Entity> entities;
+	private List<Entity> original;
+	private ArrayList<Integer> originalIndices = new ArrayList<Integer>();
+	private int[] indexMap = new int[0];
+	
+	public List<Entity> getFilteredEntities(){
+		return entities;
+	}
+	
+	public void setFilter(IFilter filter) {
+		IFilter prev = this.filter;
+		this.filter = filter;
+		
+		if(filter != prev)
+			filter();
+	}
 	
 	public int getSize() {
 		if(entities == null)
@@ -16,7 +35,8 @@ public class FilteredEntListModel extends AbstractListModel<Entity> {
 	}
 	
 	public void setEntityList(List<Entity> ents) {
-		entities = ents;
+		original = ents;
+		filter();
 		this.fireContentsChanged(this, 0, ents.size());
 	}
 	
@@ -32,13 +52,60 @@ public class FilteredEntListModel extends AbstractListModel<Entity> {
 	public Entity getElementAt(int index) {
 		return entities.get(index);
 	}
-
-	@Override
-	public void addListDataListener(ListDataListener l) {
+	
+	//filtered index -> original index
+	public int getIndexAt(int index) {
+		if(index >= originalIndices.size())
+			return -1;
+		return originalIndices.get(index);
 	}
-
-	@Override
-	public void removeListDataListener(ListDataListener l) {
+	
+	//original index -> filtered index, inverse of getIndexAt
+	public int indexOf(int index) {
+		if(index >= indexMap.length)
+			return -1;
+		return indexMap[index];
 	}
-
+	
+	public int[] translateIndices(int[] indices) {
+		int[] newIndices = new int[indices.length];
+		
+		for(int i = 0; i < newIndices.length; ++i) {
+			newIndices[i] = originalIndices.get(indices[i]);
+		}
+		
+		return newIndices;
+	}
+	
+	public int[] detranslateIndices(int[] indices) {
+		int[] newIndices = new int[indices.length];
+		
+		int j = 0;
+		for(int i = 0; i < newIndices.length; ++i) {
+			newIndices[i] = indexMap[indices[i]];
+			if(newIndices[i] > -1)
+				++j;
+		}
+		
+		return Arrays.copyOf(newIndices, j);
+	}
+	
+	private void filter() {
+		ArrayList<Entity> filtered = new ArrayList<Entity>();
+		originalIndices.clear();
+		
+		indexMap = new int[original.size()];
+		
+		for(int i = 0; i < original.size(); ++i) {
+			indexMap[i] = -1;
+			if(filter == null || filter.match(original.get(i))) {
+				originalIndices.add(i);
+				indexMap[i] = filtered.size();
+				filtered.add(original.get(i));
+			}
+		}
+		
+		entities = filtered;
+		this.fireContentsChanged(this, 0, getSize());
+	}
 }

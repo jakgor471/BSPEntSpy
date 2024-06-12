@@ -3,7 +3,7 @@ package bspentspy;
 import java.io.IOException;
 import java.io.Reader;
 
-public abstract class Lexer<T extends bspentspy.Lexer.LexerToken> {
+public abstract class Lexer<T extends Lexer.LexerToken> {
 	public static enum BasicTokenType {
 		ident, string, numeric, symbol
 	}
