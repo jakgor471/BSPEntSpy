@@ -3,10 +3,7 @@ package bspentspy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
 import javax.swing.AbstractListModel;
-import javax.swing.DefaultListModel;
-import javax.swing.event.ListDataListener;
 
 @SuppressWarnings("serial")
 public class FilteredEntListModel extends AbstractListModel<Entity> {

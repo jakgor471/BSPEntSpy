@@ -35,9 +35,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.prefs.Preferences;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
@@ -62,15 +59,12 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
-import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.Timer;
 import javax.swing.UIManager;
 import javax.swing.WindowConstants;
-import javax.swing.event.ListDataListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-
 import bspentspy.ClassPropertyPanel.GotoEvent;
 import bspentspy.Entity.KeyValLink;
 import bspentspy.Lexer.LexerException;
@@ -116,7 +110,7 @@ public class BSPEntspy {
 			preferences.remove("LastFGDFile");
 		}
 		
-		DefaultListModel<Entity> dfm = new DefaultListModel();
+		DefaultListModel<Entity> dfm = new DefaultListModel<Entity>();
 		dfm.add(0, new Entity());
 		
 		entModel = new FilteredEntListModel();
@@ -453,8 +447,8 @@ public class BSPEntspy {
 
 		final JLabel findlabel = new JLabel("Linked from ");
 		findpanel.add(findlabel);
-		final DefaultComboBoxModel findmodel = new DefaultComboBoxModel();
-		final JComboBox findcombo = new JComboBox(findmodel);
+		final DefaultComboBoxModel<Entity> findmodel = new DefaultComboBoxModel<Entity>();
+		final JComboBox<Entity> findcombo = new JComboBox<Entity>(findmodel);
 		findcombo.setPreferredSize(new Dimension(200, findcombo.getPreferredSize().height));
 		Font cfont = findcombo.getFont();
 		findcombo.setFont(new Font(cfont.getName(), 0, cfont.getSize() - 1));
@@ -1342,7 +1336,7 @@ public class BSPEntspy {
 		public void actionPerformed(ActionEvent ae) {
 			entList.clearSelection();
 			String ftext = textf.getText().trim();
-			if(ftext.equals("") || (ae.getModifiers() & ae.SHIFT_MASK) > 0) {
+			if(ftext.equals("") || (ae.getModifiers() & ActionEvent.SHIFT_MASK) > 0) {
 				entModel.setFilter(null);
 				return;
 			}
@@ -1375,7 +1369,7 @@ public class BSPEntspy {
 				return;
 			}
 			
-			if((ae.getModifiers() & ae.SHIFT_MASK) > 0) {
+			if((ae.getModifiers() & ActionEvent.SHIFT_MASK) > 0) {
 				List<Entity> filtered = entModel.getFilteredEntities();
 				
 				for(int i = 0; i < filtered.size(); ++i) {

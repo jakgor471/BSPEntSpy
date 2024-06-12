@@ -24,7 +24,11 @@
 <li><p>'like' - followed by "<i>regex</i>", matches if <i>regex</i> matches the <i>key</i>. See "Java Pattern".</p></li>
 <li><p>'in' - followed by ("<i>value1</i>", "<i>value2</i>", ..., "<i>valueN</i>") , matches if <i>key</i> is equal to one or more <i>values</i>.</p></li>
 </ul><br>
+<b>Place holder format:</b> %[<i>key</i>]
+<p>Place holders can be used in conjuction with any operation.</p><br><br>
 <b>Examples: </b>
+<p>Match all entities parented to themselves (parentname == targetname) using place holders:</p>
+<i>$"parentname" = "%[targetname]";</i><br>
 <p>Match all entities with targetname equal to "zombie" of which class is either "npc_zombie", "npc_fastzombie" or "npc_poisonzombie":</p>
 <i>$"targetname" = "zombie"; "classname" in ("npc_zombie", "npc_fastzombie", "npc_poisonzombie");</i><br>
 <p>Match all entities of which "model" parameter starts with "*" (brush entities):</p>
