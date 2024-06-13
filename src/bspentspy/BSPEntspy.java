@@ -86,7 +86,7 @@ public class BSPEntspy {
 	Obfuscator obfuscator;
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String entspyTitle = "BSPEntSpy v1.25";
+	public static final String entspyTitle = "BSPEntSpy v1.275";
 	
 	private void updateEntList(ArrayList<Entity> ents) {
 		entModel.setEntityList(ents);
@@ -460,7 +460,10 @@ public class BSPEntspy {
 		findbutton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				Entity jump = ((Entity) findmodel.getSelectedItem());
-
+				
+				if(jump == null)
+					return;
+				
 				int ind = m.el.indexOf(jump);
 				
 				if(entModel.indexOf(ind) > -1) {

@@ -52,14 +52,14 @@ public class FilteredEntListModel extends AbstractListModel<Entity> {
 	
 	//filtered index -> original index
 	public int getIndexAt(int index) {
-		if(index >= originalIndices.size())
+		if(index >= originalIndices.size() || index < 0)
 			return -1;
 		return originalIndices.get(index);
 	}
 	
 	//original index -> filtered index, inverse of getIndexAt
 	public int indexOf(int index) {
-		if(index >= indexMap.length)
+		if(index >= indexMap.length || index < 0)
 			return -1;
 		return indexMap[index];
 	}

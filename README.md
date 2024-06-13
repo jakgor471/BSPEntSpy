@@ -1,7 +1,7 @@
 # BSPEntSpy - enhanced Entity Lump editor
 BSPEntSpy is an updated version of **EntSpy** originaly made by Rof (http://www.bagthorpe.org/bob/cofrdrbob/).  
 
-**Latest version** of BSPEntSpy is available to **download** here: https://github.com/jakgor471/BSPEntSpy/releases/tag/v1.25
+**Latest version** of BSPEntSpy is available to **download** here: https://github.com/jakgor471/BSPEntSpy/releases/tag/v1.275
 
 ## Features
 * **Importing and exporting** entities
@@ -28,10 +28,11 @@ Detailed description and instructions are included in **Help** menu tab in BSPEn
 ![comparison](https://github.com/jakgor471/BSPEntSpy/blob/main/images/image2.jpg?raw=true)
 
 ## Changelog
-### BSPEntSpy v1.25 build 12/06/2024
+### BSPEntSpy v1.275 build 13/06/2024
 * Added Entity list filtering
 * Added an option to invert the selection
-* Enhanced filtering
+* Enhanced filtering, now (13/06/2024) with support for place holders
+* Fixed "Go to" exception
 ### BSPEntSpy v1.2 build 06/06/2024
 * Added support for new Team Fortress 2 BSP format (LZMA compressed entity lump)
 ### BSPEntSpy v1.1 build 30/05/2024
