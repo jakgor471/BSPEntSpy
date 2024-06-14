@@ -628,18 +628,22 @@ public class BSPEntspy {
 					int i = entList.getMaxSelectionIndex();
 					
 					if(i > -1)
-						i = Math.min(i + 1, entModel.getSize() - 1);
+						i = Math.min(i + 1, entModel.getSize());
 					else
-						i = entModel.getSize() - 1;
+						i = entModel.getSize();
 					
 					int[] selectedIndices = new int[ents.size()];
 					int j = 0;
 					CommandAddEntity command = new CommandAddEntity();
+					int originalIndex = entModel.getIndexAt(i);
+					
+					if(originalIndex < 0)
+						originalIndex = entModel.getSize();
+					
 					for (Entity e : ents) {
-						int originalIndex = entModel.getIndexAt(i);
 						command.addEntity(e, originalIndex);
-						selectedIndices[j++] = i++;
 						m.el.add(originalIndex, e);
+						selectedIndices[j++] = originalIndex++;
 					}
 					Undo.create();
 					Undo.setTarget(m.el);
