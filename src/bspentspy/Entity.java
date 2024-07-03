@@ -20,7 +20,7 @@ public class Entity {
 	public HashMap<String, Integer> duplicates = new HashMap<String, Integer>();
 	public HashMap<String, Integer> kvmap = new HashMap<String, Integer>();
 	public HashMap<Integer, Integer> uniqueKvmap = new HashMap<Integer, Integer>();
-	public ArrayList<KeyValLink> keyvalues = new ArrayList<KeyValLink>();
+	public ArrayList<KeyValue> keyvalues = new ArrayList<KeyValue>();
 
 	private int uniqueInt = 0;
 
@@ -33,7 +33,7 @@ public class Entity {
 	
 	public long keyValHash() {
 		long hash = 76646989558427L;
-		for(KeyValLink kvl : keyvalues) {
+		for(KeyValue kvl : keyvalues) {
 			if(kvl.key.equals("targetname"))
 				continue;
 			int keyhash = kvl.key.hashCode();
@@ -106,14 +106,14 @@ public class Entity {
 
 		CommandSetVal command = new CommandSetVal();
 		if (duplicates.getOrDefault(k, 0) > 0) {
-			for (KeyValLink kvl : keyvalues) {
+			for (KeyValue kvl : keyvalues) {
 				if (kvl.key.equals(k)) {
 					command.add(kvl, kvl.value, v);
 					kvl.value = v;
 				}
 			}
 		} else {
-			KeyValLink toChange = keyvalues.get(kvmap.get(k));
+			KeyValue toChange = keyvalues.get(kvmap.get(k));
 			command.add(toChange, toChange.value, v);
 			toChange.value = v;
 		}
@@ -124,7 +124,7 @@ public class Entity {
 
 	public int setKeyVal(Integer uniqueId, String key, String v) {
 		if (uniqueId != null && uniqueKvmap.containsKey(uniqueId)) {
-			KeyValLink kvl = keyvalues.get(uniqueKvmap.get(uniqueId));
+			KeyValue kvl = keyvalues.get(uniqueKvmap.get(uniqueId));
 
 			CommandSetVal command = new CommandSetVal(kvl, kvl.value, v);
 			Undo.addCommand(command);
@@ -140,7 +140,7 @@ public class Entity {
 	}
 
 	public int addKeyVal(String k, String v) {
-		KeyValLink kv = new KeyValLink();
+		KeyValue kv = new KeyValue();
 		kv.key = k;
 		kv.value = v;
 
@@ -155,7 +155,7 @@ public class Entity {
 		return uniqueInt;
 	}
 
-	public void insertKeyVal(int index, KeyValLink kvl) {
+	public void insertKeyVal(int index, KeyValue kvl) {
 		if (index < 0 || index > keyvalues.size())
 			return;
 		keyvalues.add(index, kvl);
@@ -187,7 +187,7 @@ public class Entity {
 			duplicates.put(to, duplicates.get(from));
 			duplicates.remove(from);
 
-			for (KeyValLink kvl : keyvalues) {
+			for (KeyValue kvl : keyvalues) {
 				if (kvl.key.equals(from)) {
 					kvl.key = to;
 					command.add(kvl);
@@ -205,7 +205,7 @@ public class Entity {
 			return;
 
 		int index = uniqueKvmap.get(uniqueId);
-		KeyValLink toChange = keyvalues.get(index);
+		KeyValue toChange = keyvalues.get(index);
 
 		if (toChange.key.equals(to))
 			return;
@@ -228,7 +228,7 @@ public class Entity {
 		uniqueKvmap.clear();
 
 		for (int i = 0; i < size(); ++i) {
-			KeyValLink kvl = keyvalues.get(i);
+			KeyValue kvl = keyvalues.get(i);
 			kvmap.put(kvl.key, i);
 			uniqueKvmap.put(kvl.uniqueId, i);
 		}
@@ -269,7 +269,7 @@ public class Entity {
 			return;
 		}
 
-		KeyValLink toRemove = keyvalues.get(i);
+		KeyValue toRemove = keyvalues.get(i);
 
 		CommandDeleteKV command = new CommandDeleteKV(toRemove, i);
 		Undo.addCommand(command);
@@ -362,13 +362,13 @@ public class Entity {
 	}
 
 	public static abstract class CommandKV implements Command {
-		ArrayList<KeyValLink> keyvalues;
+		ArrayList<KeyValue> keyvalues;
 
 		public CommandKV() {
-			keyvalues = new ArrayList<KeyValLink>();
+			keyvalues = new ArrayList<KeyValue>();
 		}
 
-		public CommandKV(KeyValLink kvl) {
+		public CommandKV(KeyValue kvl) {
 			this();
 			keyvalues.add(kvl);
 		}
@@ -393,13 +393,13 @@ public class Entity {
 			indices = new ArrayList<Integer>();
 		}
 
-		public CommandInsertKV(KeyValLink kvl, int index) {
+		public CommandInsertKV(KeyValue kvl, int index) {
 			super(kvl);
 			indices = new ArrayList<Integer>();
 			indices.add(index);
 		}
 
-		public void add(KeyValLink kvl, int index) {
+		public void add(KeyValue kvl, int index) {
 			keyvalues.add(kvl);
 			indices.add(index);
 		}
@@ -413,7 +413,7 @@ public class Entity {
 		}
 
 		public void undo(Object target) {
-			ListIterator<KeyValLink> it = keyvalues.listIterator(keyvalues.size());
+			ListIterator<KeyValue> it = keyvalues.listIterator(keyvalues.size());
 
 			while (it.hasPrevious()) {
 				((Entity) target).delKeyValById(it.previous().uniqueId);
@@ -421,7 +421,7 @@ public class Entity {
 		}
 
 		public void redo(Object target) {
-			ListIterator<KeyValLink> it = keyvalues.listIterator();
+			ListIterator<KeyValue> it = keyvalues.listIterator();
 
 			while (it.hasNext()) {
 				((Entity) target).insertKeyVal(indices.get(it.nextIndex()), it.next());
@@ -444,7 +444,7 @@ public class Entity {
 	}
 
 	public static class CommandDeleteKV extends CommandInsertKV {
-		public CommandDeleteKV(KeyValLink toRemove, int i) {
+		public CommandDeleteKV(KeyValue toRemove, int i) {
 			super(toRemove, i);
 		}
 
@@ -453,7 +453,7 @@ public class Entity {
 		}
 
 		public void undo(Object target) {
-			ListIterator<KeyValLink> it = keyvalues.listIterator(keyvalues.size());
+			ListIterator<KeyValue> it = keyvalues.listIterator(keyvalues.size());
 
 			while (it.hasPrevious()) {
 				((Entity) target).insertKeyVal(indices.get(it.previousIndex()), it.previous());
@@ -461,7 +461,7 @@ public class Entity {
 		}
 
 		public void redo(Object target) {
-			ListIterator<KeyValLink> it = keyvalues.listIterator();
+			ListIterator<KeyValue> it = keyvalues.listIterator();
 
 			while (it.hasNext()) {
 				((Entity) target).delKeyValById(it.previous().uniqueId);
@@ -479,7 +479,7 @@ public class Entity {
 			newVal = new ArrayList<String>();
 		}
 
-		public CommandSetVal(KeyValLink kvl, String oldVal, String newVal) {
+		public CommandSetVal(KeyValue kvl, String oldVal, String newVal) {
 			super(kvl);
 			this.oldVal = new ArrayList<String>();
 			this.newVal = new ArrayList<String>();
@@ -487,7 +487,7 @@ public class Entity {
 			this.newVal.add(newVal);
 		}
 
-		public void add(KeyValLink kvl, String oldVal, String newVal) {
+		public void add(KeyValue kvl, String oldVal, String newVal) {
 			keyvalues.add(kvl);
 			this.oldVal.add(oldVal);
 			this.newVal.add(newVal);
@@ -503,22 +503,22 @@ public class Entity {
 		}
 
 		public void undo(Object target) {
-			ListIterator<KeyValLink> it = keyvalues.listIterator(keyvalues.size());
+			ListIterator<KeyValue> it = keyvalues.listIterator(keyvalues.size());
 
 			while (it.hasPrevious()) {
 				int index = it.previousIndex();
-				KeyValLink kvl = it.previous();
+				KeyValue kvl = it.previous();
 
 				((Entity) target).setKeyVal(kvl.uniqueId, kvl.key, oldVal.get(index));
 			}
 		}
 
 		public void redo(Object target) {
-			ListIterator<KeyValLink> it = keyvalues.listIterator();
+			ListIterator<KeyValue> it = keyvalues.listIterator();
 
 			while (it.hasNext()) {
 				int index = it.nextIndex();
-				KeyValLink kvl = it.next();
+				KeyValue kvl = it.next();
 
 				((Entity) target).setKeyVal(kvl.uniqueId, kvl.key, newVal.get(index));
 			}
@@ -546,7 +546,7 @@ public class Entity {
 			super();
 		}
 
-		public CommandChangeKey(KeyValLink kvl, String oldKey, String newKey) {
+		public CommandChangeKey(KeyValue kvl, String oldKey, String newKey) {
 			super(kvl);
 			this.oldKey = oldKey;
 			this.newKey = newKey;
@@ -558,7 +558,7 @@ public class Entity {
 			this.newKey = newKey;
 		}
 
-		public void add(KeyValLink kvl) {
+		public void add(KeyValue kvl) {
 			keyvalues.add(kvl);
 		}
 
@@ -574,22 +574,22 @@ public class Entity {
 		}
 
 		public void undo(Object target) {
-			ListIterator<KeyValLink> it = keyvalues.listIterator(keyvalues.size());
+			ListIterator<KeyValue> it = keyvalues.listIterator(keyvalues.size());
 
 			while (it.hasPrevious()) {
 				int index = it.previousIndex();
-				KeyValLink kvl = it.previous();
+				KeyValue kvl = it.previous();
 
 				((Entity) target).changeKey(kvl.uniqueId, oldKey);
 			}
 		}
 
 		public void redo(Object target) {
-			ListIterator<KeyValLink> it = keyvalues.listIterator();
+			ListIterator<KeyValue> it = keyvalues.listIterator();
 
 			while (it.hasNext()) {
 				int index = it.nextIndex();
-				KeyValLink kvl = it.next();
+				KeyValue kvl = it.next();
 
 				((Entity) target).changeKey(kvl.uniqueId, newKey);
 			}
@@ -609,11 +609,10 @@ public class Entity {
 		}
 	}
 
-	public static class KeyValLink {
+	public static class KeyValue {
 		public int uniqueId;
 		public String key;
 		public String value;
-		public Entity link;
 
 		public String toString() {
 			return "(\"" + key + "\" \"" + value + "\")";
@@ -640,7 +639,7 @@ public class Entity {
 			return targetEnt + "," + inputName + "," + param + "," + String.format("%2f", delay) + "," + (onlyOnce ? "1" : "-1");
 		}
 		
-		public static OutputData parseOutput(KeyValLink kvl) {
+		public static OutputData parseOutput(KeyValue kvl) {
 			Matcher match = regex.matcher(kvl.value);
 			
 			if(!match.matches())

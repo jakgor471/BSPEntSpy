@@ -31,7 +31,7 @@ import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 import javax.swing.table.TableColumn;
 
-import bspentspy.Entity.KeyValLink;
+import bspentspy.Entity.KeyValue;
 import bspentspy.FGDEntry.Property;
 
 @SuppressWarnings("serial")
@@ -467,7 +467,7 @@ public class ClassPropertyPanel extends JPanel {
 
 		for (Entity e : editingEntities) {
 			for (int i = 0; i < e.size(); ++i) {
-				KeyValLink kvl = e.keyvalues.get(i);
+				KeyValue kvl = e.keyvalues.get(i);
 				KVEntry entry = kvMap.get(kvl.key);
 
 				if (entry == null || editingEntities.size() <= 1) {

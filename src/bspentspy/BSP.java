@@ -90,6 +90,7 @@ public class BSP {
 			lump[i].len = b.getInt();
 			lump[i].vers = b.getInt();
 			lump[i].fourCC = b.getInt();
+			
 			if (lump[i].len <= 0)
 				continue;
 			lumplist.add(lump[i]);
@@ -207,11 +208,11 @@ public class BSP {
 				String[] plink = val.split(",");
 				Entity linkent = namemap.get(plink[0]);
 				if (linkent != null) {
-					lent.keyvalues.get(j).link = linkent;
+					//lent.keyvalues.get(j).link = linkent;
 					++nlinks;
 					continue;
 				}
-				lent.keyvalues.get(j).link = null;
+				//lent.keyvalues.get(j).link = null;
 			}
 		}
 		System.out.println("" + nlinks + " links found");

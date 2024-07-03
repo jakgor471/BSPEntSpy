@@ -66,16 +66,16 @@ import javax.swing.WindowConstants;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import bspentspy.ClassPropertyPanel.GotoEvent;
-import bspentspy.Entity.KeyValLink;
+import bspentspy.Entity.KeyValue;
 import bspentspy.Lexer.LexerException;
 import bspentspy.Undo.Command;
 import util.SwingWorker;
 
 public class BSPEntspy {
-	BSP m;
+	BSPFile map;
 	String filename;
 	File infile;
-	RandomAccessFile raf;
+	RandomAccessFile bspfile;
 	JFrame frame = null;
 	JList<Entity> entList;
 	FilteredEntListModel entModel;
@@ -92,6 +92,21 @@ public class BSPEntspy {
 		entModel.setEntityList(ents);
 		entList.setModel(entModel);
 	}
+	
+	private boolean readFile() {
+		try {
+			this.bspfile = new RandomAccessFile(this.infile, "r");
+			map = BSPFile.readFile(bspfile);
+			frame.setTitle(entspyTitle + " - " + this.filename);
+			updateEntList(map.entities);
+		}catch(IOException e) {
+			JOptionPane.showMessageDialog(frame, "Map " + infile.getName() + " couldn't be read!", "ERROR!", JOptionPane.ERROR_MESSAGE);
+			
+			return false;
+		}
+		
+		return true;
+	}
 
 	public int exec() throws IOException {
 		preferences = Preferences.userRoot().node(getClass().getName());
@@ -101,8 +116,6 @@ public class BSPEntspy {
 		if (!this.loadfile()) {
 			System.exit(0);
 		}
-		this.m = new BSP(this.raf);
-		this.m.loadheader();
 
 		if (loadfgdfiles(null)) {
 			System.out.println("FGD loaded: " + String.join(", ", fgdFile.loadedFgds));
@@ -119,8 +132,11 @@ public class BSPEntspy {
 		selmodel.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
 		entList.setSelectionModel(selmodel);
 		entList.setCellRenderer(new EntListRenderer());
+		
+		if(!readFile()) {
+			System.exit(0);
+		}
 
-		this.frame.setTitle(entspyTitle + " - " + this.filename);
 		JMenu filemenu = new JMenu("File");
 		JMenuItem mload = new JMenuItem("Load BSP");
 		JMenuItem msave = new JMenuItem("Save BSP");
@@ -165,7 +181,7 @@ public class BSPEntspy {
 		mUndo.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				Undo.undo();
-				updateEntList(m.getData());
+				updateEntList(map.getData());
 				mRedo.setEnabled(Undo.canRedo());
 				mUndo.setEnabled(Undo.canUndo());
 			}
@@ -173,7 +189,7 @@ public class BSPEntspy {
 		mRedo.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				Undo.redo();
-				updateEntList(m.getData());
+				updateEntList(map.getData());
 				mRedo.setEnabled(Undo.canRedo());
 				mUndo.setEnabled(Undo.canUndo());
 			}
@@ -318,19 +334,13 @@ public class BSPEntspy {
 		mload.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
-				try {
-					if (BSPEntspy.this.checkchanged("Load BSP")) {
-						return;
-					}
-					if (!BSPEntspy.this.loadfile()) {
-						return;
-					}
-					BSPEntspy.this.m = new BSP(BSPEntspy.this.raf);
-					BSPEntspy.this.m.loadheader();
-					BSPEntspy.this.loaddata();
-				} catch (IOException ex) {
-					ex.printStackTrace();
+				if (BSPEntspy.this.checkchanged("Load BSP")) {
+					return;
 				}
+				if (!BSPEntspy.this.loadfile()) {
+					return;
+				}
+				readFile();
 			}
 		});
 		msave.addActionListener(new ActionListener() {
@@ -373,7 +383,7 @@ public class BSPEntspy {
 				}
 
 				preferences.put("LastVMFFolder", f.getParent());
-				updateEntList(m.getData());
+				updateEntList(map.getData());
 			}
 
 		});
@@ -390,11 +400,11 @@ public class BSPEntspy {
 		minfo.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
-				BSPEntspy.this.m.setfile(BSPEntspy.this.raf);
+				/*BSPEntspy.this.map.setfile(BSPEntspy.this.bspfile);
 				if (BSPEntspy.this.info != null) {
 					BSPEntspy.this.info.dispose();
 				}
-				BSPEntspy.this.info = new MapInfo(BSPEntspy.this.frame, BSPEntspy.this.m, BSPEntspy.this.filename);
+				BSPEntspy.this.info = new MapInfo(BSPEntspy.this.frame, BSPEntspy.this.map, BSPEntspy.this.filename);*/
 			}
 		});
 
@@ -464,7 +474,7 @@ public class BSPEntspy {
 				if(jump == null)
 					return;
 				
-				int ind = m.el.indexOf(jump);
+				int ind = map.entities.indexOf(jump);
 				
 				if(entModel.indexOf(ind) > -1) {
 					entList.setSelectedIndex(ind);
@@ -486,8 +496,6 @@ public class BSPEntspy {
 
 		JPanel entbut = new JPanel();
 
-		JButton updent = new JButton("Update");
-		updent.setToolTipText("Update entity links");
 		JButton addent = new JButton("Add");
 		addent.setToolTipText("Add a new entity");
 		final JButton cpyent = new JButton("Duplicate");
@@ -496,7 +504,6 @@ public class BSPEntspy {
 		final JButton delent = new JButton("Del");
 		delent.setToolTipText("Delete the selected entities");
 		delent.setEnabled(false);
-		entbut.add(updent);
 		entbut.add(addent);
 		entbut.add(cpyent);
 		entbut.add(delent);
@@ -559,15 +566,15 @@ public class BSPEntspy {
 
 					CommandAddEntity command = new CommandAddEntity();
 					for (Entity e : ents) {
-						command.addEntity(e, m.el.size());
-						m.el.add(e);
+						command.addEntity(e, map.entities.size());
+						map.entities.add(e);
 					}
 					Undo.create();
-					Undo.setTarget(m.el);
+					Undo.setTarget(map.entities);
 					Undo.addCommand(command);
 					Undo.finish();
 					
-					updateEntList(m.getData());
+					updateEntList(map.getData());
 					preferences.put("LastFolder", f.getParent());
 
 					JOptionPane.showMessageDialog(frame, ents.size() + " entities successfuly imported from " + f,
@@ -642,15 +649,15 @@ public class BSPEntspy {
 					
 					for (Entity e : ents) {
 						command.addEntity(e, originalIndex);
-						m.el.add(originalIndex, e);
+						map.entities.add(originalIndex, e);
 						selectedIndices[j++] = originalIndex++;
 					}
 					Undo.create();
-					Undo.setTarget(m.el);
+					Undo.setTarget(map.entities);
 					Undo.addCommand(command);
 					Undo.finish();
 					
-					updateEntList(m.getData());
+					updateEntList(map.getData());
 					
 					entList.setSelectedIndices(selectedIndices);
 				} catch (Exception | LexerException e) {
@@ -684,11 +691,6 @@ public class BSPEntspy {
 		findent.addActionListener(new GotoListen(findtext));
 		findtext.addActionListener(new FilterListen(findtext));
 		filterEnt.addActionListener(new FilterListen(findtext));
-		updent.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				updateEntList(m.getData());
-			}
-		});
 		delent.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
@@ -697,25 +699,25 @@ public class BSPEntspy {
 				int[] selected = entList.getSelectedIndices();
 				for(int i = 0; i < selected.length; ++i) {
 					int index = entModel.getIndexAt(selected[i]);
-					command.addEntity(m.el.get(index), index);
+					command.addEntity(map.entities.get(index), index);
 					selected[i] = index;
 				}
 				
 				for(int i = selected.length - 1; i >= 0; --i) {
-					m.el.remove(selected[i]);
+					map.entities.remove(selected[i]);
 				}
 				
 				Undo.create();
-				Undo.setTarget(m.el);
+				Undo.setTarget(map.entities);
 				Undo.addCommand(command);
 				Undo.finish();
 				
 				int j = entList.getMaxSelectionIndex() - selected.length;
-				updateEntList(m.getData());
+				updateEntList(map.getData());
 
 				entList.setSelectedIndex(j + 1);
 
-				m.dirty = true;
+				map.dirty = true;
 			}
 		});
 		cpyent.addActionListener(new ActionListener() {
@@ -728,25 +730,25 @@ public class BSPEntspy {
 				for (int j = 0; j < selected.length; ++j) {
 					selected[j] += j;
 					transIndices[j] += j;
-					Entity old = m.el.get(transIndices[j]);
+					Entity old = map.entities.get(transIndices[j]);
 					++selected[j];
 					++transIndices[j];
 
 					if (old != null) {
 						Entity newE = old.copy();
 						command.addEntity(newE, transIndices[j]);
-						m.el.add(transIndices[j], newE);
+						map.entities.add(transIndices[j], newE);
 					}
 				}
 				Undo.create();
-				Undo.setTarget(m.el);
+				Undo.setTarget(map.entities);
 				Undo.addCommand(command);
 				Undo.finish();
 				
-				updateEntList(m.getData());
+				updateEntList(map.getData());
 				entList.setSelectedIndices(selected);
 
-				BSPEntspy.this.m.dirty = true;
+				BSPEntspy.this.map.dirty = true;
 			}
 		});
 		addent.addActionListener(new ActionListener() {
@@ -759,20 +761,20 @@ public class BSPEntspy {
 				if (entList.getMaxSelectionIndex() > 0) {
 					index = entList.getMaxSelectionIndex() + 1;
 					command = new CommandAddEntity(newent, index);
-					m.el.add(index, newent);
+					map.entities.add(index, newent);
 				} else {
-					index = m.el.size() - 1;
-					command = new CommandAddEntity(newent, m.el.size());
-					m.el.add(newent);
+					index = map.entities.size() - 1;
+					command = new CommandAddEntity(newent, map.entities.size());
+					map.entities.add(newent);
 				}
 				Undo.create();
-				Undo.setTarget(m.el);
+				Undo.setTarget(map.entities);
 				Undo.addCommand(command);
 				Undo.finish();
 
 				newent.autoedit = true;
 				
-				updateEntList(m.getData());
+				updateEntList(map.getData());
 				entList.setSelectedIndex(index);
 				entList.ensureIndexIsVisible(index);
 
@@ -834,7 +836,7 @@ public class BSPEntspy {
 		rightEntPanel.addApplyListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				int[] selected = entList.getSelectedIndices();
-				updateEntList(m.getData());
+				updateEntList(map.getData());
 				entList.setSelectedIndices(selected);
 			}
 		});
@@ -847,8 +849,8 @@ public class BSPEntspy {
 				boolean found = false;
 				int j = 0;
 				for (int i = 0; i < 2 && !found; ++i) {
-					for (; j < m.el.size(); ++j) {
-						if (m.el.get(j).targetname.equals(name)) {
+					for (; j < map.entities.size(); ++j) {
+						if (map.entities.get(j).targetname.equals(name)) {
 							entList.setSelectedIndex(j);
 							found = true;
 							break;
@@ -882,71 +884,49 @@ public class BSPEntspy {
 		this.frame.setSize(720, 520);
 		this.frame.getContentPane().add(mainSplit);
 		this.frame.setVisible(true);
-		this.loaddata();
 
 		return 0;
 	}
 
 	public boolean setfindlist(Entity sel, DefaultComboBoxModel<Entity> model) {
 		model.removeAllElements();
-		loop1: for (int i = 0; i < this.m.el.size(); ++i) {
-			Entity lent = this.m.el.get(i);
-			if (lent.keyvalues == null)
-				continue;
-			for (int j = 0; j < lent.keyvalues.size(); ++j) {
-				Entity linkent = lent.keyvalues.get(j).link;
-				if (linkent == null || !linkent.targetname.equals(sel.targetname))
-					continue;
-				model.addElement(lent);
-				continue loop1;
-			}
-		}
-		if (model.getSize() == 0) {
-			return false;
-		}
 		return true;
 	}
 
 	public boolean loadfile() {
-		try {
-			JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
+		JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
 
-			chooser.setDialogTitle(entspyTitle + " - Open a BSP file");
-			chooser.setFileFilter(new EntFileFilter());
-			int result = chooser.showOpenDialog(this.frame);
-			if (result == 1) {
-				return false;
-			}
-			this.infile = chooser.getSelectedFile();
-			chooser = null;
-			this.filename = this.infile.getName();
-			if (!(this.infile.exists() && this.infile.canRead())) {
-				System.out.println("Can't read " + this.filename + "!");
-				return false;
-			}
-			System.out.println("Reading map file " + this.filename);
-			this.raf = new RandomAccessFile(this.infile, "r");
-
-			preferences.put("LastFolder", this.infile.getParent());
-
-			return true;
-		} catch (IOException ioe) {
-			ioe.printStackTrace();
+		chooser.setDialogTitle(entspyTitle + " - Open a BSP file");
+		chooser.setFileFilter(new EntFileFilter());
+		int result = chooser.showOpenDialog(this.frame);
+		if (result == 1) {
 			return false;
 		}
+		this.infile = chooser.getSelectedFile();
+		chooser = null;
+		this.filename = this.infile.getName();
+		if (!(this.infile.exists() && this.infile.canRead())) {
+			System.out.println("Can't read " + this.filename + "!");
+			return false;
+		}
+		System.out.println("Reading map file " + this.filename);
+
+		preferences.put("LastFolder", this.infile.getParent());
+
+		return true;
 	}
 
 	public void savefile() {
-		try {
+		/*try {
 			JRadioButton rb;
 			ButtonGroup bgroup;
 			Object[] opts;
 			int result;
-			this.m.calcentitylump();
+			this.map.calcentitylump();
 			int entopt = 0;
-			if (!(this.m.entdiff <= 0 || this.m.isentaftergl)) {
+			if (!(this.map.entdiff <= 0 || this.map.isentaftergl)) {
 				opts = new Object[3];
-				opts[0] = "Entity lump exceeds previously stored size by " + this.strsize(this.m.entdiff)
+				opts[0] = "Entity lump exceeds previously stored size by " + this.strsize(this.map.entdiff)
 						+ ".\nChoose an option:";
 				bgroup = new ButtonGroup();
 				rb = new JRadioButton("Optimize storage (minimum file size, breaks checksum).", true);
@@ -954,7 +934,7 @@ public class BSPEntspy {
 				rb.setActionCommand("Optimize");
 				opts[1] = rb;
 				rb = new JRadioButton(
-						"Store at end (wastes " + this.strsize(this.m.entlumpsize) + ", preserves checksum).");
+						"Store at end (wastes " + this.strsize(this.map.entlumpsize) + ", preserves checksum).");
 				bgroup.add(rb);
 				rb.setActionCommand("Preserve");
 				opts[2] = rb;
@@ -966,16 +946,16 @@ public class BSPEntspy {
 					entopt = 1;
 				}
 			}
-			if (!(this.m.entdiff >= 0 || this.m.isentaftergl)) {
+			if (!(this.map.entdiff >= 0 || this.map.isentaftergl)) {
 				opts = new Object[3];
-				opts[0] = "Entity lump is smaller than previously stored size by " + this.strsize(-this.m.entdiff)
+				opts[0] = "Entity lump is smaller than previously stored size by " + this.strsize(-this.map.entdiff)
 						+ ".\nChoose an option:";
 				bgroup = new ButtonGroup();
 				rb = new JRadioButton("Optimize storage (minimum file size, breaks checksum).", true);
 				bgroup.add(rb);
 				rb.setActionCommand("Optimize");
 				opts[1] = rb;
-				rb = new JRadioButton("Store without optimization (wastes " + this.strsize(-this.m.entdiff)
+				rb = new JRadioButton("Store without optimization (wastes " + this.strsize(-this.map.entdiff)
 						+ ", preserves checksum).");
 				bgroup.add(rb);
 				rb.setActionCommand("Preserve2");
@@ -989,7 +969,7 @@ public class BSPEntspy {
 				}
 			}
 			JProgFrame prog = new JProgFrame(this.frame, entspyTitle + " - Save BSP file");
-			this.m.setprog(prog);
+			this.map.setprog(prog);
 			JFileChooser chooser = new JFileChooser(this.infile);
 			chooser.setSelectedFile(this.infile);
 			chooser.setDialogTitle(entspyTitle + " - Save BSP file - " + this.filename);
@@ -1014,8 +994,8 @@ public class BSPEntspy {
 					prog.start("Copying current map", true);
 					RandomAccessFile copyraf = new RandomAccessFile(renfile, "rw");
 					copyraf.setLength(0);
-					this.raf.seek(0);
-					this.m.blockcopy(this.raf, copyraf, ilength);
+					this.bspfile.seek(0);
+					this.map.blockcopy(this.bspfile, copyraf, ilength);
 					copyraf.close();
 					System.out.println("Done");
 					this.infile = renfile;
@@ -1024,40 +1004,40 @@ public class BSPEntspy {
 						this.frame.setVisible(false);
 						return;
 					}
-					this.raf.close();
-					this.raf = new RandomAccessFile(this.infile, "r");
+					this.bspfile.close();
+					this.bspfile = new RandomAccessFile(this.infile, "r");
 				}
 			}
 			System.out.print("Writing " + outfilename + "...");
-			this.raf.seek(0);
+			this.bspfile.seek(0);
 			RandomAccessFile outraf = new RandomAccessFile(outfile, "rw");
 			prog.start("Saving map...", true);
 			outraf.setLength(0);
-			this.m.setfile(this.raf);
+			this.map.setfile(this.bspfile);
 			System.out.print("BSP header... ");
-			this.m.saveheader(outraf, entopt);
+			this.map.saveheader(outraf, entopt);
 			System.out.print("Pre-entity data... ");
 			prog.setString("Writing pre-entity data...");
-			this.m.savepre(outraf);
+			this.map.savepre(outraf);
 			System.out.print("Entity data... ");
 			prog.setString("Writing entity data...");
-			this.m.saveent(outraf);
+			this.map.saveent(outraf);
 			System.out.print("Post-entity data... ");
 			prog.setString("Writing post-entity data...");
-			this.m.savepost(outraf, entopt);
-			this.m.saveglumps(outraf);
+			this.map.savepost(outraf, entopt);
+			this.map.saveglumps(outraf);
 			outraf.close();
 			System.out.println("Done");
-			this.raf.close();
+			this.bspfile.close();
 			this.infile = outfile;
-			this.raf = new RandomAccessFile(this.infile, "r");
+			this.bspfile = new RandomAccessFile(this.infile, "r");
 			this.filename = this.infile.getName();
 			prog.end();
-			this.m.setfile(this.raf);
-			this.m.dirty = false;
+			this.map.setfile(this.bspfile);
+			this.map.dirty = false;
 		} catch (IOException ioe) {
 			ioe.printStackTrace();
-		}
+		}*/
 	}
 
 	public boolean loadfgdfiles(File file) {
@@ -1097,44 +1077,8 @@ public class BSPEntspy {
 		return true;
 	}
 
-	public void loaddata() {
-		final JProgFrame prog = new JProgFrame(this.frame, entspyTitle + " - Load BSP file");
-		this.m.setprog(prog);
-		prog.setMaximum(this.m.loadtasklength());
-		prog.start("Loading entities...", true);
-		this.frame.setCursor(Cursor.getPredefinedCursor(3));
-		final Timer timer = new Timer(100, new ActionListener() {
-
-			public void actionPerformed(ActionEvent evt) {
-				prog.setValue(BSPEntspy.this.m.loadtaskprogress());
-			}
-		});
-		SwingWorker worker = new SwingWorker() {
-
-			public Object construct() {
-				try {
-					BSPEntspy.this.m.loadentities();
-					BSPEntspy.this.m.loadglumps();
-				} catch (IOException ex) {
-					ex.printStackTrace();
-				}
-				return null;
-			}
-
-			public void finished() {
-				timer.stop();
-				updateEntList(m.getData());
-				frame.setCursor(null);
-				prog.end();
-				frame.setTitle(entspyTitle + " - " + BSPEntspy.this.filename);
-			}
-		};
-		timer.start();
-		worker.start();
-	}
-
 	public boolean checkchanged(String title) {
-		if (!this.m.dirty && Undo.isEmpty()) {
+		if (!this.map.dirty && Undo.isEmpty()) {
 			return false;
 		}
 		int result = JOptionPane.showConfirmDialog(frame,
@@ -1155,10 +1099,10 @@ public class BSPEntspy {
 	public Entity getSelectedEntity() {
 		int index = entList.getSelectedIndex();
 
-		if (index < 0 || index >= m.el.size())
+		if (index < 0 || index >= map.entities.size())
 			return null;
 
-		return m.el.get(index);
+		return map.entities.get(index);
 	}
 	
 	public ArrayList<Entity> getSelectedEntities(){
@@ -1192,8 +1136,8 @@ public class BSPEntspy {
 			HashMap<String, Integer> nameMap = new HashMap<String, Integer>();
 			HashMap<String, Integer> dupMap = new HashMap<String, Integer>();
 
-			for (int i = 0; i < m.el.size(); ++i) {
-				Entity ent = m.el.get(i);
+			for (int i = 0; i < map.entities.size(); ++i) {
+				Entity ent = map.entities.get(i);
 				if (ent.targetname.isEmpty())
 					continue;
 				String key = "\"" + ent.classname + "\" \"" + ent.targetname + "\"";
@@ -1226,15 +1170,15 @@ public class BSPEntspy {
 				}
 
 				int index = nameMap.get(key);
-				Entity original = m.el.get(index);
+				Entity original = map.entities.get(index);
 				Entity finalReplacement = replaceEntity(original, ent);
-				m.el.set(index, finalReplacement);
+				map.entities.set(index, finalReplacement);
 				command.addEntity(original, finalReplacement, index);
 				++replaced;
 			}
 		} else {
-			for (int i = 0, j = 0; i < m.el.size() && j < temp.ents.size();) {
-				Entity original = m.el.get(i);
+			for (int i = 0, j = 0; i < map.entities.size() && j < temp.ents.size();) {
+				Entity original = map.entities.get(i);
 				Entity replacement = temp.ents.get(j);
 
 				if (VMF.ignoredClasses.contains(original.classname)) {
@@ -1268,7 +1212,7 @@ public class BSPEntspy {
 
 				if (shouldReplace) {
 					Entity finalReplacement = replaceEntity(original, replacement);
-					m.el.set(i, finalReplacement);
+					map.entities.set(i, finalReplacement);
 					command.addEntity(original, finalReplacement, i);
 
 					++i;
@@ -1281,7 +1225,7 @@ public class BSPEntspy {
 		}
 
 		Undo.create();
-		Undo.setTarget(m.el);
+		Undo.setTarget(map.entities);
 		Undo.addCommand(command);
 		Undo.finish();
 
@@ -1291,7 +1235,7 @@ public class BSPEntspy {
 	}
 
 	private static Entity replaceEntity(Entity original, Entity replacement) {
-		for (KeyValLink kvl : original.keyvalues) {
+		for (KeyValue kvl : original.keyvalues) {
 			if (!replacement.kvmap.containsKey(kvl.key)) {
 				replacement.addKeyVal(kvl.key, kvl.value);
 			}
