@@ -17,6 +17,7 @@ public class GoldSrcBSPFile extends BSPFile{
 	}
 	
 	public boolean read(RandomAccessFile file) throws IOException {
+		file.seek(0);
 		bspVersion = Integer.reverseBytes(file.readInt());
 		
 		if(bspVersion != 30) {
@@ -32,17 +33,11 @@ public class GoldSrcBSPFile extends BSPFile{
 		lumpBuffer.order(ByteOrder.LITTLE_ENDIAN);
 		lumps = new GenericLump[15];
 		
-		usedLumps = new ArrayList<GenericLump>();
-		
 		for(int i = 0; i < 15; ++i) {
 			lumps[i] = new GenericLump();
 			lumps[i].index = i;
 			lumps[i].offset = lumpBuffer.getInt();
 			lumps[i].length = lumpBuffer.getInt();
-			
-			if(lumps[i].length > 0) {
-				usedLumps.add(lumps[i]);
-			}
 		}
 
 		loadEntities();

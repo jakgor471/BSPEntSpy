@@ -69,13 +69,11 @@ import bspentspy.ClassPropertyPanel.GotoEvent;
 import bspentspy.Entity.KeyValue;
 import bspentspy.Lexer.LexerException;
 import bspentspy.Undo.Command;
-import util.SwingWorker;
 
 public class BSPEntspy {
 	BSPFile map;
 	String filename;
 	File infile;
-	RandomAccessFile bspfile;
 	JFrame frame = null;
 	JList<Entity> entList;
 	FilteredEntListModel entModel;
@@ -84,6 +82,7 @@ public class BSPEntspy {
 	FGD fgdFile = null;
 	HashSet<Entity> previouslySelected = new HashSet<Entity>();
 	Obfuscator obfuscator;
+	boolean overwritePrompt = false;
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
 	public static final String entspyTitle = "BSPEntSpy v1.275";
@@ -93,14 +92,19 @@ public class BSPEntspy {
 		entList.setModel(entModel);
 	}
 	
-	private boolean readFile() {
+	private boolean readFile() throws IOException {
+		if(map != null)
+			map.close();
+		
 		try {
-			this.bspfile = new RandomAccessFile(this.infile, "r");
-			map = BSPFile.readFile(bspfile);
+			RandomAccessFile in = new RandomAccessFile(this.infile, "rw");
+			map = BSPFile.readFile(in);
 			frame.setTitle(entspyTitle + " - " + this.filename);
 			updateEntList(map.entities);
-		}catch(IOException e) {
+		}catch(Exception e) {
 			JOptionPane.showMessageDialog(frame, "Map " + infile.getName() + " couldn't be read!", "ERROR!", JOptionPane.ERROR_MESSAGE);
+			e.printStackTrace();
+			map.close();
 			
 			return false;
 		}
@@ -146,6 +150,10 @@ public class BSPEntspy {
 		msave.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.CTRL_DOWN_MASK));
 		filemenu.add(mload);
 		filemenu.add(msave);
+		
+		JMenuItem msaveas = new JMenuItem("Save BSP as..");
+		msaveas.setToolTipText("Save the current map to a chosen file");
+		filemenu.add(msaveas);
 
 		JMenuItem mpatchvmf = new JMenuItem("Patch from VMF");
 		mpatchvmf.setToolTipText("Update entity properties based on a VMF file (see more in Help)");
@@ -340,26 +348,26 @@ public class BSPEntspy {
 				if (!BSPEntspy.this.loadfile()) {
 					return;
 				}
-				readFile();
+				
+				try {
+					readFile();
+				} catch (IOException e1) {
+					e1.printStackTrace();
+				}
 			}
 		});
 		msave.addActionListener(new ActionListener() {
 
-			public void actionPerformed(ActionEvent e) {
-				BSPEntspy.this.frame.setCursor(Cursor.getPredefinedCursor(3));
-				SwingWorker worker = new SwingWorker() {
+			public void actionPerformed(ActionEvent ev) {
+				savefile(true);
+			}
 
-					public Object construct() {
-						BSPEntspy.this.savefile();
-						return null;
-					}
+		});
+		
+		msaveas.addActionListener(new ActionListener() {
 
-					public void finished() {
-						BSPEntspy.this.frame.setTitle(entspyTitle + " - " + BSPEntspy.this.filename);
-						BSPEntspy.this.frame.setCursor(null);
-					}
-				};
-				worker.start();
+			public void actionPerformed(ActionEvent ev) {
+				savefile(false);
 			}
 
 		});
@@ -879,6 +887,13 @@ public class BSPEntspy {
 					return;
 				}
 				frame.dispose();
+				if(map != null) {
+					try {
+						map.close();
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				}
 			}
 		});
 		this.frame.setSize(720, 520);
@@ -899,7 +914,7 @@ public class BSPEntspy {
 		chooser.setDialogTitle(entspyTitle + " - Open a BSP file");
 		chooser.setFileFilter(new EntFileFilter());
 		int result = chooser.showOpenDialog(this.frame);
-		if (result == 1) {
+		if (result == JFileChooser.CANCEL_OPTION) {
 			return false;
 		}
 		this.infile = chooser.getSelectedFile();
@@ -912,132 +927,42 @@ public class BSPEntspy {
 		System.out.println("Reading map file " + this.filename);
 
 		preferences.put("LastFolder", this.infile.getParent());
-
+		overwritePrompt = true;
+		
 		return true;
 	}
 
-	public void savefile() {
-		/*try {
-			JRadioButton rb;
-			ButtonGroup bgroup;
-			Object[] opts;
-			int result;
-			this.map.calcentitylump();
-			int entopt = 0;
-			if (!(this.map.entdiff <= 0 || this.map.isentaftergl)) {
-				opts = new Object[3];
-				opts[0] = "Entity lump exceeds previously stored size by " + this.strsize(this.map.entdiff)
-						+ ".\nChoose an option:";
-				bgroup = new ButtonGroup();
-				rb = new JRadioButton("Optimize storage (minimum file size, breaks checksum).", true);
-				bgroup.add(rb);
-				rb.setActionCommand("Optimize");
-				opts[1] = rb;
-				rb = new JRadioButton(
-						"Store at end (wastes " + this.strsize(this.map.entlumpsize) + ", preserves checksum).");
-				bgroup.add(rb);
-				rb.setActionCommand("Preserve");
-				opts[2] = rb;
-				result = JOptionPane.showOptionDialog(this.frame, opts, "Save BSP file", 2, 3, null, null, null);
-				if (result == 2) {
-					return;
-				}
-				if (bgroup.getSelection().getActionCommand().equals("Preserve")) {
-					entopt = 1;
-				}
-			}
-			if (!(this.map.entdiff >= 0 || this.map.isentaftergl)) {
-				opts = new Object[3];
-				opts[0] = "Entity lump is smaller than previously stored size by " + this.strsize(-this.map.entdiff)
-						+ ".\nChoose an option:";
-				bgroup = new ButtonGroup();
-				rb = new JRadioButton("Optimize storage (minimum file size, breaks checksum).", true);
-				bgroup.add(rb);
-				rb.setActionCommand("Optimize");
-				opts[1] = rb;
-				rb = new JRadioButton("Store without optimization (wastes " + this.strsize(-this.map.entdiff)
-						+ ", preserves checksum).");
-				bgroup.add(rb);
-				rb.setActionCommand("Preserve2");
-				opts[2] = rb;
-				result = JOptionPane.showOptionDialog(this.frame, opts, "Save BSP file", 2, 3, null, null, null);
-				if (result == 2) {
-					return;
-				}
-				if (bgroup.getSelection().getActionCommand().equals("Preserve2")) {
-					entopt = 2;
-				}
-			}
-			JProgFrame prog = new JProgFrame(this.frame, entspyTitle + " - Save BSP file");
-			this.map.setprog(prog);
-			JFileChooser chooser = new JFileChooser(this.infile);
-			chooser.setSelectedFile(this.infile);
-			chooser.setDialogTitle(entspyTitle + " - Save BSP file - " + this.filename);
-			chooser.setFileFilter(new EntFileFilter());
-			int result2 = chooser.showSaveDialog(this.frame);
-			if (result2 == 1) {
+	private void savefile(boolean overwrite) {
+		File out;
+		
+		if(overwrite) {
+			out = this.infile;
+		} else {
+			JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
+			chooser.setDialogTitle(entspyTitle + " - Save a BSP file");
+			
+			int result = chooser.showOpenDialog(this.frame);
+			if (result == JFileChooser.CANCEL_OPTION) {
 				return;
 			}
-			File outfile = chooser.getSelectedFile();
-			chooser = null;
-			String outfilename = outfile.getName();
-			if (outfile.exists()) {
-				result2 = JOptionPane.showConfirmDialog(this.frame,
-						"Map file " + outfile + " exists.\nAre you sure you want to overwrite?", "Save BSP file", 0);
-				if (result2 == 1) {
-					return;
-				}
-				if (this.infile.getCanonicalPath().equals(outfile.getCanonicalPath())) {
-					long ilength = this.infile.length();
-					File renfile = new File(this.infile.getAbsolutePath() + ".bak");
-					System.out.print("Copying current map file to " + renfile.getAbsolutePath() + "...");
-					prog.start("Copying current map", true);
-					RandomAccessFile copyraf = new RandomAccessFile(renfile, "rw");
-					copyraf.setLength(0);
-					this.bspfile.seek(0);
-					this.map.blockcopy(this.bspfile, copyraf, ilength);
-					copyraf.close();
-					System.out.println("Done");
-					this.infile = renfile;
-					if (!this.infile.exists()) {
-						System.out.println("Cannot find renamed file - map save aborted");
-						this.frame.setVisible(false);
-						return;
-					}
-					this.bspfile.close();
-					this.bspfile = new RandomAccessFile(this.infile, "r");
-				}
-			}
-			System.out.print("Writing " + outfilename + "...");
-			this.bspfile.seek(0);
-			RandomAccessFile outraf = new RandomAccessFile(outfile, "rw");
-			prog.start("Saving map...", true);
-			outraf.setLength(0);
-			this.map.setfile(this.bspfile);
-			System.out.print("BSP header... ");
-			this.map.saveheader(outraf, entopt);
-			System.out.print("Pre-entity data... ");
-			prog.setString("Writing pre-entity data...");
-			this.map.savepre(outraf);
-			System.out.print("Entity data... ");
-			prog.setString("Writing entity data...");
-			this.map.saveent(outraf);
-			System.out.print("Post-entity data... ");
-			prog.setString("Writing post-entity data...");
-			this.map.savepost(outraf, entopt);
-			this.map.saveglumps(outraf);
-			outraf.close();
-			System.out.println("Done");
-			this.bspfile.close();
-			this.infile = outfile;
-			this.bspfile = new RandomAccessFile(this.infile, "r");
-			this.filename = this.infile.getName();
-			prog.end();
-			this.map.setfile(this.bspfile);
-			this.map.dirty = false;
-		} catch (IOException ioe) {
-			ioe.printStackTrace();
-		}*/
+			out = chooser.getSelectedFile();
+		}
+		
+		if(out.exists() && !(out.equals(infile) && !overwritePrompt)) {
+			int result2 = JOptionPane.showConfirmDialog(frame, "File " + out.getName() + " exists. Override?");
+			
+			if(result2 != JOptionPane.YES_OPTION)
+				return;
+			
+			overwritePrompt = false;
+		}
+		
+		try(RandomAccessFile output = new RandomAccessFile(out, "rw")) {
+			this.map.save(output, out.equals(infile));
+		} catch(IOException e) {
+			JOptionPane.showMessageDialog(frame, "Error while saving the file!\n" + e.getMessage(), "ERROR", JOptionPane.ERROR_MESSAGE);
+			e.printStackTrace();
+		}
 	}
 
 	public boolean loadfgdfiles(File file) {
