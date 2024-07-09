@@ -189,7 +189,7 @@ public class BSPEntspy {
 		mUndo.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				Undo.undo();
-				updateEntList(map.getData());
+				updateEntList(map.getEntities());
 				mRedo.setEnabled(Undo.canRedo());
 				mUndo.setEnabled(Undo.canUndo());
 			}
@@ -197,7 +197,7 @@ public class BSPEntspy {
 		mRedo.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				Undo.redo();
-				updateEntList(map.getData());
+				updateEntList(map.getEntities());
 				mRedo.setEnabled(Undo.canRedo());
 				mUndo.setEnabled(Undo.canUndo());
 			}
@@ -391,7 +391,7 @@ public class BSPEntspy {
 				}
 
 				preferences.put("LastVMFFolder", f.getParent());
-				updateEntList(map.getData());
+				updateEntList(map.getEntities());
 			}
 
 		});
@@ -582,7 +582,7 @@ public class BSPEntspy {
 					Undo.addCommand(command);
 					Undo.finish();
 					
-					updateEntList(map.getData());
+					updateEntList(map.getEntities());
 					preferences.put("LastFolder", f.getParent());
 
 					JOptionPane.showMessageDialog(frame, ents.size() + " entities successfuly imported from " + f,
@@ -665,7 +665,7 @@ public class BSPEntspy {
 					Undo.addCommand(command);
 					Undo.finish();
 					
-					updateEntList(map.getData());
+					updateEntList(map.getEntities());
 					
 					entList.setSelectedIndices(selectedIndices);
 				} catch (Exception | LexerException e) {
@@ -721,7 +721,7 @@ public class BSPEntspy {
 				Undo.finish();
 				
 				int j = entList.getMaxSelectionIndex() - selected.length;
-				updateEntList(map.getData());
+				updateEntList(map.getEntities());
 
 				entList.setSelectedIndex(j + 1);
 
@@ -753,7 +753,7 @@ public class BSPEntspy {
 				Undo.addCommand(command);
 				Undo.finish();
 				
-				updateEntList(map.getData());
+				updateEntList(map.getEntities());
 				entList.setSelectedIndices(selected);
 
 				BSPEntspy.this.map.dirty = true;
@@ -782,7 +782,7 @@ public class BSPEntspy {
 
 				newent.autoedit = true;
 				
-				updateEntList(map.getData());
+				updateEntList(map.getEntities());
 				entList.setSelectedIndex(index);
 				entList.ensureIndexIsVisible(index);
 
@@ -844,7 +844,7 @@ public class BSPEntspy {
 		rightEntPanel.addApplyListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				int[] selected = entList.getSelectedIndices();
-				updateEntList(map.getData());
+				updateEntList(map.getEntities());
 				entList.setSelectedIndices(selected);
 			}
 		});
@@ -927,7 +927,6 @@ public class BSPEntspy {
 		System.out.println("Reading map file " + this.filename);
 
 		preferences.put("LastFolder", this.infile.getParent());
-		overwritePrompt = true;
 		
 		return true;
 	}
@@ -948,13 +947,11 @@ public class BSPEntspy {
 			out = chooser.getSelectedFile();
 		}
 		
-		if(out.exists() && !(out.equals(infile) && !overwritePrompt)) {
+		if(out.exists()) {
 			int result2 = JOptionPane.showConfirmDialog(frame, "File " + out.getName() + " exists. Override?");
 			
 			if(result2 != JOptionPane.YES_OPTION)
 				return;
-			
-			overwritePrompt = false;
 		}
 		
 		try(RandomAccessFile output = new RandomAccessFile(out, "rw")) {

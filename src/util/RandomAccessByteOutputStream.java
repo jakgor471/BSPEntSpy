@@ -48,6 +48,12 @@ public class RandomAccessByteOutputStream extends OutputStream{
 		pos += 4;
 	}
 	
+	public void writeShort(short num) {
+		data[pos] = (byte)(num);
+		data[pos + 1] = (byte)(num >> 8);
+		pos += 2;
+	}
+	
 	public void seek(int pos) {
 		if(pos < 0)
 			pos = size + pos;
@@ -68,7 +74,7 @@ public class RandomAccessByteOutputStream extends OutputStream{
 		int minGrow = minCapacity - data.length;
 		
 		if(minGrow > 0){
-			int prefCapacity = data.length + (data.length >> 1) + minGrow;
+			int prefCapacity = Math.min(data.length + (data.length >> 1), Integer.MAX_VALUE - 8) + minGrow;
 			if(prefCapacity < 0 || prefCapacity >= Integer.MAX_VALUE - 8)
 				throw new OutOfMemoryError();
 			data = Arrays.copyOf(data, prefCapacity);

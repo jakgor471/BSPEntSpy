@@ -54,7 +54,7 @@ public class SimpleFilter implements IFilter {
 		
 		String query = null;
 		if((criterium.trim()).startsWith("$"))
-			query = criterium.substring(criterium.indexOf("$"));
+			query = criterium.substring(criterium.indexOf("$") + 1);
 		
 		if(query != null) {
 			paramNames = new ArrayList<String>();
