@@ -28,6 +28,10 @@ Detailed description and instructions are included in **Help** menu tab in BSPEn
 ![comparison](https://github.com/jakgor471/BSPEntSpy/blob/main/images/image2.jpg?raw=true)
 
 ## Changelog
+### BSPEntSpy v1.3 build 12/07/2024
+* Added support for GoldSrc maps
+* Complete rewrite of BSP backend
+* Support for LZMA compression when saving the map (only if the original map was compressed)
 ### BSPEntSpy v1.275 build 13/06/2024
 * Added Entity list filtering
 * Added an option to invert the selection

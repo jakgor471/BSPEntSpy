@@ -276,6 +276,8 @@ public class SourceBSPFile extends BSPFile{
 		
 		BufferedReader br = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(entData)));
 		readEntities(br);
+		
+		updateLinks();
 	}
 	
 	public static final int ID_BSP = 0x56425350; //big endian

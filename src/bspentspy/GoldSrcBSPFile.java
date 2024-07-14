@@ -58,6 +58,8 @@ public class GoldSrcBSPFile extends BSPFile{
 		
 		BufferedReader br = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(entData)));
 		readEntities(br);
+		
+		updateLinks();
 	}
 
 	public void save(RandomAccessFile out, boolean updateSelf) throws IOException {

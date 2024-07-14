@@ -85,7 +85,7 @@ public class BSPEntspy {
 	boolean overwritePrompt = false;
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String entspyTitle = "BSPEntSpy v1.275";
+	public static final String entspyTitle = "BSPEntSpy v1.3";
 	
 	private void updateEntList(ArrayList<Entity> ents) {
 		entModel.setEntityList(ents);
@@ -413,6 +413,8 @@ public class BSPEntspy {
 					BSPEntspy.this.info.dispose();
 				}
 				BSPEntspy.this.info = new MapInfo(BSPEntspy.this.frame, BSPEntspy.this.map, BSPEntspy.this.filename);*/
+				JOptionPane.showMessageDialog(frame, "java.lang.NotImplementedByALazyCoderException\n"
+						+ "With the rewrite of BSP backend this feature became broken. Don't worry. It will be fixed... one day.");
 			}
 		});
 
@@ -482,7 +484,7 @@ public class BSPEntspy {
 				if(jump == null)
 					return;
 				
-				int ind = map.entities.indexOf(jump);
+				int ind = entModel.indexOf(map.entities.indexOf(jump));
 				
 				if(entModel.indexOf(ind) > -1) {
 					entList.setSelectedIndex(ind);
@@ -503,7 +505,9 @@ public class BSPEntspy {
 		entcpl.setLayout(new BoxLayout(entcpl, BoxLayout.PAGE_AXIS));
 
 		JPanel entbut = new JPanel();
-
+		
+		JButton updent = new JButton("Update");
+		updent.setToolTipText("Update entity links");
 		JButton addent = new JButton("Add");
 		addent.setToolTipText("Add a new entity");
 		final JButton cpyent = new JButton("Duplicate");
@@ -512,6 +516,7 @@ public class BSPEntspy {
 		final JButton delent = new JButton("Del");
 		delent.setToolTipText("Delete the selected entities");
 		delent.setEnabled(false);
+		entbut.add(updent);
 		entbut.add(addent);
 		entbut.add(cpyent);
 		entbut.add(delent);
@@ -788,6 +793,12 @@ public class BSPEntspy {
 
 			}
 		});
+		
+		updent.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				map.updateLinks();
+			}
+		});
 
 		this.entList.addListSelectionListener(new ListSelectionListener() {
 
@@ -852,7 +863,7 @@ public class BSPEntspy {
 		rightEntPanel.addGotoListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				GotoEvent ge = (GotoEvent) e;
-				String name = ge.entname.trim();
+				String name = ge.entname;
 
 				boolean found = false;
 				int j = 0;
@@ -905,6 +916,15 @@ public class BSPEntspy {
 
 	public boolean setfindlist(Entity sel, DefaultComboBoxModel<Entity> model) {
 		model.removeAllElements();
+		
+		List<Entity> ents = map.getLinkedEntities(sel);
+		
+		if(ents == null)
+			return false;
+		
+		for(Entity e : ents)
+			model.addElement(e);
+		
 		return true;
 	}
 
@@ -1158,7 +1178,7 @@ public class BSPEntspy {
 
 	private static Entity replaceEntity(Entity original, Entity replacement) {
 		for (KeyValue kvl : original.keyvalues) {
-			if (!replacement.kvmap.containsKey(kvl.key)) {
+			if (!replacement.hasKeyValue(kvl.key)) {
 				replacement.addKeyVal(kvl.key, kvl.value);
 			}
 

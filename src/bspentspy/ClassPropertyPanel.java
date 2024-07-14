@@ -200,11 +200,7 @@ public class ClassPropertyPanel extends JPanel {
 		gotoEnt.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				if (onGoto != null) {
-					String entname = valueTextField.getText();
-					String[] split = entname.split("\\s*,\\s*");
-
-					if (split.length > 0)
-						entname = split[0];
+					String entname = KeyValue.getTarget(valueTextField.getText());
 
 					onGoto.actionPerformed(new GotoEvent(this, ae.getID(), entname));
 				}

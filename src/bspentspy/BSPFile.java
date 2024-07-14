@@ -5,19 +5,53 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+
+import bspentspy.Entity.KeyValue;
 
 public abstract class BSPFile implements AutoCloseable{
 	public boolean dirty;
 	protected RandomAccessFile bspfile;
 	protected ArrayList<Entity> entities;
+	protected HashMap<String, ArrayList<Entity>> links;
 	
 	protected BSPFile() {
 		entities = new ArrayList<Entity>();
 		dirty = false;
+		links = new HashMap<String, ArrayList<Entity>>();
 	}
 	
 	public ArrayList<Entity> getEntities(){
 		return entities;
+	}
+	
+	public ArrayList<Entity> getLinkedEntities(Entity e){
+		return links.get(e.targetname);
+	}
+	
+	public void updateLinks() {
+		links.clear();
+		
+		HashSet<String> nameSet = new HashSet<String>();
+		for(Entity e : entities) {
+			if(e.targetname == null || e.targetname.isEmpty())
+				continue;
+			
+			nameSet.add(e.targetname);
+			links.put(e.targetname, new ArrayList<Entity>());
+		}
+		for(Entity e : entities) {
+			for(KeyValue kv : e.keyvalues) {
+				if(kv.key.equals("targetname"))
+					continue;
+				String target = kv.getTarget();
+				
+				if(nameSet.contains(target)) {
+					links.get(target).add(e);
+				}
+			}
+		}
 	}
 	
 	public void close() throws IOException {

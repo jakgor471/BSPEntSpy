@@ -17,9 +17,9 @@ public class Entity {
 	String classname;
 	String targetname;
 	String origin;
-	public HashMap<String, Integer> duplicates = new HashMap<String, Integer>();
-	public HashMap<String, Integer> kvmap = new HashMap<String, Integer>();
-	public HashMap<Integer, Integer> uniqueKvmap = new HashMap<Integer, Integer>();
+	private HashMap<String, Integer> duplicates = new HashMap<String, Integer>();
+	private HashMap<Integer, Integer> uniqueKvmap = new HashMap<Integer, Integer>();
+	private HashMap<String, Integer> kvmap = new HashMap<String, Integer>();
 	public ArrayList<KeyValue> keyvalues = new ArrayList<KeyValue>();
 
 	private int uniqueInt = 0;
@@ -285,6 +285,10 @@ public class Entity {
 		}
 
 		setnames();
+	}
+	
+	public boolean hasKeyValue(String name) {
+		return kvmap.containsKey(name);
 	}
 
 	public int size() {
@@ -613,9 +617,23 @@ public class Entity {
 		public int uniqueId;
 		public String key;
 		public String value;
-
+		
 		public String toString() {
 			return "(\"" + key + "\" \"" + value + "\")";
+		}
+		
+		public String getTarget() {
+			return getTarget(value);
+		}
+		
+		public static String getTarget(String value) {
+			//returns first argument of Output or just value
+			int index1 = value.indexOf(',');
+			int index2 = value.indexOf('\033');
+			int index = (index1 >= 0 && index1 < index2 || index2 <= 0) ? index1 : index2;
+			index = index >= 0 ? index : value.length();
+			
+			return value.substring(0, index).trim();
 		}
 	}
 	
