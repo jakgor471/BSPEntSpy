@@ -81,7 +81,7 @@ public class BSPEntspy {
 	Preferences preferences;
 	FGD fgdFile = null;
 	HashSet<Entity> previouslySelected = new HashSet<Entity>();
-	Obfuscator obfuscator;
+	//Obfuscator obfuscator;
 	boolean overwritePrompt = false;
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
@@ -446,7 +446,7 @@ public class BSPEntspy {
 			}
 		});
 		
-		obfuscator = new Obfuscator();
+		//obfuscator = new Obfuscator();
 		/*obfEntity.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				ArrayList<Entity> ents = getSelectedEntities();

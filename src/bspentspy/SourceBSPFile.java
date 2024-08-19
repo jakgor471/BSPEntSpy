@@ -22,6 +22,8 @@ public class SourceBSPFile extends BSPFile{
 	
 	private BSPLump[] lumps;
 	private GameLump[] glumps;
+	private BSPWorldLight[] hdrLights;
+	private BSPWorldLight[] ldrLights;
 	private int mapRev;
 	
 	public boolean read(RandomAccessFile file) throws IOException {
@@ -55,8 +57,67 @@ public class SourceBSPFile extends BSPFile{
 		
 		loadGameLumps();
 		loadEntities();
+		loadLights();
 		
 		return true;
+	}
+	
+	private void loadLights() throws IOException {
+		int numldrLights = (int)(lumps[15].length / 88);
+		int numhdrLights = (int)(lumps[54].length / 88);
+		
+		ldrLights = new BSPWorldLight[numldrLights];
+		hdrLights = new BSPWorldLight[numhdrLights];
+		
+		int num = numldrLights;
+		BSPLump lump = lumps[15];
+		BSPWorldLight[] arr = ldrLights;
+		for(int i = 0; i < 2; ++i) {
+			bspfile.seek(lump.offset);
+			byte[] lightBytes = new byte[(int)lump.length];
+			ByteBuffer lightBuff = ByteBuffer.wrap(lightBytes);
+			lightBuff.order(ByteOrder.LITTLE_ENDIAN);
+			
+			bspfile.read(lightBytes);
+			
+			for(int j = 0; j < num; ++j) {
+				BSPWorldLight lgt = new BSPWorldLight();
+				lgt.origin = new float[3];
+				lgt.intensity = new float[3];
+				lgt.normal = new float[3];
+				lgt.origin[0] = lightBuff.getFloat();
+				lgt.origin[1] = lightBuff.getFloat();
+				lgt.origin[2] = lightBuff.getFloat();
+				lgt.intensity[0] = lightBuff.getFloat(); // R * A * 39.215
+				lgt.intensity[1] = lightBuff.getFloat();
+				lgt.intensity[2] = lightBuff.getFloat();
+				lgt.normal[0] = lightBuff.getFloat();
+				lgt.normal[1] = lightBuff.getFloat();
+				lgt.normal[2] = lightBuff.getFloat();
+				
+				lgt.cluster = lightBuff.getInt();
+				lgt.type = lightBuff.getInt();
+				lgt.style = lightBuff.getInt();
+				
+				lgt.stopdot = lightBuff.getFloat();
+				lgt.stopdot2 = lightBuff.getFloat();
+				lgt.exponent = lightBuff.getFloat();
+				lgt.radius = lightBuff.getFloat();
+				lgt.constant_attn = lightBuff.getFloat();
+				lgt.linear_attn = lightBuff.getFloat();
+				lgt.quadratic_attn = lightBuff.getFloat();
+				
+				lgt.flags = lightBuff.getInt();
+				lgt.texinfo = lightBuff.getInt();
+				lgt.owner = lightBuff.getInt();
+				
+				arr[j] = lgt;
+			}
+			
+			num = numldrLights;
+			lump = lumps[54];
+			arr = hdrLights;
+		}
 	}
 	
 	private void writeHeader(RandomAccessFile out, BSPLump[] newLumps) throws IOException {
@@ -285,6 +346,25 @@ public class SourceBSPFile extends BSPFile{
 	
 	private static final int ENTLUMP = 0;
 	private static final int GAMELUMP = 35;
+	
+	public static class BSPWorldLight {
+		float[] origin;
+		float[] intensity;
+		float[] normal;
+		int cluster;
+		int type;
+	    int style;
+		float stopdot;
+		float stopdot2;
+		float exponent;
+		float radius;
+		float constant_attn;
+		float linear_attn;
+		float quadratic_attn;
+		int flags;
+		int texinfo;
+		int	owner;	
+	}
 	
 	public static class BSPLump extends GenericLump{
 		int version;
