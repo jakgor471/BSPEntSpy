@@ -12,11 +12,11 @@ import bspentspy.Undo.*;
 
 public class Entity {
 	int index;
+	float[] origin = new float[] {0, 0, 0};
 	boolean mark = false;
 	boolean autoedit = false;
 	String classname;
 	String targetname;
-	String origin;
 	private HashMap<String, Integer> duplicates = new HashMap<String, Integer>();
 	private HashMap<Integer, Integer> uniqueKvmap = new HashMap<Integer, Integer>();
 	private HashMap<String, Integer> kvmap = new HashMap<String, Integer>();
@@ -74,7 +74,10 @@ public class Entity {
 	}
 	
 	public void setOrigin(double x, double y, double z) {
-		setKeyVal("classname", String.format("%4f", x) + " " + String.format("%4f", y) + " " + String.format("%4f", z));
+		setKeyVal("origin", String.format("%4f", x) + " " + String.format("%4f", y) + " " + String.format("%4f", z));
+		origin[0] = (float)x;
+		origin[1] = (float)y;
+		origin[2] = (float)z;
 	}
 
 	public String getKeyValue(String keyword) {
@@ -88,7 +91,22 @@ public class Entity {
 	public void setnames() {
 		this.classname = this.getKeyValue("classname");
 		this.targetname = this.getKeyValue("targetname");
-		this.origin = this.getKeyValue("origin");
+		
+		String[] split = this.getKeyValue("origin").trim().split("\\s+");
+		
+		origin[0] = origin[1] = origin[2] = 0;
+		
+		if(split.length < 3)
+			return;
+		
+		try {
+			origin[0] = Float.valueOf(split[0]);
+			origin[1] = Float.valueOf(split[1]);
+			origin[2] = Float.valueOf(split[2]);
+		} catch(NumberFormatException e) {
+			origin[0] = origin[1] = origin[2] = 0;
+			setKeyVal("origin", "0 0 0");
+		}
 	}
 
 	public String getKeyValString(int i) {

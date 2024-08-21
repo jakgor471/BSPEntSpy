@@ -80,6 +80,7 @@ public class SourceBSPFile extends BSPFile{
 			
 			bspfile.read(lightBytes);
 			
+			System.out.println("Lights: ");
 			for(int j = 0; j < num; ++j) {
 				BSPWorldLight lgt = new BSPWorldLight();
 				lgt.origin = new float[3];
@@ -111,6 +112,7 @@ public class SourceBSPFile extends BSPFile{
 				lgt.texinfo = lightBuff.getInt();
 				lgt.owner = lightBuff.getInt();
 				
+				System.out.println(lgt + "\n");
 				arr[j] = lgt;
 			}
 			
@@ -348,6 +350,15 @@ public class SourceBSPFile extends BSPFile{
 	private static final int GAMELUMP = 35;
 	
 	public static class BSPWorldLight {
+		public static final int EMIT_SURF = 0;
+		public static final int EMIT_POINT = 1;
+		public static final int EMIT_SPOTLIGHT = 2;
+		public static final int EMIT_SKYLIGHT = 3;
+		public static final int EMIT_QUAKELIGHT = 4;
+		public static final int EMIT_AMBIENT = 5;
+		
+		public static final String[] EMIT = {"Surface", "Point", "Spotlight", "Skylight", "Quakelight", "Ambient"};
+		
 		float[] origin;
 		float[] intensity;
 		float[] normal;
@@ -363,7 +374,15 @@ public class SourceBSPFile extends BSPFile{
 		float quadratic_attn;
 		int flags;
 		int texinfo;
-		int	owner;	
+		int	owner;
+		
+		public String toString() {
+			return String.format("origin: (%.4f %.4f %.4f)"
+					+ "\nintensity: (%.4f %.4f %.4f)"
+					+ "\nnormal: (%.4f %.4f %.4f)", 
+					origin[0], origin[1], origin[2], intensity[0], intensity[1], intensity[2], normal[0], normal[1], normal[2]
+					);
+		}
 	}
 	
 	public static class BSPLump extends GenericLump{
