@@ -8,6 +8,7 @@ import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -15,15 +16,19 @@ import java.util.List;
 import SevenZip.Compression.LZMA.Decoder;
 import SevenZip.Compression.LZMA.Encoder;
 import bspentspy.BSPFile.GenericLump;
+import bspentspy.Octree.IOriginThing;
+import bspentspy.Octree.Vector;
 import util.RandomAccessByteOutputStream;
 
 public class SourceBSPFile extends BSPFile{
+	public static final float MAPSIZE = 65536;
 	protected int bspVersion;
 	
 	private BSPLump[] lumps;
 	private GameLump[] glumps;
-	private BSPWorldLight[] hdrLights;
-	private BSPWorldLight[] ldrLights;
+	private ArrayList<BSPWorldLight> hdrLights;
+	private ArrayList<BSPWorldLight> ldrLights;
+	private Octree<BSPWorldLight> theWorldofLights;
 	private int mapRev;
 	
 	public boolean read(RandomAccessFile file) throws IOException {
@@ -66,13 +71,16 @@ public class SourceBSPFile extends BSPFile{
 		int numldrLights = (int)(lumps[15].length / 88);
 		int numhdrLights = (int)(lumps[54].length / 88);
 		
-		ldrLights = new BSPWorldLight[numldrLights];
-		hdrLights = new BSPWorldLight[numhdrLights];
+		final float halfmapsize = MAPSIZE / 2;
+		theWorldofLights = new Octree<BSPWorldLight>(-halfmapsize, -halfmapsize, -halfmapsize, MAPSIZE);
+		
+		ldrLights = new ArrayList<BSPWorldLight>(numldrLights);
+		hdrLights = new ArrayList<BSPWorldLight>(numhdrLights);
 		
 		int num = numldrLights;
 		BSPLump lump = lumps[15];
-		BSPWorldLight[] arr = ldrLights;
-		for(int i = 0; i < 2; ++i) {
+		ArrayList<BSPWorldLight> arr = ldrLights;
+		for(int i = 0; i < 2; ++i) {			
 			bspfile.seek(lump.offset);
 			byte[] lightBytes = new byte[(int)lump.length];
 			ByteBuffer lightBuff = ByteBuffer.wrap(lightBytes);
@@ -83,12 +91,12 @@ public class SourceBSPFile extends BSPFile{
 			System.out.println("Lights: ");
 			for(int j = 0; j < num; ++j) {
 				BSPWorldLight lgt = new BSPWorldLight();
-				lgt.origin = new float[3];
+				lgt.origin = new Vector();
 				lgt.intensity = new float[3];
 				lgt.normal = new float[3];
-				lgt.origin[0] = lightBuff.getFloat();
-				lgt.origin[1] = lightBuff.getFloat();
-				lgt.origin[2] = lightBuff.getFloat();
+				lgt.origin.x = lightBuff.getFloat();
+				lgt.origin.y = lightBuff.getFloat();
+				lgt.origin.z = lightBuff.getFloat();
 				lgt.intensity[0] = lightBuff.getFloat(); // R * A * 39.215
 				lgt.intensity[1] = lightBuff.getFloat();
 				lgt.intensity[2] = lightBuff.getFloat();
@@ -113,10 +121,11 @@ public class SourceBSPFile extends BSPFile{
 				lgt.owner = lightBuff.getInt();
 				
 				System.out.println(lgt + "\n");
-				arr[j] = lgt;
+				arr.add(lgt);
+				theWorldofLights.insert(lgt);
 			}
 			
-			num = numldrLights;
+			num = numhdrLights;
 			lump = lumps[54];
 			arr = hdrLights;
 		}
@@ -349,7 +358,7 @@ public class SourceBSPFile extends BSPFile{
 	private static final int ENTLUMP = 0;
 	private static final int GAMELUMP = 35;
 	
-	public static class BSPWorldLight {
+	public static class BSPWorldLight implements IOriginThing {
 		public static final int EMIT_SURF = 0;
 		public static final int EMIT_POINT = 1;
 		public static final int EMIT_SPOTLIGHT = 2;
@@ -359,7 +368,7 @@ public class SourceBSPFile extends BSPFile{
 		
 		public static final String[] EMIT = {"Surface", "Point", "Spotlight", "Skylight", "Quakelight", "Ambient"};
 		
-		float[] origin;
+		Vector origin;
 		float[] intensity;
 		float[] normal;
 		int cluster;
@@ -376,11 +385,15 @@ public class SourceBSPFile extends BSPFile{
 		int texinfo;
 		int	owner;
 		
+		public Vector getOrigin() {
+			return origin;
+		}
+		
 		public String toString() {
 			return String.format("origin: (%.4f %.4f %.4f)"
 					+ "\nintensity: (%.4f %.4f %.4f)"
 					+ "\nnormal: (%.4f %.4f %.4f)", 
-					origin[0], origin[1], origin[2], intensity[0], intensity[1], intensity[2], normal[0], normal[1], normal[2]
+					origin.x, origin.y, origin.z, intensity[0], intensity[1], intensity[2], normal[0], normal[1], normal[2]
 					);
 		}
 	}

@@ -2,7 +2,6 @@ package bspentspy;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Toolkit;
@@ -35,9 +34,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.prefs.Preferences;
+
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.ButtonGroup;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListModel;
 import javax.swing.DefaultListSelectionModel;
@@ -54,17 +53,16 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
-import javax.swing.Timer;
 import javax.swing.UIManager;
 import javax.swing.WindowConstants;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+
 import bspentspy.ClassPropertyPanel.GotoEvent;
 import bspentspy.Entity.KeyValue;
 import bspentspy.Lexer.LexerException;
@@ -81,34 +79,36 @@ public class BSPEntspy {
 	Preferences preferences;
 	FGD fgdFile = null;
 	HashSet<Entity> previouslySelected = new HashSet<Entity>();
-	//Obfuscator obfuscator;
+	// Obfuscator obfuscator;
 	boolean overwritePrompt = false;
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
 	public static final String entspyTitle = "BSPEntSpy v1.3";
-	
+
 	private void updateEntList(ArrayList<Entity> ents) {
 		entModel.setEntityList(ents);
 		entList.setModel(entModel);
 	}
-	
+
 	private boolean readFile() throws IOException {
-		if(map != null)
+		if (map != null)
 			map.close();
-		
+
 		try {
 			RandomAccessFile in = new RandomAccessFile(this.infile, "rw");
 			map = BSPFile.readFile(in);
 			frame.setTitle(entspyTitle + " - " + this.filename);
 			updateEntList(map.entities);
-		}catch(Exception e) {
-			JOptionPane.showMessageDialog(frame, "Map " + infile.getName() + " couldn't be read!", "ERROR!", JOptionPane.ERROR_MESSAGE);
+		} catch (Exception e) {
+			JOptionPane.showMessageDialog(frame, "Map " + infile.getName() + " couldn't be read!", "ERROR!",
+					JOptionPane.ERROR_MESSAGE);
 			e.printStackTrace();
-			map.close();
-			
+			if(map != null)
+				map.close();
+
 			return false;
 		}
-		
+
 		return true;
 	}
 
@@ -126,18 +126,18 @@ public class BSPEntspy {
 		} else {
 			preferences.remove("LastFGDFile");
 		}
-		
+
 		DefaultListModel<Entity> dfm = new DefaultListModel<Entity>();
 		dfm.add(0, new Entity());
-		
+
 		entModel = new FilteredEntListModel();
 		this.entList = new JList<Entity>();
 		DefaultListSelectionModel selmodel = new DefaultListSelectionModel();
 		selmodel.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
 		entList.setSelectionModel(selmodel);
 		entList.setCellRenderer(new EntListRenderer());
-		
-		if(!readFile()) {
+
+		if (!readFile()) {
 			System.exit(0);
 		}
 
@@ -150,7 +150,7 @@ public class BSPEntspy {
 		msave.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.CTRL_DOWN_MASK));
 		filemenu.add(mload);
 		filemenu.add(msave);
-		
+
 		JMenuItem msaveas = new JMenuItem("Save BSP as..");
 		msaveas.setToolTipText("Save the current map to a chosen file");
 		filemenu.add(msaveas);
@@ -211,40 +211,40 @@ public class BSPEntspy {
 				mRedo.setEnabled(Undo.canRedo());
 			}
 		});
-		
+
 		JMenuItem mInvertSel = new JMenuItem("Invert selection");
 		mInvertSel.setEnabled(true);
 		mInvertSel.setToolTipText("Invert the selection");
 		mInvertSel.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_I, KeyEvent.CTRL_DOWN_MASK));
 		editmenu.addSeparator();
 		editmenu.add(mInvertSel);
-		
+
 		mInvertSel.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				int[] selected = entList.getSelectedIndices();
-				
+
 				entList.clearSelection();
-				
+
 				int j = 0;
 				int intervalStart = -1;
 				int intervalEnd = 0;
-				
-				for(int i = 0; i < entModel.getSize(); ++i) {
-					if(j < selected.length && selected[j] == i) {
+
+				for (int i = 0; i < entModel.getSize(); ++i) {
+					if (j < selected.length && selected[j] == i) {
 						entList.addSelectionInterval(intervalStart, intervalEnd - 1);
 						intervalStart = -1;
 						++j;
 						continue;
 					}
-					
-					if(intervalStart < 0) {
+
+					if (intervalStart < 0) {
 						intervalStart = i;
 						intervalEnd = i;
 					}
-					
+
 					++intervalEnd;
 				}
-				
+
 				entList.addSelectionInterval(intervalStart, intervalEnd - 1);
 			}
 		});
@@ -314,7 +314,7 @@ public class BSPEntspy {
 
 		optionmenu.add(msmartEditOption);
 		optionmenu.add(maddDefaultOption);
-		
+
 		JMenu entitymenu = new JMenu("Entity");
 		final JMenuItem importEntity = new JMenuItem("Import");
 		importEntity.setToolTipText("Import entities from a file");
@@ -325,11 +325,12 @@ public class BSPEntspy {
 		exportEntity.setToolTipText("Export selected entities to a file");
 		exportEntity.setEnabled(false);
 		entitymenu.add(exportEntity);
-		
-		/*final JMenuItem obfEntity = new JMenuItem("Obfuscate");
-		obfEntity.setToolTipText("Obfuscate selected entities (see more in Help)");
-		obfEntity.setEnabled(false);
-		entitymenu.add(obfEntity); //Work in progress*/
+
+		/*
+		 * final JMenuItem obfEntity = new JMenuItem("Obfuscate");
+		 * obfEntity.setToolTipText("Obfuscate selected entities (see more in Help)");
+		 * obfEntity.setEnabled(false); entitymenu.add(obfEntity); //Work in progress
+		 */
 
 		JMenuBar menubar = new JMenuBar();
 		menubar.add(filemenu);
@@ -348,7 +349,7 @@ public class BSPEntspy {
 				if (!BSPEntspy.this.loadfile()) {
 					return;
 				}
-				
+
 				try {
 					readFile();
 				} catch (IOException e1) {
@@ -363,7 +364,7 @@ public class BSPEntspy {
 			}
 
 		});
-		
+
 		msaveas.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent ev) {
@@ -408,11 +409,11 @@ public class BSPEntspy {
 		minfo.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
-				/*BSPEntspy.this.map.setfile(BSPEntspy.this.bspfile);
-				if (BSPEntspy.this.info != null) {
-					BSPEntspy.this.info.dispose();
-				}
-				BSPEntspy.this.info = new MapInfo(BSPEntspy.this.frame, BSPEntspy.this.map, BSPEntspy.this.filename);*/
+				/*
+				 * BSPEntspy.this.map.setfile(BSPEntspy.this.bspfile); if (BSPEntspy.this.info
+				 * != null) { BSPEntspy.this.info.dispose(); } BSPEntspy.this.info = new
+				 * MapInfo(BSPEntspy.this.frame, BSPEntspy.this.map, BSPEntspy.this.filename);
+				 */
 				JOptionPane.showMessageDialog(frame, "java.lang.NotImplementedByALazyCoderException\n"
 						+ "With the rewrite of BSP backend this feature became broken. Don't worry. It will be fixed... one day.");
 			}
@@ -445,23 +446,21 @@ public class BSPEntspy {
 				rightEntPanel.setFGD(fgdFile);
 			}
 		});
-		
-		//obfuscator = new Obfuscator();
-		/*obfEntity.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent ae) {
-				ArrayList<Entity> ents = getSelectedEntities();
-				
-				if(fgdFile == null) {
-					int result = JOptionPane.showConfirmDialog(frame, "No FGD files loaded! Obfuscator's functionality will be limited to only name mangling. Do you want to continue?");
-					
-					if(result != 0)
-						return;
-				}
-				
-				obfuscator.setFGD(fgdFile);
-				obfuscator.obfuscate(m.el, ents);
-			}
-		});*/
+
+		// obfuscator = new Obfuscator();
+		/*
+		 * obfEntity.addActionListener(new ActionListener() { public void
+		 * actionPerformed(ActionEvent ae) { ArrayList<Entity> ents =
+		 * getSelectedEntities();
+		 * 
+		 * if(fgdFile == null) { int result = JOptionPane.showConfirmDialog(frame,
+		 * "No FGD files loaded! Obfuscator's functionality will be limited to only name mangling. Do you want to continue?"
+		 * );
+		 * 
+		 * if(result != 0) return; }
+		 * 
+		 * obfuscator.setFGD(fgdFile); obfuscator.obfuscate(m.el, ents); } });
+		 */
 
 		JPanel findpanel = new JPanel();
 
@@ -480,13 +479,13 @@ public class BSPEntspy {
 		findbutton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				Entity jump = ((Entity) findmodel.getSelectedItem());
-				
-				if(jump == null)
+
+				if (jump == null)
 					return;
-				
+
 				int ind = entModel.indexOf(map.entities.indexOf(jump));
-				
-				if(entModel.indexOf(ind) > -1) {
+
+				if (entModel.indexOf(ind) > -1) {
 					entList.setSelectedIndex(ind);
 					entList.ensureIndexIsVisible(ind);
 				} else {
@@ -505,7 +504,7 @@ public class BSPEntspy {
 		entcpl.setLayout(new BoxLayout(entcpl, BoxLayout.PAGE_AXIS));
 
 		JPanel entbut = new JPanel();
-		
+
 		JButton updent = new JButton("Update");
 		updent.setToolTipText("Update entity links");
 		JButton addent = new JButton("Add");
@@ -526,7 +525,7 @@ public class BSPEntspy {
 		exportEntity.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ev) {
 				ArrayList<Entity> ents = getSelectedEntities();
-				
+
 				JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
 				chooser.setDialogTitle(entspyTitle + " - Export entities to a file");
 				chooser.setDialogType(JFileChooser.SAVE_DIALOG);
@@ -586,7 +585,7 @@ public class BSPEntspy {
 					Undo.setTarget(map.entities);
 					Undo.addCommand(command);
 					Undo.finish();
-					
+
 					updateEntList(map.getEntities());
 					preferences.put("LastFolder", f.getParent());
 
@@ -644,22 +643,22 @@ public class BSPEntspy {
 					ArrayList<Entity> ents = loadEntsFromReader(sr);
 
 					sr.close();
-					
+
 					int i = entList.getMaxSelectionIndex();
-					
-					if(i > -1)
+
+					if (i > -1)
 						i = Math.min(i + 1, entModel.getSize());
 					else
 						i = entModel.getSize();
-					
+
 					int[] selectedIndices = new int[ents.size()];
 					int j = 0;
 					CommandAddEntity command = new CommandAddEntity();
 					int originalIndex = entModel.getIndexAt(i);
-					
-					if(originalIndex < 0)
+
+					if (originalIndex < 0)
 						originalIndex = entModel.getSize();
-					
+
 					for (Entity e : ents) {
 						command.addEntity(e, originalIndex);
 						map.entities.add(originalIndex, e);
@@ -669,9 +668,9 @@ public class BSPEntspy {
 					Undo.setTarget(map.entities);
 					Undo.addCommand(command);
 					Undo.finish();
-					
+
 					updateEntList(map.getEntities());
-					
+
 					entList.setSelectedIndices(selectedIndices);
 				} catch (Exception | LexerException e) {
 					JOptionPane.showMessageDialog(frame, "Could not parse data from clipboard!\n" + e.getMessage(),
@@ -708,23 +707,23 @@ public class BSPEntspy {
 
 			public void actionPerformed(ActionEvent e) {
 				CommandRemoveEntity command = new CommandRemoveEntity();
-				
+
 				int[] selected = entList.getSelectedIndices();
-				for(int i = 0; i < selected.length; ++i) {
+				for (int i = 0; i < selected.length; ++i) {
 					int index = entModel.getIndexAt(selected[i]);
 					command.addEntity(map.entities.get(index), index);
 					selected[i] = index;
 				}
-				
-				for(int i = selected.length - 1; i >= 0; --i) {
+
+				for (int i = selected.length - 1; i >= 0; --i) {
 					map.entities.remove(selected[i]);
 				}
-				
+
 				Undo.create();
 				Undo.setTarget(map.entities);
 				Undo.addCommand(command);
 				Undo.finish();
-				
+
 				int j = entList.getMaxSelectionIndex() - selected.length;
 				updateEntList(map.getEntities());
 
@@ -757,7 +756,7 @@ public class BSPEntspy {
 				Undo.setTarget(map.entities);
 				Undo.addCommand(command);
 				Undo.finish();
-				
+
 				updateEntList(map.getEntities());
 				entList.setSelectedIndices(selected);
 
@@ -786,14 +785,14 @@ public class BSPEntspy {
 				Undo.finish();
 
 				newent.autoedit = true;
-				
+
 				updateEntList(map.getEntities());
 				entList.setSelectedIndex(index);
 				entList.ensureIndexIsVisible(index);
 
 			}
 		});
-		
+
 		updent.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				map.updateLinks();
@@ -814,7 +813,7 @@ public class BSPEntspy {
 				cpyent.setEnabled(enable);
 				exportEntity.setEnabled(enable);
 				cpToClipEnt.setEnabled(enable);
-				//obfEntity.setEnabled(enable);
+				// obfEntity.setEnabled(enable);
 				findbutton.setEnabled(selected.length == 1);
 				findcombo.setEnabled(selected.length == 1);
 				findmodel.removeAllElements();
@@ -898,7 +897,7 @@ public class BSPEntspy {
 					return;
 				}
 				frame.dispose();
-				if(map != null) {
+				if (map != null) {
 					try {
 						map.close();
 					} catch (IOException e) {
@@ -916,15 +915,15 @@ public class BSPEntspy {
 
 	public boolean setfindlist(Entity sel, DefaultComboBoxModel<Entity> model) {
 		model.removeAllElements();
-		
+
 		List<Entity> ents = map.getLinkedEntities(sel);
-		
-		if(ents == null)
+
+		if (ents == null)
 			return false;
-		
-		for(Entity e : ents)
+
+		for (Entity e : ents)
 			model.addElement(e);
-		
+
 		return true;
 	}
 
@@ -947,37 +946,38 @@ public class BSPEntspy {
 		System.out.println("Reading map file " + this.filename);
 
 		preferences.put("LastFolder", this.infile.getParent());
-		
+
 		return true;
 	}
 
 	private void savefile(boolean overwrite) {
 		File out;
-		
-		if(overwrite) {
+
+		if (overwrite) {
 			out = this.infile;
 		} else {
 			JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
 			chooser.setDialogTitle(entspyTitle + " - Save a BSP file");
-			
+
 			int result = chooser.showOpenDialog(this.frame);
 			if (result == JFileChooser.CANCEL_OPTION) {
 				return;
 			}
 			out = chooser.getSelectedFile();
 		}
-		
-		if(out.exists()) {
+
+		if (out.exists()) {
 			int result2 = JOptionPane.showConfirmDialog(frame, "File " + out.getName() + " exists. Override?");
-			
-			if(result2 != JOptionPane.YES_OPTION)
+
+			if (result2 != JOptionPane.YES_OPTION)
 				return;
 		}
-		
-		try(RandomAccessFile output = new RandomAccessFile(out, "rw")) {
+
+		try (RandomAccessFile output = new RandomAccessFile(out, "rw")) {
 			this.map.save(output, out.equals(infile));
-		} catch(IOException e) {
-			JOptionPane.showMessageDialog(frame, "Error while saving the file!\n" + e.getMessage(), "ERROR", JOptionPane.ERROR_MESSAGE);
+		} catch (IOException e) {
+			JOptionPane.showMessageDialog(frame, "Error while saving the file!\n" + e.getMessage(), "ERROR",
+					JOptionPane.ERROR_MESSAGE);
 			e.printStackTrace();
 		}
 	}
@@ -1046,14 +1046,14 @@ public class BSPEntspy {
 
 		return map.entities.get(index);
 	}
-	
-	public ArrayList<Entity> getSelectedEntities(){
+
+	public ArrayList<Entity> getSelectedEntities() {
 		ArrayList<Entity> ents = new ArrayList<Entity>();
 
 		for (int i : entList.getSelectedIndices()) {
 			ents.add(entModel.getElementAt(i));
 		}
-		
+
 		return ents;
 	}
 
@@ -1229,18 +1229,18 @@ public class BSPEntspy {
 		public void actionPerformed(ActionEvent ae) {
 			entList.clearSelection();
 			String ftext = textf.getText().trim();
-			if(ftext.equals("") || (ae.getModifiers() & ActionEvent.SHIFT_MASK) > 0) {
+			if (ftext.equals("") || (ae.getModifiers() & ActionEvent.SHIFT_MASK) > 0) {
 				entModel.setFilter(null);
 				return;
 			}
 			try {
 				entModel.setFilter(SimpleFilter.create(ftext));
-			} catch(Exception e) {
+			} catch (Exception e) {
 				JOptionPane.showMessageDialog(frame, "Invalid filter format!", "ERROR", JOptionPane.ERROR_MESSAGE);
 			}
 		}
 	}
-	
+
 	class GotoListen implements ActionListener {
 		JTextField textf;
 
@@ -1250,23 +1250,23 @@ public class BSPEntspy {
 
 		public void actionPerformed(ActionEvent ae) {
 			String ftext = textf.getText().trim();
-			if(ftext.equals("")) {
+			if (ftext.equals("")) {
 				return;
 			}
-			
+
 			IFilter filter;
 			try {
 				filter = SimpleFilter.create(ftext);
-			} catch(Exception e) {
+			} catch (Exception e) {
 				JOptionPane.showMessageDialog(frame, "Invalid filter format!", "ERROR", JOptionPane.ERROR_MESSAGE);
 				return;
 			}
-			
-			if((ae.getModifiers() & ActionEvent.SHIFT_MASK) > 0) {
+
+			if ((ae.getModifiers() & ActionEvent.SHIFT_MASK) > 0) {
 				List<Entity> filtered = entModel.getFilteredEntities();
-				
-				for(int i = 0; i < filtered.size(); ++i) {
-					if(filter.match(filtered.get(i))) {
+
+				for (int i = 0; i < filtered.size(); ++i) {
+					if (filter.match(filtered.get(i))) {
 						entList.addSelectionInterval(i, i);
 					}
 				}
@@ -1274,21 +1274,21 @@ public class BSPEntspy {
 				int found = -1;
 				int j = entList.getMaxSelectionIndex() + 1;
 				int k = entModel.getSize();
-				for(int i = 0; i < 2 && found < 0; ++i) {
+				for (int i = 0; i < 2 && found < 0; ++i) {
 					List<Entity> filtered = entModel.getFilteredEntities();
-					
-					for(; j < k; ++j) {
-						if(filter.match(filtered.get(j))) {
+
+					for (; j < k; ++j) {
+						if (filter.match(filtered.get(j))) {
 							found = j;
 							break;
 						}
 					}
-					
+
 					j = 0;
 					k = entList.getMinSelectionIndex();
 				}
-				
-				if(found > -1) {
+
+				if (found > -1) {
 					entList.setSelectedIndex(found);
 					entList.ensureIndexIsVisible(found);
 				}
