@@ -22,13 +22,17 @@ import util.RandomAccessByteOutputStream;
 
 public class SourceBSPFile extends BSPFile{
 	public static final float MAPSIZE = 65536;
+	
 	protected int bspVersion;
+	protected Octree<BSPWorldLight> theWorldofLightsLDR;
+	protected Octree<BSPWorldLight> theWorldofLightsHDR;
+	protected boolean writeLights = true;
+	protected boolean hasLights = false;
 	
 	private BSPLump[] lumps;
 	private GameLump[] glumps;
 	private ArrayList<BSPWorldLight> hdrLights;
 	private ArrayList<BSPWorldLight> ldrLights;
-	private Octree<BSPWorldLight> theWorldofLights;
 	private int mapRev;
 	
 	public boolean read(RandomAccessFile file) throws IOException {
@@ -67,19 +71,90 @@ public class SourceBSPFile extends BSPFile{
 		return true;
 	}
 	
+	private void readPak() throws IOException {
+		bspfile.seek(lumps[PAKLUMP].offset + lumps[PAKLUMP].length - 22);
+		
+		byte[] header = new byte[22];
+		bspfile.read(header);
+		ByteBuffer buff = ByteBuffer.wrap(header);
+		buff.order(ByteOrder.LITTLE_ENDIAN);
+	}
+	
+	public void removeLightAt(Vector pos) {
+		BSPWorldLight ldr = theWorldofLightsLDR.findClosest(pos.x, pos.y, pos.z);
+		BSPWorldLight hdr = theWorldofLightsHDR.findClosest(pos.x, pos.y, pos.z);
+		
+		if(pos.distToSqr(ldr.origin) < 0.125f) {
+			theWorldofLightsLDR.remove(ldr);
+			ldrLights.remove(ldr);
+		}
+		if(pos.distToSqr(hdr.origin) < 0.125f) {
+			theWorldofLightsHDR.remove(hdr);
+			hdrLights.remove(hdr);
+		}
+	}
+	
+	private byte[] getLightData(int type) {
+		if(!writeLights)
+			return new byte[0];
+		
+		ArrayList<BSPWorldLight> arr = ldrLights;
+		
+		if(type == WORLDLIGHTLUMP_HDR)
+			arr = hdrLights;
+		byte[] bytes = new byte[arr.size() * 88];
+		ByteBuffer buff = ByteBuffer.wrap(bytes);
+		buff.order(ByteOrder.LITTLE_ENDIAN);
+		
+		for(BSPWorldLight l : arr) {
+			buff.putFloat(l.origin.x);
+			buff.putFloat(l.origin.y);
+			buff.putFloat(l.origin.z);
+			buff.putFloat(l.intensity[0]);
+			buff.putFloat(l.intensity[1]);
+			buff.putFloat(l.intensity[2]);
+			buff.putFloat(l.normal[0]);
+			buff.putFloat(l.normal[1]);
+			buff.putFloat(l.normal[2]);
+			
+			buff.putInt(l.cluster);
+			buff.putInt(l.type);
+			buff.putInt(l.style);
+			
+			buff.putFloat(l.stopdot);
+			buff.putFloat(l.stopdot2);
+			buff.putFloat(l.exponent);
+			buff.putFloat(l.radius);
+			buff.putFloat(l.constant_attn);
+			buff.putFloat(l.linear_attn);
+			buff.putFloat(l.quadratic_attn);
+			
+			buff.putInt(l.flags);
+			buff.putInt(l.texinfo);
+			buff.putInt(l.owner);
+		}
+		
+		return bytes;
+	}
+	
 	private void loadLights() throws IOException {
-		int numldrLights = (int)(lumps[15].length / 88);
-		int numhdrLights = (int)(lumps[54].length / 88);
+		int numldrLights = (int)(lumps[WORLDLIGHTLUMP_LDR].length / 88);
+		int numhdrLights = (int)(lumps[WORLDLIGHTLUMP_HDR].length / 88);
 		
 		final float halfmapsize = MAPSIZE / 2;
-		theWorldofLights = new Octree<BSPWorldLight>(-halfmapsize, -halfmapsize, -halfmapsize, MAPSIZE);
+		//theWorldofLightsLDR = new Octree<BSPWorldLight>(-halfmapsize, -halfmapsize, -halfmapsize, MAPSIZE);
+		//theWorldofLightsHDR = new Octree<BSPWorldLight>(-halfmapsize, -halfmapsize, -halfmapsize, MAPSIZE);
+		
+		hasLights = numldrLights + numhdrLights > 0;
 		
 		ldrLights = new ArrayList<BSPWorldLight>(numldrLights);
 		hdrLights = new ArrayList<BSPWorldLight>(numhdrLights);
 		
 		int num = numldrLights;
-		BSPLump lump = lumps[15];
+		BSPLump lump = lumps[WORLDLIGHTLUMP_LDR];
 		ArrayList<BSPWorldLight> arr = ldrLights;
+		
+		Octree<BSPWorldLight> world = theWorldofLightsLDR;
 		for(int i = 0; i < 2; ++i) {			
 			bspfile.seek(lump.offset);
 			byte[] lightBytes = new byte[(int)lump.length];
@@ -122,12 +197,13 @@ public class SourceBSPFile extends BSPFile{
 				
 				System.out.println(lgt + "\n");
 				arr.add(lgt);
-				theWorldofLights.insert(lgt);
+				//world.insert(lgt);
 			}
 			
 			num = numhdrLights;
-			lump = lumps[54];
+			lump = lumps[WORLDLIGHTLUMP_HDR];
 			arr = hdrLights;
+			//world = theWorldofLightsHDR;
 		}
 	}
 	
@@ -168,6 +244,11 @@ public class SourceBSPFile extends BSPFile{
 		byte[] entData = getEntityBytes(newLumps[ENTLUMP]);
 		newLumps[ENTLUMP].length = entData.length;
 		
+		byte[] hdrLightData = getLightData(WORLDLIGHTLUMP_HDR);
+		byte[] ldrLightData = getLightData(WORLDLIGHTLUMP_LDR);
+		newLumps[WORLDLIGHTLUMP_HDR].length = hdrLightData.length;
+		newLumps[WORLDLIGHTLUMP_LDR].length = ldrLightData.length;
+		
 		for(i = 0; i < glumps.length; ++i) {
 			newGlumps[i] = (GameLump)glumps[i].clone();
 			sorted.add(newGlumps[i]);
@@ -206,6 +287,12 @@ public class SourceBSPFile extends BSPFile{
 				out.seek(newLumps[ENTLUMP].offset);
 				out.write(entData);
 				continue;
+			} else if(to.index == WORLDLIGHTLUMP_LDR) {
+				out.seek(newLumps[WORLDLIGHTLUMP_LDR].offset);
+				out.write(ldrLightData);
+			} else if(to.index == WORLDLIGHTLUMP_HDR) {
+				out.seek(newLumps[WORLDLIGHTLUMP_HDR].offset);
+				out.write(hdrLightData);
 			}
 			
 			if(to.index >= 4096)
@@ -357,6 +444,9 @@ public class SourceBSPFile extends BSPFile{
 	
 	private static final int ENTLUMP = 0;
 	private static final int GAMELUMP = 35;
+	private static final int WORLDLIGHTLUMP_LDR = 15;
+	private static final int WORLDLIGHTLUMP_HDR = 54;
+	private static final int PAKLUMP = 40;
 	
 	public static class BSPWorldLight implements IOriginThing {
 		public static final int EMIT_SURF = 0;
@@ -392,8 +482,10 @@ public class SourceBSPFile extends BSPFile{
 		public String toString() {
 			return String.format("origin: (%.4f %.4f %.4f)"
 					+ "\nintensity: (%.4f %.4f %.4f)"
-					+ "\nnormal: (%.4f %.4f %.4f)", 
-					origin.x, origin.y, origin.z, intensity[0], intensity[1], intensity[2], normal[0], normal[1], normal[2]
+					+ "\nnormal: (%.4f %.4f %.4f)"
+					+ "\ncluster: %d\ntype: %s\nstyle: %d",
+					origin.x, origin.y, origin.z, intensity[0], intensity[1], intensity[2], normal[0], normal[1], normal[2],
+					cluster, EMIT[type], style
 					);
 		}
 	}
@@ -433,4 +525,50 @@ public class SourceBSPFile extends BSPFile{
 			return clone;
 		}
 	}
+	
+	private static class ZIPFileHeader{
+		int signature; //  4 bytes PK12 
+		short versionMadeBy; // version made by 2 bytes 
+		short versionNeededToExtract; // version needed to extract 2 bytes 
+		short flags; // general purpose bit flag 2 bytes 
+		short compressionMethod; // compression method 2 bytes 
+		short lastModifiedTime; // last mod file time 2 bytes 
+		short lastModifiedDate; // last mod file date 2 bytes 
+		int crc32; // crc-32 4 bytes 
+		long compressedSize; // compressed size 4 bytes 
+		long uncompressedSize; // uncompressed size 4 bytes 
+		short fileNameLength; // file name length 2 bytes 
+		short extraFieldLength; // extra field length 2 bytes 
+		short fileCommentLength; // file comment length 2 bytes 
+		short diskNumberStart; // disk number start 2 bytes 
+		short internalFileAttribs; // internal file attributes 2 bytes 
+		int externalFileAttribs; // external file attributes 4 bytes 
+		long relativeOffsetOfLocalHeader; // relative offset of local header 4 bytes 
+	}
+	
+	private static class ZIPLocalFileHeader{
+		int	signature; //local file header signature 4 bytes PK34 
+		short versionNeededToExtract; // version needed to extract 2 bytes 
+		short flags; // general purpose bit flag 2 bytes 
+		short compressionMethod; // compression method 2 bytes 
+		short lastModifiedTime; // last mod file time 2 bytes 
+		short lastModifiedDate; // last mod file date 2 bytes 
+		int crc32; // crc-32 4 bytes 
+		long compressedSize; // compressed size 4 bytes 
+		long uncompressedSize; // uncompressed size 4 bytes 
+		short fileNameLength; // file name length 2 bytes 
+		short extraFieldLength; // extra field length 2 bytes 
+	}
+	
+	private static class ZIPEndOfCentralRecord{
+		int signature; // 4 bytes PK56
+		short numberOfThisDisk;  // 2 bytes
+		short numberOfTheDiskWithStartOfCentralDirectory; // 2 bytes
+		short nCentralDirectoryEntries_ThisDisk;	// 2 bytes
+		short nCentralDirectoryEntries_Total;	// 2 bytes
+		long centralDirectorySize; // 4 bytes
+		long startOfCentralDirOffset; // 4 bytes
+		short commentLength; // 2 bytes
+	}
+	
 }

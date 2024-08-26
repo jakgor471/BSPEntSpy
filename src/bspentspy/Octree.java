@@ -293,6 +293,33 @@ class Octree<T extends Octree.IOriginThing> {
 		public float x;
 		public float y;
 		public float z;
+		
+		public Vector() {
+			x = y = z = 0;
+		}
+		
+		public Vector(float[] xyz) {
+			this();
+			
+			if(xyz.length > 2) {
+				x = xyz[0];
+				y = xyz[1];
+				z = xyz[2];
+			}
+		}
+		
+		public Vector(float x, float y, float z) {
+			this.x = x;
+			this.y = y;
+			this.z = z;
+		}
+		
+		public float distToSqr(Vector other) {
+			float dx = other.x - x;
+			float dy = other.y - y;
+			float dz = other.z - z;
+			return dx*dx + dy*dy + dz*dz;
+		}
 	}
 
 	/*

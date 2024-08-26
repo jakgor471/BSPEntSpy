@@ -66,6 +66,8 @@ import javax.swing.event.ListSelectionListener;
 import bspentspy.ClassPropertyPanel.GotoEvent;
 import bspentspy.Entity.KeyValue;
 import bspentspy.Lexer.LexerException;
+import bspentspy.Octree.Vector;
+import bspentspy.SourceBSPFile.BSPWorldLight;
 import bspentspy.Undo.Command;
 
 public class BSPEntspy {
@@ -165,11 +167,19 @@ public class BSPEntspy {
 		mloadfgd.setToolTipText("Load an FGD file to enable Smart Edit");
 		filemenu.add(mloadfgd);
 
-		filemenu.addSeparator();
+		//filemenu.addSeparator();
 		JMenuItem minfo = new JMenuItem("Map info...");
 		minfo.setToolTipText("Map header information");
-		filemenu.add(minfo);
+		//filemenu.add(minfo);
+		
 		filemenu.addSeparator();
+		JMenuItem removeLightInfo = new JMenuItem("Remove light information");
+		removeLightInfo.setToolTipText("Remove worldlight lump data for rebaking the lights with VRAD");
+		removeLightInfo.setEnabled(true);
+		filemenu.add(removeLightInfo);
+		
+		filemenu.addSeparator();
+		
 		JMenuItem mquit = new JMenuItem("Quit");
 		mquit.setToolTipText("Quit Entspy");
 		mquit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Q, KeyEvent.CTRL_DOWN_MASK));
@@ -185,6 +195,28 @@ public class BSPEntspy {
 		mRedo.setEnabled(false);
 		mRedo.setToolTipText("Redo last edit");
 		mRedo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Y, KeyEvent.CTRL_DOWN_MASK));
+		
+		removeLightInfo.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				if(!(map instanceof SourceBSPFile)) {
+					JOptionPane.showMessageDialog(frame, "Unsupported version of BSP. This option works only for Source BSP.");
+					return;
+				}
+				SourceBSPFile bspmap = (SourceBSPFile)map;
+				
+				if(!bspmap.hasLights) {
+					JOptionPane.showMessageDialog(frame, "No light info found. Lumps have been removed or map was not VRAD compiled.");
+					return;
+				}
+				
+				int result = JOptionPane.showConfirmDialog(frame, "This action cannot be undone.\nRemoving worldlight data (lump 15 and 54)" + 
+						" allows to change the lighting by running the map with VRAD (see Help for more information).\nDo you want to proceed?", entspyTitle, JOptionPane.YES_NO_OPTION);
+				
+				if(result == JOptionPane.NO_OPTION)
+					return;
+				bspmap.writeLights = false;
+			}
+		});
 
 		mUndo.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
@@ -331,6 +363,10 @@ public class BSPEntspy {
 		 * obfEntity.setToolTipText("Obfuscate selected entities (see more in Help)");
 		 * obfEntity.setEnabled(false); entitymenu.add(obfEntity); //Work in progress
 		 */
+		
+		JMenuItem removeLights = new JMenuItem("Remove unused lights");
+		removeLights.setToolTipText("Remove unused lights from worldlight lumps. Light is unused when there is no corresponding entitiy.");
+		removeLights.setEnabled(true);
 
 		JMenuBar menubar = new JMenuBar();
 		menubar.add(filemenu);
@@ -846,6 +882,20 @@ public class BSPEntspy {
 
 				if (selected.length == 1) {
 					setfindlist(entModel.getElementAt(selected[0]), findmodel);
+					/*Entity ent = entModel.getElementAt(selected[0]);
+					
+					if(map instanceof SourceBSPFile && ent.classname.contains("light")) {
+						SourceBSPFile bspmap = (SourceBSPFile)map;
+						BSPWorldLight light = bspmap.theWorldofLightsLDR.findClosest(ent.origin[0], ent.origin[1], ent.origin[2]);
+						
+						if(light != null && light.origin.distToSqr(new Vector(ent.origin)) < 0.125f)
+							System.out.println("====LDR\n"+light);
+						
+						light = bspmap.theWorldofLightsHDR.findClosest(ent.origin[0], ent.origin[1], ent.origin[2]);
+						
+						if(light != null && light.origin.distToSqr(new Vector(ent.origin)) < 0.125f)
+							System.out.println("====HDR\n"+light);
+					}*/
 				}
 			}
 
@@ -972,13 +1022,31 @@ public class BSPEntspy {
 			if (result2 != JOptionPane.YES_OPTION)
 				return;
 		}
-
-		try (RandomAccessFile output = new RandomAccessFile(out, "rw")) {
+		
+		RandomAccessFile output = null;
+		try {
+			output = new RandomAccessFile(out, "rw");
 			this.map.save(output, out.equals(infile));
+			
+			if(!overwrite && !out.equals(infile)) {
+				infile = out;
+				map.close();
+				map.bspfile = output;
+				this.filename = infile.getName();
+				frame.setTitle(entspyTitle + " - " + this.filename);
+			} else
+				output.close();
 		} catch (IOException e) {
 			JOptionPane.showMessageDialog(frame, "Error while saving the file!\n" + e.getMessage(), "ERROR",
 					JOptionPane.ERROR_MESSAGE);
 			e.printStackTrace();
+			
+			if(output != null) {
+				try {
+					output.close();
+				} catch (IOException e1) {
+				}
+			}
 		}
 	}
 
