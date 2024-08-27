@@ -3,8 +3,11 @@ package bspentspy;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -12,10 +15,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import SevenZip.Compression.LZMA.Decoder;
 import SevenZip.Compression.LZMA.Encoder;
-import bspentspy.BSPFile.GenericLump;
 import bspentspy.Octree.IOriginThing;
 import bspentspy.Octree.Vector;
 import util.RandomAccessByteOutputStream;
@@ -64,20 +68,48 @@ public class SourceBSPFile extends BSPFile{
 		
 		mapRev = Integer.reverseBytes(bspfile.readInt());
 		
+		
 		loadGameLumps();
 		loadEntities();
 		loadLights();
+		loadPak();
 		
 		return true;
 	}
 	
-	private void readPak() throws IOException {
-		bspfile.seek(lumps[PAKLUMP].offset + lumps[PAKLUMP].length - 22);
+	private void loadPak() throws IOException {
+		bspfile.seek(lumps[PAKLUMP].offset);
 		
-		byte[] header = new byte[22];
-		bspfile.read(header);
-		ByteBuffer buff = ByteBuffer.wrap(header);
-		buff.order(ByteOrder.LITTLE_ENDIAN);
+		FileInputStream is = new FileInputStream(bspfile.getFD());
+		ZipInputStream zis = new ZipInputStream(is);
+		ArrayList<ZIPPart> pakfiles = new ArrayList<ZIPPart>();
+		
+		ZipEntry ze = null;
+		while((ze = zis.getNextEntry()) != null) {
+			byte[] data = new byte[(int)ze.getSize()];
+			zis.read(data);
+			
+			ZIPPart part = new ZIPPart(ze, data);
+			pakfiles.add(part);
+		}
+		
+		System.out.println("PakLump size: " + (double)lumps[PAKLUMP].length / 1000000.0D + "MB");
+	}
+	
+	public void WritePakToStream(OutputStream fo) throws IOException {
+		bspfile.seek(lumps[PAKLUMP].offset);
+		
+		long blocks = lumps[PAKLUMP].length / 20480;
+		int remainder = (int)(lumps[PAKLUMP].length % 20480);
+		byte[] block = new byte[20480];
+		
+		for(int i = 0; i < blocks; ++i) {
+			bspfile.read(block);
+			fo.write(block);
+		}
+		
+		bspfile.read(block, 0, remainder);
+		fo.write(block, 0, remainder);
 	}
 	
 	public void removeLightAt(Vector pos) {
@@ -195,7 +227,7 @@ public class SourceBSPFile extends BSPFile{
 				lgt.texinfo = lightBuff.getInt();
 				lgt.owner = lightBuff.getInt();
 				
-				System.out.println(lgt + "\n");
+				//System.out.println(lgt + "\n");
 				arr.add(lgt);
 				//world.insert(lgt);
 			}
@@ -244,10 +276,14 @@ public class SourceBSPFile extends BSPFile{
 		byte[] entData = getEntityBytes(newLumps[ENTLUMP]);
 		newLumps[ENTLUMP].length = entData.length;
 		
-		byte[] hdrLightData = getLightData(WORLDLIGHTLUMP_HDR);
-		byte[] ldrLightData = getLightData(WORLDLIGHTLUMP_LDR);
-		newLumps[WORLDLIGHTLUMP_HDR].length = hdrLightData.length;
-		newLumps[WORLDLIGHTLUMP_LDR].length = ldrLightData.length;
+		/*byte[] hdrLightData = null;
+		byte[] ldrLightData = null;
+		hdrLightData = getLightData(WORLDLIGHTLUMP_HDR);
+		ldrLightData = getLightData(WORLDLIGHTLUMP_LDR);*/
+		if(!writeLights) {
+			newLumps[WORLDLIGHTLUMP_HDR].length = 0;
+			newLumps[WORLDLIGHTLUMP_LDR].length = 0;
+		}
 		
 		for(i = 0; i < glumps.length; ++i) {
 			newGlumps[i] = (GameLump)glumps[i].clone();
@@ -255,7 +291,7 @@ public class SourceBSPFile extends BSPFile{
 		}
 		
 		Collections.sort(sorted);
-		int entIndex = sorted.indexOf(newLumps[ENTLUMP]);
+		/*int entIndex = sorted.indexOf(newLumps[ENTLUMP]);
 		
 		if(entIndex < sorted.size() - 1) {
 			GenericLump entLump = newLumps[ENTLUMP];
@@ -271,6 +307,25 @@ public class SourceBSPFile extends BSPFile{
 					sorted.get(i).offset = alignToFour(sorted.get(i).offset - orgLen);
 				}
 			}
+		}*/
+		
+		GenericLump cur = sorted.get(0);
+		GenericLump next = sorted.get(1);
+		for(i = 0; i < sorted.size() - 1; ++i) {
+			next.offset = alignToFour(cur.offset + cur.length);
+			cur = next;
+			next = sorted.get(i + 1);
+		}
+		
+		int offset = 0;
+		for(i = 0; i < sorted.size() - 1 - offset; ++i) {
+			cur = sorted.get(i);
+			if(cur.index >= GLUMP_INDEX_OFF && cur.length <= glumps[cur.index - GLUMP_INDEX_OFF].length || cur.index < GLUMP_INDEX_OFF && cur.length <= lumps[cur.index].length)
+				continue;
+			
+			sorted.remove(i);
+			sorted.add(cur);
+			++offset;
 		}
 		
 		for(i = 0; i < sorted.size(); ++i) {
@@ -287,16 +342,16 @@ public class SourceBSPFile extends BSPFile{
 				out.seek(newLumps[ENTLUMP].offset);
 				out.write(entData);
 				continue;
-			} else if(to.index == WORLDLIGHTLUMP_LDR) {
+			} /*else if(to.index == WORLDLIGHTLUMP_LDR) {
 				out.seek(newLumps[WORLDLIGHTLUMP_LDR].offset);
 				out.write(ldrLightData);
 			} else if(to.index == WORLDLIGHTLUMP_HDR) {
 				out.seek(newLumps[WORLDLIGHTLUMP_HDR].offset);
 				out.write(hdrLightData);
-			}
+			}*/
 			
-			if(to.index >= 4096)
-				from = glumps[to.index - 4096];
+			if(to.index >= GLUMP_INDEX_OFF)
+				from = glumps[to.index - GLUMP_INDEX_OFF];
 			else
 				from = lumps[to.index];
 			
@@ -361,7 +416,7 @@ public class SourceBSPFile extends BSPFile{
 		
 		for(int i = 0; i < lumpCount; ++i) {
 			glumps[i] = new GameLump();
-			glumps[i].index = 4096 + i;
+			glumps[i].index = GLUMP_INDEX_OFF + i;
 			glumps[i].id = glumpBuff.getInt();
 			glumps[i].flags = glumpBuff.getShort();
 			glumps[i].version = Short.toUnsignedInt(glumpBuff.getShort());
@@ -441,6 +496,8 @@ public class SourceBSPFile extends BSPFile{
 	
 	public static final int ID_BSP = 0x56425350; //big endian
 	public static final int ID_LZMA = 0x4C5A4D41; //big endian
+	
+	private static final int GLUMP_INDEX_OFF = 4096;
 	
 	private static final int ENTLUMP = 0;
 	private static final int GAMELUMP = 35;
@@ -526,49 +583,14 @@ public class SourceBSPFile extends BSPFile{
 		}
 	}
 	
-	private static class ZIPFileHeader{
-		int signature; //  4 bytes PK12 
-		short versionMadeBy; // version made by 2 bytes 
-		short versionNeededToExtract; // version needed to extract 2 bytes 
-		short flags; // general purpose bit flag 2 bytes 
-		short compressionMethod; // compression method 2 bytes 
-		short lastModifiedTime; // last mod file time 2 bytes 
-		short lastModifiedDate; // last mod file date 2 bytes 
-		int crc32; // crc-32 4 bytes 
-		long compressedSize; // compressed size 4 bytes 
-		long uncompressedSize; // uncompressed size 4 bytes 
-		short fileNameLength; // file name length 2 bytes 
-		short extraFieldLength; // extra field length 2 bytes 
-		short fileCommentLength; // file comment length 2 bytes 
-		short diskNumberStart; // disk number start 2 bytes 
-		short internalFileAttribs; // internal file attributes 2 bytes 
-		int externalFileAttribs; // external file attributes 4 bytes 
-		long relativeOffsetOfLocalHeader; // relative offset of local header 4 bytes 
-	}
-	
-	private static class ZIPLocalFileHeader{
-		int	signature; //local file header signature 4 bytes PK34 
-		short versionNeededToExtract; // version needed to extract 2 bytes 
-		short flags; // general purpose bit flag 2 bytes 
-		short compressionMethod; // compression method 2 bytes 
-		short lastModifiedTime; // last mod file time 2 bytes 
-		short lastModifiedDate; // last mod file date 2 bytes 
-		int crc32; // crc-32 4 bytes 
-		long compressedSize; // compressed size 4 bytes 
-		long uncompressedSize; // uncompressed size 4 bytes 
-		short fileNameLength; // file name length 2 bytes 
-		short extraFieldLength; // extra field length 2 bytes 
-	}
-	
-	private static class ZIPEndOfCentralRecord{
-		int signature; // 4 bytes PK56
-		short numberOfThisDisk;  // 2 bytes
-		short numberOfTheDiskWithStartOfCentralDirectory; // 2 bytes
-		short nCentralDirectoryEntries_ThisDisk;	// 2 bytes
-		short nCentralDirectoryEntries_Total;	// 2 bytes
-		long centralDirectorySize; // 4 bytes
-		long startOfCentralDirOffset; // 4 bytes
-		short commentLength; // 2 bytes
+	private static class ZIPPart{
+		ZipEntry entry;
+		byte[] data;
+		
+		public ZIPPart(ZipEntry entry, byte[] data) {
+			this.entry = entry;
+			this.data = data;
+		}
 	}
 	
 }

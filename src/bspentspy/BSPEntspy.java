@@ -18,6 +18,7 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -66,8 +67,6 @@ import javax.swing.event.ListSelectionListener;
 import bspentspy.ClassPropertyPanel.GotoEvent;
 import bspentspy.Entity.KeyValue;
 import bspentspy.Lexer.LexerException;
-import bspentspy.Octree.Vector;
-import bspentspy.SourceBSPFile.BSPWorldLight;
 import bspentspy.Undo.Command;
 
 public class BSPEntspy {
@@ -81,6 +80,8 @@ public class BSPEntspy {
 	Preferences preferences;
 	FGD fgdFile = null;
 	HashSet<Entity> previouslySelected = new HashSet<Entity>();
+	JMenuItem removeLightInfo = null;
+	JMenuItem exportPak = null;
 	// Obfuscator obfuscator;
 	boolean overwritePrompt = false;
 
@@ -101,6 +102,14 @@ public class BSPEntspy {
 			map = BSPFile.readFile(in);
 			frame.setTitle(entspyTitle + " - " + this.filename);
 			updateEntList(map.entities);
+			
+			if(removeLightInfo != null) {
+				removeLightInfo.setEnabled(map instanceof SourceBSPFile);
+			}
+			
+			if(exportPak != null) {
+				exportPak.setEnabled(map instanceof SourceBSPFile);
+			}
 		} catch (Exception e) {
 			JOptionPane.showMessageDialog(frame, "Map " + infile.getName() + " couldn't be read!", "ERROR!",
 					JOptionPane.ERROR_MESSAGE);
@@ -167,16 +176,8 @@ public class BSPEntspy {
 		mloadfgd.setToolTipText("Load an FGD file to enable Smart Edit");
 		filemenu.add(mloadfgd);
 
-		//filemenu.addSeparator();
-		JMenuItem minfo = new JMenuItem("Map info...");
-		minfo.setToolTipText("Map header information");
-		//filemenu.add(minfo);
-		
-		filemenu.addSeparator();
-		JMenuItem removeLightInfo = new JMenuItem("Remove light information");
-		removeLightInfo.setToolTipText("Remove worldlight lump data for rebaking the lights with VRAD");
-		removeLightInfo.setEnabled(true);
-		filemenu.add(removeLightInfo);
+		//JMenuItem minfo = new JMenuItem("Map info...");
+		//minfo.setToolTipText("Map header information");
 		
 		filemenu.addSeparator();
 		
@@ -195,28 +196,6 @@ public class BSPEntspy {
 		mRedo.setEnabled(false);
 		mRedo.setToolTipText("Redo last edit");
 		mRedo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Y, KeyEvent.CTRL_DOWN_MASK));
-		
-		removeLightInfo.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent ae) {
-				if(!(map instanceof SourceBSPFile)) {
-					JOptionPane.showMessageDialog(frame, "Unsupported version of BSP. This option works only for Source BSP.");
-					return;
-				}
-				SourceBSPFile bspmap = (SourceBSPFile)map;
-				
-				if(!bspmap.hasLights) {
-					JOptionPane.showMessageDialog(frame, "No light info found. Lumps have been removed or map was not VRAD compiled.");
-					return;
-				}
-				
-				int result = JOptionPane.showConfirmDialog(frame, "This action cannot be undone.\nRemoving worldlight data (lump 15 and 54)" + 
-						" allows to change the lighting by running the map with VRAD (see Help for more information).\nDo you want to proceed?", entspyTitle, JOptionPane.YES_NO_OPTION);
-				
-				if(result == JOptionPane.NO_OPTION)
-					return;
-				bspmap.writeLights = false;
-			}
-		});
 
 		mUndo.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
@@ -364,13 +343,66 @@ public class BSPEntspy {
 		 * obfEntity.setEnabled(false); entitymenu.add(obfEntity); //Work in progress
 		 */
 		
-		JMenuItem removeLights = new JMenuItem("Remove unused lights");
+		/*JMenuItem removeLights = new JMenuItem("Remove unused lights");
 		removeLights.setToolTipText("Remove unused lights from worldlight lumps. Light is unused when there is no corresponding entitiy.");
-		removeLights.setEnabled(true);
+		removeLights.setEnabled(true);*/
+		
+		JMenu mapmenu = new JMenu("Map");
+		
+		removeLightInfo = new JMenuItem("Remove light information");
+		removeLightInfo.setToolTipText("Remove worldlight lump data for rebaking the lights with VRAD");
+		removeLightInfo.setEnabled(map != null && map instanceof SourceBSPFile);
+		mapmenu.add(removeLightInfo);
+		removeLightInfo.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				if(!(map instanceof SourceBSPFile)) {
+					JOptionPane.showMessageDialog(frame, "Unsupported version of BSP. This option works only for Source BSP.");
+					return;
+				}
+				SourceBSPFile bspmap = (SourceBSPFile)map;
+				
+				if(!bspmap.hasLights) {
+					JOptionPane.showMessageDialog(frame, "No light info found. Lumps have been removed or map was not VRAD compiled.");
+					return;
+				}
+				
+				int result = JOptionPane.showConfirmDialog(frame, "This action cannot be undone and will take effect on save.\nRemoving worldlight data (lump 15 and 54)" + 
+						" allows to change the lighting by running the map with VRAD (see Help for more information).\nDo you want to proceed?", entspyTitle, JOptionPane.YES_NO_OPTION);
+				
+				if(result == JOptionPane.NO_OPTION)
+					return;
+				bspmap.writeLights = false;
+			}
+		});
+		
+		exportPak = new JMenuItem("Export Pak Lump");
+		exportPak.setToolTipText("Export Pak lump to zip file");
+		exportPak.setEnabled(map != null && map instanceof SourceBSPFile);
+		mapmenu.add(exportPak);
+		
+		exportPak.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				if(!(map instanceof SourceBSPFile)) {
+					JOptionPane.showMessageDialog(frame, "Unsupported version of BSP. This option works only for Source BSP.");
+					return;
+				}
+				SourceBSPFile bspmap = (SourceBSPFile)map;
+				File zipo = new File(infile.getParent() + "\\" + filename.substring(0, filename.lastIndexOf('.')) + "_pak.zip");
+				
+				try(FileOutputStream os = new FileOutputStream(zipo)) {
+					bspmap.WritePakToStream(os);
+					JOptionPane.showMessageDialog(frame, "Pak lump written to '" + zipo.getAbsolutePath() + "'");
+				} catch (IOException e) {
+					JOptionPane.showMessageDialog(frame, "IO Error has occurred: " + e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
+					e.printStackTrace();
+				}
+			}
+		});
 
 		JMenuBar menubar = new JMenuBar();
 		menubar.add(filemenu);
 		menubar.add(editmenu);
+		menubar.add(mapmenu);
 		menubar.add(entitymenu);
 		menubar.add(optionmenu);
 		menubar.add(helpmenu);
@@ -440,18 +472,6 @@ public class BSPEntspy {
 					return;
 				}
 				frame.dispose();
-			}
-		});
-		minfo.addActionListener(new ActionListener() {
-
-			public void actionPerformed(ActionEvent e) {
-				/*
-				 * BSPEntspy.this.map.setfile(BSPEntspy.this.bspfile); if (BSPEntspy.this.info
-				 * != null) { BSPEntspy.this.info.dispose(); } BSPEntspy.this.info = new
-				 * MapInfo(BSPEntspy.this.frame, BSPEntspy.this.map, BSPEntspy.this.filename);
-				 */
-				JOptionPane.showMessageDialog(frame, "java.lang.NotImplementedByALazyCoderException\n"
-						+ "With the rewrite of BSP backend this feature became broken. Don't worry. It will be fixed... one day.");
 			}
 		});
 

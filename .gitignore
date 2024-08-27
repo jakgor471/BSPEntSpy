@@ -6,3 +6,4 @@ bin/
 **/*.gif
 **/*.bsp
 releases/
+**/*.zip
