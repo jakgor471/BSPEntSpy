@@ -266,12 +266,16 @@ public class SourceBSPFile extends BSPFile{
 		BSPLump[] newLumps = new BSPLump[64];
 		GameLump[] newGlumps = new GameLump[glumps.length];
 		
-		List<GenericLump> sorted = new LinkedList<GenericLump>();
+		ArrayList<GenericLump> sorted = new ArrayList<GenericLump>();
 		
 		int i = 0;
 		for(i = 0; i < lumps.length; ++i) {
 			newLumps[i] = (BSPLump)lumps[i].clone();
+			
 			sorted.add(newLumps[i]);
+		}
+		for(i = 0; i < glumps.length; ++i) {
+			newGlumps[i] = (GameLump)glumps[i].clone();
 		}
 		byte[] entData = getEntityBytes(newLumps[ENTLUMP]);
 		newLumps[ENTLUMP].length = entData.length;
@@ -282,12 +286,9 @@ public class SourceBSPFile extends BSPFile{
 		ldrLightData = getLightData(WORLDLIGHTLUMP_LDR);*/
 		if(!writeLights) {
 			newLumps[WORLDLIGHTLUMP_HDR].length = 0;
+			newLumps[WORLDLIGHTLUMP_HDR].offset = 0;
 			newLumps[WORLDLIGHTLUMP_LDR].length = 0;
-		}
-		
-		for(i = 0; i < glumps.length; ++i) {
-			newGlumps[i] = (GameLump)glumps[i].clone();
-			sorted.add(newGlumps[i]);
+			newLumps[WORLDLIGHTLUMP_LDR].offset = 0;
 		}
 		
 		Collections.sort(sorted);
@@ -308,27 +309,69 @@ public class SourceBSPFile extends BSPFile{
 				}
 			}
 		}*/
-		
 		GenericLump cur = sorted.get(0);
-		GenericLump next = sorted.get(1);
+		cur.offset = Math.max(cur.offset, 1036);
+		System.out.println("=================");
+		long[] diffs = new long[sorted.size()];
 		for(i = 0; i < sorted.size() - 1; ++i) {
+			cur = sorted.get(i);
+			diffs[i] = cur.offset - lumps[cur.index].offset;
+			
+			GenericLump next = sorted.get(i + 1);
+			System.out.println(next.index +"\nPRE\t" + next.offset);
 			next.offset = alignToFour(cur.offset + cur.length);
-			cur = next;
-			next = sorted.get(i + 1);
+			System.out.println("POST\t" + next.offset);
 		}
 		
-		int offset = 0;
-		for(i = 0; i < sorted.size() - 1 - offset; ++i) {
-			cur = sorted.get(i);
-			if(cur.index >= GLUMP_INDEX_OFF && cur.length <= glumps[cur.index - GLUMP_INDEX_OFF].length || cur.index < GLUMP_INDEX_OFF && cur.length <= lumps[cur.index].length)
-				continue;
-			
-			sorted.remove(i);
-			sorted.add(cur);
-			++offset;
-		}
+		cur = sorted.get(sorted.size() - 1);
+		long totalLen = cur.offset + cur.length;
 		
 		for(i = 0; i < sorted.size(); ++i) {
+			GenericLump to = sorted.get(i);
+			if(to.length == 0)
+				continue;
+			
+			if(diffs[i] <= 0) {
+				//difference of offsets is non positive, we can forward-copy them
+				if(to.index == GAMELUMP) {
+					copy(out, lumps[GAMELUMP], to);
+					saveGameLumps(out, newLumps[GAMELUMP], newGlumps);
+					continue;
+				} else if(to.index == ENTLUMP) {
+					out.seek(newLumps[ENTLUMP].offset);
+					out.write(entData);
+					continue;
+				}
+				
+				copy(out, lumps[to.index], to);
+			} else {
+				//difference of offsets is positive, we must backward-copy
+				int startIndex = i;
+				++i;
+				while(i < sorted.size() && diffs[i] > 0)
+					++i;
+				
+				for(int j = i; j >= startIndex; --j) {
+					to = sorted.get(j);
+					if(to.index == GAMELUMP) {
+						copy(out, lumps[GAMELUMP], to);
+						saveGameLumps(out, newLumps[GAMELUMP], newGlumps);
+						continue;
+					} else if(to.index == ENTLUMP) {
+						out.seek(newLumps[ENTLUMP].offset);
+						out.write(entData);
+						continue;
+					}
+					
+					if(to.length == 0)
+						continue;
+					
+					copy(out, lumps[to.index], to);
+				}
+			}
+		}
+		
+		/*for(i = sorted.size() - 1; i >= 0; --i) {
 			GenericLump to = sorted.get(i);
 			GenericLump from;
 			
@@ -342,13 +385,7 @@ public class SourceBSPFile extends BSPFile{
 				out.seek(newLumps[ENTLUMP].offset);
 				out.write(entData);
 				continue;
-			} /*else if(to.index == WORLDLIGHTLUMP_LDR) {
-				out.seek(newLumps[WORLDLIGHTLUMP_LDR].offset);
-				out.write(ldrLightData);
-			} else if(to.index == WORLDLIGHTLUMP_HDR) {
-				out.seek(newLumps[WORLDLIGHTLUMP_HDR].offset);
-				out.write(hdrLightData);
-			}*/
+			}
 			
 			if(to.index >= GLUMP_INDEX_OFF)
 				from = glumps[to.index - GLUMP_INDEX_OFF];
@@ -356,11 +393,10 @@ public class SourceBSPFile extends BSPFile{
 				from = lumps[to.index];
 			
 			copy(out, from, to);
-		}
+		}*/
 		
 		writeHeader(out, newLumps);
-		GenericLump last = sorted.get(sorted.size() - 1);
-		out.setLength(last.offset + last.length);
+		out.setLength(totalLen);
 		
 		if(updateSelf) {
 			lumps = newLumps;
@@ -420,7 +456,7 @@ public class SourceBSPFile extends BSPFile{
 			glumps[i].id = glumpBuff.getInt();
 			glumps[i].flags = glumpBuff.getShort();
 			glumps[i].version = Short.toUnsignedInt(glumpBuff.getShort());
-			glumps[i].offset = Integer.toUnsignedLong(glumpBuff.getInt());
+			glumps[i].offset = Integer.toUnsignedLong(glumpBuff.getInt()) - lumps[GAMELUMP].offset; //make it relative to GameLump
 			glumps[i].length = Integer.toUnsignedLong(glumpBuff.getInt());
 		}
 	}
@@ -437,7 +473,7 @@ public class SourceBSPFile extends BSPFile{
 			glumpBuff.putInt(newGlumps[i].id);
 			glumpBuff.putShort(newGlumps[i].flags);
 			glumpBuff.putShort((short)newGlumps[i].version);
-			glumpBuff.putInt((int)newGlumps[i].offset);
+			glumpBuff.putInt((int)(newGlumps[i].offset + gameLump.offset));
 			glumpBuff.putInt((int)newGlumps[i].length);
 		}
 		

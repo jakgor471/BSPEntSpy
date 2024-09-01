@@ -184,7 +184,7 @@ public class ClassPropertyPanel extends JPanel {
 		addkv = new JButton("Add");
 		addkv.setToolTipText("Add an entity property");
 		bottomLeftPanel.add(addkv);
-		addkv.setEnabled(true);
+		addkv.setEnabled(false);
 		dupkv = new JButton("Duplicate");
 		dupkv.setToolTipText("Duplicate the selected property");
 		bottomLeftPanel.add(dupkv);
@@ -515,6 +515,7 @@ public class ClassPropertyPanel extends JPanel {
 		boolean enable = editingEntities.size() > 0;
 		apply.setEnabled(enable);
 		help.setEnabled(enable);
+		addkv.setEnabled(enable);
 	}
 
 	public void clearEntities() {
@@ -527,6 +528,9 @@ public class ClassPropertyPanel extends JPanel {
 		keyTextField.setEnabled(false);
 		valueTextField.setText("");
 		valueTextField.setEnabled(false);
+		apply.setEnabled(false);
+		help.setEnabled(false);
+		addkv.setEnabled(false);
 
 		classname = null;
 		origin = null;

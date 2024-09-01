@@ -80,10 +80,10 @@ public class BSPEntspy {
 	Preferences preferences;
 	FGD fgdFile = null;
 	HashSet<Entity> previouslySelected = new HashSet<Entity>();
-	JMenuItem removeLightInfo = null;
-	JMenuItem exportPak = null;
 	// Obfuscator obfuscator;
 	boolean overwritePrompt = false;
+	
+	private ArrayList<ActionListener> onMapLoadInternal = new ArrayList<ActionListener>();
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
 	public static final String entspyTitle = "BSPEntSpy v1.3";
@@ -103,13 +103,8 @@ public class BSPEntspy {
 			frame.setTitle(entspyTitle + " - " + this.filename);
 			updateEntList(map.entities);
 			
-			if(removeLightInfo != null) {
-				removeLightInfo.setEnabled(map instanceof SourceBSPFile);
-			}
-			
-			if(exportPak != null) {
-				exportPak.setEnabled(map instanceof SourceBSPFile);
-			}
+			for(ActionListener al : onMapLoadInternal)
+				al.actionPerformed(new ActionEvent(this, 0, "mapload"));
 		} catch (Exception e) {
 			JOptionPane.showMessageDialog(frame, "Map " + infile.getName() + " couldn't be read!", "ERROR!",
 					JOptionPane.ERROR_MESSAGE);
@@ -128,9 +123,6 @@ public class BSPEntspy {
 
 		this.frame = new JFrame(entspyTitle);
 		this.frame.setIconImage(esIcon.getImage());
-		if (!this.loadfile()) {
-			System.exit(0);
-		}
 
 		if (loadfgdfiles(null)) {
 			System.out.println("FGD loaded: " + String.join(", ", fgdFile.loadedFgds));
@@ -148,10 +140,6 @@ public class BSPEntspy {
 		entList.setSelectionModel(selmodel);
 		entList.setCellRenderer(new EntListRenderer());
 
-		if (!readFile()) {
-			System.exit(0);
-		}
-
 		JMenu filemenu = new JMenu("File");
 		JMenuItem mload = new JMenuItem("Load BSP");
 		JMenuItem msave = new JMenuItem("Save BSP");
@@ -159,15 +147,18 @@ public class BSPEntspy {
 		msave.setToolTipText("Save the current map file");
 		mload.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_L, KeyEvent.CTRL_DOWN_MASK));
 		msave.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.CTRL_DOWN_MASK));
+		msave.setEnabled(false);
 		filemenu.add(mload);
 		filemenu.add(msave);
 
 		JMenuItem msaveas = new JMenuItem("Save BSP as..");
 		msaveas.setToolTipText("Save the current map to a chosen file");
+		msaveas.setEnabled(false);
 		filemenu.add(msaveas);
 
 		JMenuItem mpatchvmf = new JMenuItem("Patch from VMF");
 		mpatchvmf.setToolTipText("Update entity properties based on a VMF file (see more in Help)");
+		mpatchvmf.setEnabled(false);
 		filemenu.add(mpatchvmf);
 
 		filemenu.addSeparator();
@@ -175,9 +166,6 @@ public class BSPEntspy {
 		JMenuItem mloadfgd = new JMenuItem("Load FGD file");
 		mloadfgd.setToolTipText("Load an FGD file to enable Smart Edit");
 		filemenu.add(mloadfgd);
-
-		//JMenuItem minfo = new JMenuItem("Map info...");
-		//minfo.setToolTipText("Map header information");
 		
 		filemenu.addSeparator();
 		
@@ -329,32 +317,25 @@ public class BSPEntspy {
 		JMenu entitymenu = new JMenu("Entity");
 		final JMenuItem importEntity = new JMenuItem("Import");
 		importEntity.setToolTipText("Import entities from a file");
-		importEntity.setEnabled(true);
+		importEntity.setEnabled(false);
 		entitymenu.add(importEntity);
 
 		final JMenuItem exportEntity = new JMenuItem("Export");
 		exportEntity.setToolTipText("Export selected entities to a file");
 		exportEntity.setEnabled(false);
 		entitymenu.add(exportEntity);
-
-		/*
-		 * final JMenuItem obfEntity = new JMenuItem("Obfuscate");
-		 * obfEntity.setToolTipText("Obfuscate selected entities (see more in Help)");
-		 * obfEntity.setEnabled(false); entitymenu.add(obfEntity); //Work in progress
-		 */
-		
-		/*JMenuItem removeLights = new JMenuItem("Remove unused lights");
-		removeLights.setToolTipText("Remove unused lights from worldlight lumps. Light is unused when there is no corresponding entitiy.");
-		removeLights.setEnabled(true);*/
 		
 		JMenu mapmenu = new JMenu("Map");
 		
-		removeLightInfo = new JMenuItem("Remove light information");
+		JMenuItem removeLightInfo = new JMenuItem("Remove light information");
 		removeLightInfo.setToolTipText("Remove worldlight lump data for rebaking the lights with VRAD");
 		removeLightInfo.setEnabled(map != null && map instanceof SourceBSPFile);
 		mapmenu.add(removeLightInfo);
 		removeLightInfo.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
+				if(map == null)
+					return;
+				
 				if(!(map instanceof SourceBSPFile)) {
 					JOptionPane.showMessageDialog(frame, "Unsupported version of BSP. This option works only for Source BSP.");
 					return;
@@ -375,13 +356,16 @@ public class BSPEntspy {
 			}
 		});
 		
-		exportPak = new JMenuItem("Export Pak Lump");
+		JMenuItem exportPak = new JMenuItem("Export Pak Lump");
 		exportPak.setToolTipText("Export Pak lump to zip file");
-		exportPak.setEnabled(map != null && map instanceof SourceBSPFile);
+		exportPak.setEnabled(false);
 		mapmenu.add(exportPak);
 		
 		exportPak.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
+				if(map == null)
+					return;
+				
 				if(!(map instanceof SourceBSPFile)) {
 					JOptionPane.showMessageDialog(frame, "Unsupported version of BSP. This option works only for Source BSP.");
 					return;
@@ -402,8 +386,8 @@ public class BSPEntspy {
 		JMenuBar menubar = new JMenuBar();
 		menubar.add(filemenu);
 		menubar.add(editmenu);
-		menubar.add(mapmenu);
 		menubar.add(entitymenu);
+		menubar.add(mapmenu);
 		menubar.add(optionmenu);
 		menubar.add(helpmenu);
 		this.frame.setJMenuBar(menubar);
@@ -444,6 +428,9 @@ public class BSPEntspy {
 		mpatchvmf.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
+				if(map == null)
+					return;
+				
 				JFileChooser chooser = new JFileChooser(
 						preferences.get("LastVMFFolder", System.getProperty("user.dir")));
 				chooser.setDialogTitle(entspyTitle + " - Open FGD File");
@@ -503,21 +490,6 @@ public class BSPEntspy {
 			}
 		});
 
-		// obfuscator = new Obfuscator();
-		/*
-		 * obfEntity.addActionListener(new ActionListener() { public void
-		 * actionPerformed(ActionEvent ae) { ArrayList<Entity> ents =
-		 * getSelectedEntities();
-		 * 
-		 * if(fgdFile == null) { int result = JOptionPane.showConfirmDialog(frame,
-		 * "No FGD files loaded! Obfuscator's functionality will be limited to only name mangling. Do you want to continue?"
-		 * );
-		 * 
-		 * if(result != 0) return; }
-		 * 
-		 * obfuscator.setFGD(fgdFile); obfuscator.obfuscate(m.el, ents); } });
-		 */
-
 		JPanel findpanel = new JPanel();
 
 		final JLabel findlabel = new JLabel("Linked from ");
@@ -534,6 +506,9 @@ public class BSPEntspy {
 		findpanel.add(findbutton);
 		findbutton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
+				if(map == null)
+					return;
+				
 				Entity jump = ((Entity) findmodel.getSelectedItem());
 
 				if (jump == null)
@@ -580,6 +555,9 @@ public class BSPEntspy {
 
 		exportEntity.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ev) {
+				if(map == null)
+					return;
+				
 				ArrayList<Entity> ents = getSelectedEntities();
 
 				JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
@@ -616,6 +594,9 @@ public class BSPEntspy {
 
 		importEntity.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ev) {
+				if(map == null)
+					return;
+				
 				JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
 				chooser.setDialogTitle(entspyTitle + " - Import entities from a file");
 				chooser.setDialogType(JFileChooser.SAVE_DIALOG);
@@ -668,6 +649,9 @@ public class BSPEntspy {
 
 		cpToClipEnt.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ev) {
+				if(map == null)
+					return;
+				
 				ArrayList<Entity> ents = getSelectedEntities();
 
 				try (StringWriter sw = new StringWriter(ents.size() * 256)) {
@@ -688,6 +672,9 @@ public class BSPEntspy {
 
 		pstFromClipEnt.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ev) {
+				if(map == null)
+					return;
+				
 				try {
 					Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
 					Transferable cbcontent = cb.getContents(null);
@@ -822,6 +809,9 @@ public class BSPEntspy {
 		addent.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
+				if(map == null)
+					return;
+				
 				Entity newent = new Entity();
 				int index = 0;
 
@@ -851,6 +841,9 @@ public class BSPEntspy {
 
 		updent.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
+				if(map == null)
+					return;
+				
 				map.updateLinks();
 			}
 		});
@@ -931,6 +924,9 @@ public class BSPEntspy {
 
 		rightEntPanel.addGotoListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
+				if(map == null)
+					return;
+				
 				GotoEvent ge = (GotoEvent) e;
 				String name = ge.entname;
 
@@ -959,6 +955,18 @@ public class BSPEntspy {
 
 		JSplitPane mainSplit = new JSplitPane(1, leftPanel, rightPanel);
 		mainSplit.setDividerLocation(275);
+		
+		onMapLoadInternal.add(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				msave.setEnabled(true);
+				msaveas.setEnabled(true);
+				mpatchvmf.setEnabled(true);
+				importEntity.setEnabled(true);
+				
+				removeLightInfo.setEnabled(map != null && map instanceof SourceBSPFile);
+				exportPak.setEnabled(map != null && map instanceof SourceBSPFile);
+			}
+		});
 
 		frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		frame.addWindowListener(new WindowAdapter() {
@@ -1021,6 +1029,9 @@ public class BSPEntspy {
 	}
 
 	private void savefile(boolean overwrite) {
+		if(map == null)
+			return;
+		
 		File out;
 
 		if (overwrite) {
@@ -1108,7 +1119,7 @@ public class BSPEntspy {
 	}
 
 	public boolean checkchanged(String title) {
-		if (!this.map.dirty && Undo.isEmpty()) {
+		if (map == null || !this.map.dirty && Undo.isEmpty()) {
 			return false;
 		}
 		int result = JOptionPane.showConfirmDialog(frame,
@@ -1146,6 +1157,9 @@ public class BSPEntspy {
 	}
 
 	public boolean patchFromVMF(File vmfFile) throws LexerException, FileNotFoundException {
+		if(map == null)
+			return false;
+		
 		VMF temp = new VMF();
 
 		FileReader fr = new FileReader(vmfFile);

@@ -62,22 +62,54 @@ public abstract class BSPFile implements AutoCloseable{
 	}
 	
 	protected void copy(RandomAccessFile out, GenericLump from, GenericLump to) throws IOException {
-		byte[] block = new byte[Math.min(20480, (int)from.length)];
+		/*
+		 * Forward copy is when there's no risk of overriding data
+		 */
+		boolean forward = from.offset >= to.offset || from.offset + from.length <= to.offset;
+		int buffSize = 20480;
+		
+		if(!forward)
+			buffSize = Math.min(buffSize, (int)(to.offset - from.offset));
+		
+		byte[] block = new byte[Math.min(buffSize, (int)from.length)];
 		int blocks = (int)from.length / block.length;
-		int remainder = (int)from.length % 20480;
+		int remainder = (int)from.length % block.length; //was ... %buffSize, but buffSize is not always equal to block.length!!!! FREAKING BUG ALMOST TORN ALL MY HAIR OFF MY FREAKING SCULP!!!!!!!!!
 		
-		bspfile.seek(from.offset);
-		out.seek(to.offset);
-		
-		for(int i = 0; i < blocks; ++i) {
-			bspfile.read(block);
-			out.write(block);
+		if(forward) {
+			bspfile.seek(from.offset);
+			out.seek(to.offset);
+			
+			for(int i = 0; i < blocks; ++i) {
+				bspfile.read(block);
+				out.write(block);
+			}
+			
+			if(remainder == 0)
+				return;
+			bspfile.read(block, 0, remainder);
+			out.write(block, 0, remainder);
+		} else {
+			long off1 = from.offset + from.length - remainder - 1;
+			long off2 = to.offset + to.length - remainder - 1;
+			
+			bspfile.seek(off1);
+			bspfile.read(block, 0, remainder);
+			out.seek(off2);
+			out.write(block, 0, remainder);
+			
+			off1 -= block.length;
+			off2 -= block.length;
+			
+			for(int i = 0; i < blocks; ++i) {
+				bspfile.seek(off1);
+				bspfile.read(block);
+				out.seek(off2);
+				out.write(block);
+				
+				off1 -= block.length;
+				off2 -= block.length;
+			}
 		}
-		
-		if(remainder == 0)
-			return;
-		bspfile.read(block, 0, remainder);
-		out.write(block, 0, remainder);
 	}
 	
 	protected byte[] getEntityBytes() throws IOException {
@@ -90,6 +122,7 @@ public abstract class BSPFile implements AutoCloseable{
 			}
 			sb.append("}\n");
 		}
+		sb.append('\0');
 		
 		return sb.toString().getBytes(StandardCharsets.UTF_8);
 	} 
@@ -98,7 +131,7 @@ public abstract class BSPFile implements AutoCloseable{
 	public abstract void save(RandomAccessFile out, boolean updateSelf) throws IOException;
 	
 	public static long alignToFour(long offset) {
-		return offset + (offset % 4);
+		return ((long)(offset + 3) / 4) * 4;
 	}
 	
 	public static BSPFile readFile(RandomAccessFile bspfile) throws IOException {
