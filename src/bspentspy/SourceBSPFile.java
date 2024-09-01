@@ -3,7 +3,9 @@ package bspentspy;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -15,6 +17,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -32,11 +36,13 @@ public class SourceBSPFile extends BSPFile{
 	protected Octree<BSPWorldLight> theWorldofLightsHDR;
 	protected boolean writeLights = true;
 	protected boolean hasLights = false;
+	protected File embeddedPak = null;
 	
 	private BSPLump[] lumps;
 	private GameLump[] glumps;
 	private ArrayList<BSPWorldLight> hdrLights;
 	private ArrayList<BSPWorldLight> ldrLights;
+	private ArrayList<ZipPart> pakfiles = null;
 	private int mapRev;
 	
 	public boolean read(RandomAccessFile file) throws IOException {
@@ -71,8 +77,7 @@ public class SourceBSPFile extends BSPFile{
 		
 		loadGameLumps();
 		loadEntities();
-		loadLights();
-		loadPak();
+		//loadLights();
 		
 		return true;
 	}
@@ -82,21 +87,44 @@ public class SourceBSPFile extends BSPFile{
 		
 		FileInputStream is = new FileInputStream(bspfile.getFD());
 		ZipInputStream zis = new ZipInputStream(is);
-		ArrayList<ZIPPart> pakfiles = new ArrayList<ZIPPart>();
+		pakfiles = new ArrayList<ZipPart>();
 		
 		ZipEntry ze = null;
 		while((ze = zis.getNextEntry()) != null) {
 			byte[] data = new byte[(int)ze.getSize()];
 			zis.read(data);
 			
-			ZIPPart part = new ZIPPart(ze, data);
+			ZipPart part = new ZipPart(ze, data);
 			pakfiles.add(part);
 		}
 		
 		System.out.println("PakLump size: " + (double)lumps[PAKLUMP].length / 1000000.0D + "MB");
 	}
 	
-	public void WritePakToStream(OutputStream fo) throws IOException {
+	private long getPakSize() {
+		long size = 0;
+		for(int i = 0; i < pakfiles.size(); ++i) {
+			size += pakfiles.get(i).entry.getCompressedSize();
+		}
+		
+		return size;
+	}
+
+	public void removeCubemapData() throws IOException {
+		loadPak();
+		Pattern p = Pattern.compile("materials/maps/.*?/c[-\\d]+_[-\\d]+_[-\\d]+\\.[hdrvtf.]+");
+		
+		for(int i = 0; i < pakfiles.size(); ++i) {
+			ZipPart part = pakfiles.get(i);
+			
+			if(p.matcher(part.entry.getName()).matches()) {
+				--i;
+				pakfiles.remove(i);
+			}
+		}
+	}
+	
+	public void writePakToStream(OutputStream fo) throws IOException {
 		bspfile.seek(lumps[PAKLUMP].offset);
 		
 		long blocks = lumps[PAKLUMP].length / 20480;
@@ -110,133 +138,6 @@ public class SourceBSPFile extends BSPFile{
 		
 		bspfile.read(block, 0, remainder);
 		fo.write(block, 0, remainder);
-	}
-	
-	public void removeLightAt(Vector pos) {
-		BSPWorldLight ldr = theWorldofLightsLDR.findClosest(pos.x, pos.y, pos.z);
-		BSPWorldLight hdr = theWorldofLightsHDR.findClosest(pos.x, pos.y, pos.z);
-		
-		if(pos.distToSqr(ldr.origin) < 0.125f) {
-			theWorldofLightsLDR.remove(ldr);
-			ldrLights.remove(ldr);
-		}
-		if(pos.distToSqr(hdr.origin) < 0.125f) {
-			theWorldofLightsHDR.remove(hdr);
-			hdrLights.remove(hdr);
-		}
-	}
-	
-	private byte[] getLightData(int type) {
-		if(!writeLights)
-			return new byte[0];
-		
-		ArrayList<BSPWorldLight> arr = ldrLights;
-		
-		if(type == WORLDLIGHTLUMP_HDR)
-			arr = hdrLights;
-		byte[] bytes = new byte[arr.size() * 88];
-		ByteBuffer buff = ByteBuffer.wrap(bytes);
-		buff.order(ByteOrder.LITTLE_ENDIAN);
-		
-		for(BSPWorldLight l : arr) {
-			buff.putFloat(l.origin.x);
-			buff.putFloat(l.origin.y);
-			buff.putFloat(l.origin.z);
-			buff.putFloat(l.intensity[0]);
-			buff.putFloat(l.intensity[1]);
-			buff.putFloat(l.intensity[2]);
-			buff.putFloat(l.normal[0]);
-			buff.putFloat(l.normal[1]);
-			buff.putFloat(l.normal[2]);
-			
-			buff.putInt(l.cluster);
-			buff.putInt(l.type);
-			buff.putInt(l.style);
-			
-			buff.putFloat(l.stopdot);
-			buff.putFloat(l.stopdot2);
-			buff.putFloat(l.exponent);
-			buff.putFloat(l.radius);
-			buff.putFloat(l.constant_attn);
-			buff.putFloat(l.linear_attn);
-			buff.putFloat(l.quadratic_attn);
-			
-			buff.putInt(l.flags);
-			buff.putInt(l.texinfo);
-			buff.putInt(l.owner);
-		}
-		
-		return bytes;
-	}
-	
-	private void loadLights() throws IOException {
-		int numldrLights = (int)(lumps[WORLDLIGHTLUMP_LDR].length / 88);
-		int numhdrLights = (int)(lumps[WORLDLIGHTLUMP_HDR].length / 88);
-		
-		final float halfmapsize = MAPSIZE / 2;
-		//theWorldofLightsLDR = new Octree<BSPWorldLight>(-halfmapsize, -halfmapsize, -halfmapsize, MAPSIZE);
-		//theWorldofLightsHDR = new Octree<BSPWorldLight>(-halfmapsize, -halfmapsize, -halfmapsize, MAPSIZE);
-		
-		hasLights = numldrLights + numhdrLights > 0;
-		
-		ldrLights = new ArrayList<BSPWorldLight>(numldrLights);
-		hdrLights = new ArrayList<BSPWorldLight>(numhdrLights);
-		
-		int num = numldrLights;
-		BSPLump lump = lumps[WORLDLIGHTLUMP_LDR];
-		ArrayList<BSPWorldLight> arr = ldrLights;
-		
-		Octree<BSPWorldLight> world = theWorldofLightsLDR;
-		for(int i = 0; i < 2; ++i) {			
-			bspfile.seek(lump.offset);
-			byte[] lightBytes = new byte[(int)lump.length];
-			ByteBuffer lightBuff = ByteBuffer.wrap(lightBytes);
-			lightBuff.order(ByteOrder.LITTLE_ENDIAN);
-			
-			bspfile.read(lightBytes);
-			
-			System.out.println("Lights: ");
-			for(int j = 0; j < num; ++j) {
-				BSPWorldLight lgt = new BSPWorldLight();
-				lgt.origin = new Vector();
-				lgt.intensity = new float[3];
-				lgt.normal = new float[3];
-				lgt.origin.x = lightBuff.getFloat();
-				lgt.origin.y = lightBuff.getFloat();
-				lgt.origin.z = lightBuff.getFloat();
-				lgt.intensity[0] = lightBuff.getFloat(); // R * A * 39.215
-				lgt.intensity[1] = lightBuff.getFloat();
-				lgt.intensity[2] = lightBuff.getFloat();
-				lgt.normal[0] = lightBuff.getFloat();
-				lgt.normal[1] = lightBuff.getFloat();
-				lgt.normal[2] = lightBuff.getFloat();
-				
-				lgt.cluster = lightBuff.getInt();
-				lgt.type = lightBuff.getInt();
-				lgt.style = lightBuff.getInt();
-				
-				lgt.stopdot = lightBuff.getFloat();
-				lgt.stopdot2 = lightBuff.getFloat();
-				lgt.exponent = lightBuff.getFloat();
-				lgt.radius = lightBuff.getFloat();
-				lgt.constant_attn = lightBuff.getFloat();
-				lgt.linear_attn = lightBuff.getFloat();
-				lgt.quadratic_attn = lightBuff.getFloat();
-				
-				lgt.flags = lightBuff.getInt();
-				lgt.texinfo = lightBuff.getInt();
-				lgt.owner = lightBuff.getInt();
-				
-				//System.out.println(lgt + "\n");
-				arr.add(lgt);
-				//world.insert(lgt);
-			}
-			
-			num = numhdrLights;
-			lump = lumps[WORLDLIGHTLUMP_HDR];
-			arr = hdrLights;
-			//world = theWorldofLightsHDR;
-		}
 	}
 	
 	private void writeHeader(RandomAccessFile out, BSPLump[] newLumps) throws IOException {
@@ -291,24 +192,23 @@ public class SourceBSPFile extends BSPFile{
 			newLumps[WORLDLIGHTLUMP_LDR].offset = 0;
 		}
 		
-		Collections.sort(sorted);
-		/*int entIndex = sorted.indexOf(newLumps[ENTLUMP]);
-		
-		if(entIndex < sorted.size() - 1) {
-			GenericLump entLump = newLumps[ENTLUMP];
-			GenericLump nextLump = sorted.get(entIndex + 1);
-			
-			if(nextLump.offset < entLump.offset + entLump.length) {
-				sorted.remove(entIndex);
-				newLumps[ENTLUMP].offset = alignToFour(sorted.get(sorted.size() - 1).offset + sorted.get(sorted.size() - 1).length);
-				sorted.add(entLump);
-				long orgLen = lumps[ENTLUMP].length;
+		FileInputStream pakIs = null;
+		if(embeddedPak != null) {
+			try {
+				pakIs = new FileInputStream(embeddedPak);
+				newLumps[PAKLUMP].length = pakIs.getChannel().size();
 				
-				for(i = entIndex; i < sorted.size() - 1; ++i) {
-					sorted.get(i).offset = alignToFour(sorted.get(i).offset - orgLen);
-				}
+			} catch(FileNotFoundException e) {
+				e.printStackTrace();
+				
+				if(pakIs != null)
+					pakIs.close();
+				embeddedPak = null;
 			}
-		}*/
+		}
+		
+		Collections.sort(sorted);
+
 		GenericLump cur = sorted.get(0);
 		cur.offset = Math.max(cur.offset, 1036);
 		System.out.println("=================");
@@ -341,6 +241,10 @@ public class SourceBSPFile extends BSPFile{
 					out.seek(newLumps[ENTLUMP].offset);
 					out.write(entData);
 					continue;
+				} else if(to.index == PAKLUMP && pakIs != null) {
+					out.seek(newLumps[PAKLUMP].offset);
+					copy(out, pakIs, newLumps[PAKLUMP].length);
+					continue;
 				}
 				
 				copy(out, lumps[to.index], to);
@@ -361,6 +265,10 @@ public class SourceBSPFile extends BSPFile{
 						out.seek(newLumps[ENTLUMP].offset);
 						out.write(entData);
 						continue;
+					} else if(to.index == PAKLUMP && pakIs != null) {
+						out.seek(newLumps[PAKLUMP].offset);
+						copy(out, pakIs, newLumps[PAKLUMP].length);
+						continue;
 					}
 					
 					if(to.length == 0)
@@ -371,36 +279,28 @@ public class SourceBSPFile extends BSPFile{
 			}
 		}
 		
-		/*for(i = sorted.size() - 1; i >= 0; --i) {
-			GenericLump to = sorted.get(i);
-			GenericLump from;
-			
-			if(to.length == 0)
-				continue;
-			
-			if(to.index == GAMELUMP) {
-				saveGameLumps(out, newLumps[GAMELUMP], newGlumps);
-				continue;
-			} else if(to.index == ENTLUMP) {
-				out.seek(newLumps[ENTLUMP].offset);
-				out.write(entData);
-				continue;
-			}
-			
-			if(to.index >= GLUMP_INDEX_OFF)
-				from = glumps[to.index - GLUMP_INDEX_OFF];
-			else
-				from = lumps[to.index];
-			
-			copy(out, from, to);
-		}*/
-		
 		writeHeader(out, newLumps);
 		out.setLength(totalLen);
 		
 		if(updateSelf) {
 			lumps = newLumps;
 			glumps = newGlumps;
+			embeddedPak = null;
+		}
+	}
+	
+	private void copy(RandomAccessFile out, InputStream in, long maxLen) throws IOException {
+		int len = 0;
+		long totalLen = 0;
+		byte[] data = new byte[20480];
+		
+		int toRead = Math.min(data.length, (int)maxLen & 0x7FFFFFFF);
+		
+		while((len = in.read(data, 0, toRead)) > 0 && toRead > 0) {
+			out.write(data, 0, len);
+			
+			totalLen += len;
+			toRead = Math.min(data.length, (int)(maxLen - totalLen) & 0x7FFFFFFF);
 		}
 	}
 	
@@ -530,6 +430,133 @@ public class SourceBSPFile extends BSPFile{
 		updateLinks();
 	}
 	
+	public void removeLightAt(Vector pos) {
+		BSPWorldLight ldr = theWorldofLightsLDR.findClosest(pos.x, pos.y, pos.z);
+		BSPWorldLight hdr = theWorldofLightsHDR.findClosest(pos.x, pos.y, pos.z);
+		
+		if(pos.distToSqr(ldr.origin) < 0.125f) {
+			theWorldofLightsLDR.remove(ldr);
+			ldrLights.remove(ldr);
+		}
+		if(pos.distToSqr(hdr.origin) < 0.125f) {
+			theWorldofLightsHDR.remove(hdr);
+			hdrLights.remove(hdr);
+		}
+	}
+	
+	private byte[] getLightData(int type) {
+		if(!writeLights)
+			return new byte[0];
+		
+		ArrayList<BSPWorldLight> arr = ldrLights;
+		
+		if(type == WORLDLIGHTLUMP_HDR)
+			arr = hdrLights;
+		byte[] bytes = new byte[arr.size() * 88];
+		ByteBuffer buff = ByteBuffer.wrap(bytes);
+		buff.order(ByteOrder.LITTLE_ENDIAN);
+		
+		for(BSPWorldLight l : arr) {
+			buff.putFloat(l.origin.x);
+			buff.putFloat(l.origin.y);
+			buff.putFloat(l.origin.z);
+			buff.putFloat(l.intensity[0]);
+			buff.putFloat(l.intensity[1]);
+			buff.putFloat(l.intensity[2]);
+			buff.putFloat(l.normal[0]);
+			buff.putFloat(l.normal[1]);
+			buff.putFloat(l.normal[2]);
+			
+			buff.putInt(l.cluster);
+			buff.putInt(l.type);
+			buff.putInt(l.style);
+			
+			buff.putFloat(l.stopdot);
+			buff.putFloat(l.stopdot2);
+			buff.putFloat(l.exponent);
+			buff.putFloat(l.radius);
+			buff.putFloat(l.constant_attn);
+			buff.putFloat(l.linear_attn);
+			buff.putFloat(l.quadratic_attn);
+			
+			buff.putInt(l.flags);
+			buff.putInt(l.texinfo);
+			buff.putInt(l.owner);
+		}
+		
+		return bytes;
+	}
+	
+	private void loadLights() throws IOException {
+		int numldrLights = (int)(lumps[WORLDLIGHTLUMP_LDR].length / 88);
+		int numhdrLights = (int)(lumps[WORLDLIGHTLUMP_HDR].length / 88);
+		
+		final float halfmapsize = MAPSIZE / 2;
+		//theWorldofLightsLDR = new Octree<BSPWorldLight>(-halfmapsize, -halfmapsize, -halfmapsize, MAPSIZE);
+		//theWorldofLightsHDR = new Octree<BSPWorldLight>(-halfmapsize, -halfmapsize, -halfmapsize, MAPSIZE);
+		
+		hasLights = numldrLights + numhdrLights > 0;
+		
+		ldrLights = new ArrayList<BSPWorldLight>(numldrLights);
+		hdrLights = new ArrayList<BSPWorldLight>(numhdrLights);
+		
+		int num = numldrLights;
+		BSPLump lump = lumps[WORLDLIGHTLUMP_LDR];
+		ArrayList<BSPWorldLight> arr = ldrLights;
+		
+		Octree<BSPWorldLight> world = theWorldofLightsLDR;
+		for(int i = 0; i < 2; ++i) {			
+			bspfile.seek(lump.offset);
+			byte[] lightBytes = new byte[(int)lump.length];
+			ByteBuffer lightBuff = ByteBuffer.wrap(lightBytes);
+			lightBuff.order(ByteOrder.LITTLE_ENDIAN);
+			
+			bspfile.read(lightBytes);
+			
+			System.out.println("Lights: ");
+			for(int j = 0; j < num; ++j) {
+				BSPWorldLight lgt = new BSPWorldLight();
+				lgt.origin = new Vector();
+				lgt.intensity = new float[3];
+				lgt.normal = new float[3];
+				lgt.origin.x = lightBuff.getFloat();
+				lgt.origin.y = lightBuff.getFloat();
+				lgt.origin.z = lightBuff.getFloat();
+				lgt.intensity[0] = lightBuff.getFloat(); // R * A * 39.215
+				lgt.intensity[1] = lightBuff.getFloat();
+				lgt.intensity[2] = lightBuff.getFloat();
+				lgt.normal[0] = lightBuff.getFloat();
+				lgt.normal[1] = lightBuff.getFloat();
+				lgt.normal[2] = lightBuff.getFloat();
+				
+				lgt.cluster = lightBuff.getInt();
+				lgt.type = lightBuff.getInt();
+				lgt.style = lightBuff.getInt();
+				
+				lgt.stopdot = lightBuff.getFloat();
+				lgt.stopdot2 = lightBuff.getFloat();
+				lgt.exponent = lightBuff.getFloat();
+				lgt.radius = lightBuff.getFloat();
+				lgt.constant_attn = lightBuff.getFloat();
+				lgt.linear_attn = lightBuff.getFloat();
+				lgt.quadratic_attn = lightBuff.getFloat();
+				
+				lgt.flags = lightBuff.getInt();
+				lgt.texinfo = lightBuff.getInt();
+				lgt.owner = lightBuff.getInt();
+				
+				//System.out.println(lgt + "\n");
+				arr.add(lgt);
+				//world.insert(lgt);
+			}
+			
+			num = numhdrLights;
+			lump = lumps[WORLDLIGHTLUMP_HDR];
+			arr = hdrLights;
+			//world = theWorldofLightsHDR;
+		}
+	}
+	
 	public static final int ID_BSP = 0x56425350; //big endian
 	public static final int ID_LZMA = 0x4C5A4D41; //big endian
 	
@@ -540,6 +567,7 @@ public class SourceBSPFile extends BSPFile{
 	private static final int WORLDLIGHTLUMP_LDR = 15;
 	private static final int WORLDLIGHTLUMP_HDR = 54;
 	private static final int PAKLUMP = 40;
+	private static final int CUBEMAPLUMP = 42;
 	
 	public static class BSPWorldLight implements IOriginThing {
 		public static final int EMIT_SURF = 0;
@@ -619,11 +647,11 @@ public class SourceBSPFile extends BSPFile{
 		}
 	}
 	
-	private static class ZIPPart{
+	private static class ZipPart{
 		ZipEntry entry;
 		byte[] data;
 		
-		public ZIPPart(ZipEntry entry, byte[] data) {
+		public ZipPart(ZipEntry entry, byte[] data) {
 			this.entry = entry;
 			this.data = data;
 		}

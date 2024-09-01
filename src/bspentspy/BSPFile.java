@@ -65,15 +65,15 @@ public abstract class BSPFile implements AutoCloseable{
 		/*
 		 * Forward copy is when there's no risk of overriding data
 		 */
-		boolean forward = from.offset >= to.offset || from.offset + from.length <= to.offset;
+		boolean forward = from.offset >= to.offset || from.offset + to.length <= to.offset;
 		int buffSize = 20480;
 		
 		if(!forward)
 			buffSize = Math.min(buffSize, (int)(to.offset - from.offset));
 		
-		byte[] block = new byte[Math.min(buffSize, (int)from.length)];
-		int blocks = (int)from.length / block.length;
-		int remainder = (int)from.length % block.length; //was ... %buffSize, but buffSize is not always equal to block.length!!!! FREAKING BUG ALMOST TORN ALL MY HAIR OFF MY FREAKING SCULP!!!!!!!!!
+		byte[] block = new byte[Math.min(buffSize, (int)to.length)];
+		int blocks = (int)to.length / block.length;
+		int remainder = (int)to.length % block.length; //was ... %buffSize, but buffSize is not always equal to block.length!!!! FREAKING BUG ALMOST TORN ALL MY HAIR OFF MY FREAKING SCULP!!!!!!!!!
 		
 		if(forward) {
 			bspfile.seek(from.offset);
@@ -89,7 +89,7 @@ public abstract class BSPFile implements AutoCloseable{
 			bspfile.read(block, 0, remainder);
 			out.write(block, 0, remainder);
 		} else {
-			long off1 = from.offset + from.length - remainder - 1;
+			long off1 = from.offset + to.length - remainder - 1;
 			long off2 = to.offset + to.length - remainder - 1;
 			
 			bspfile.seek(off1);

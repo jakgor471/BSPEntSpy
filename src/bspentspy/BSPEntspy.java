@@ -374,12 +374,42 @@ public class BSPEntspy {
 				File zipo = new File(infile.getParent() + "\\" + filename.substring(0, filename.lastIndexOf('.')) + "_pak.zip");
 				
 				try(FileOutputStream os = new FileOutputStream(zipo)) {
-					bspmap.WritePakToStream(os);
+					bspmap.writePakToStream(os);
 					JOptionPane.showMessageDialog(frame, "Pak lump written to '" + zipo.getAbsolutePath() + "'");
 				} catch (IOException e) {
 					JOptionPane.showMessageDialog(frame, "IO Error has occurred: " + e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 					e.printStackTrace();
 				}
+			}
+		});
+		
+		JMenuItem importPak = new JMenuItem("Import Pak Lump");
+		importPak.setToolTipText("Import Zip file as a Pak Lump");
+		importPak.setEnabled(false);
+		mapmenu.add(importPak);
+		
+		importPak.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				if(map == null)
+					return;
+				
+				if(!(map instanceof SourceBSPFile)) {
+					JOptionPane.showMessageDialog(frame, "Unsupported version of BSP. This option works only for Source BSP.");
+					return;
+				}
+				SourceBSPFile bspmap = (SourceBSPFile)map;
+				JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
+				if(chooser.showOpenDialog(frame) == JFileChooser.CANCEL_OPTION)
+					return;
+				
+				File zipfile = chooser.getSelectedFile();
+				
+				int result = JOptionPane.showConfirmDialog(frame, "This action cannot be undone and will take effect on save. Continue?", entspyTitle, JOptionPane.YES_NO_OPTION);
+				
+				if(result == JOptionPane.NO_OPTION)
+					return;
+				
+				bspmap.embeddedPak = zipfile;
 			}
 		});
 
@@ -965,6 +995,7 @@ public class BSPEntspy {
 				
 				removeLightInfo.setEnabled(map != null && map instanceof SourceBSPFile);
 				exportPak.setEnabled(map != null && map instanceof SourceBSPFile);
+				importPak.setEnabled(map != null && map instanceof SourceBSPFile);
 			}
 		});
 
