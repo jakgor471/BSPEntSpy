@@ -86,7 +86,7 @@ public class BSPEntspy {
 	private ArrayList<ActionListener> onMapLoadInternal = new ArrayList<ActionListener>();
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String entspyTitle = "BSPEntSpy v1.3";
+	public static final String entspyTitle = "BSPEntSpy v1.32";
 
 	private void updateEntList(ArrayList<Entity> ents) {
 		entModel.setEntityList(ents);
@@ -268,6 +268,11 @@ public class BSPEntspy {
 		helpmenu.add(fgdhelp);
 
 		fgdhelp.addActionListener(new HelpActionListener("/text/fgdhelp.html"));
+		
+		JMenuItem lighthelp = new JMenuItem("Remove light info help");
+		helpmenu.add(lighthelp);
+
+		lighthelp.addActionListener(new HelpActionListener("/text/lighthelp.html"));
 
 		helpmenu.addSeparator();
 
@@ -802,7 +807,7 @@ public class BSPEntspy {
 
 				entList.setSelectedIndex(j + 1);
 
-				map.dirty = true;
+				map.entDirty = true;
 			}
 		});
 		cpyent.addActionListener(new ActionListener() {
@@ -833,7 +838,7 @@ public class BSPEntspy {
 				updateEntList(map.getEntities());
 				entList.setSelectedIndices(selected);
 
-				BSPEntspy.this.map.dirty = true;
+				BSPEntspy.this.map.entDirty = true;
 			}
 		});
 		addent.addActionListener(new ActionListener() {
@@ -1150,7 +1155,7 @@ public class BSPEntspy {
 	}
 
 	public boolean checkchanged(String title) {
-		if (map == null || !this.map.dirty && Undo.isEmpty()) {
+		if (map == null || !this.map.entDirty && Undo.isEmpty()) {
 			return false;
 		}
 		int result = JOptionPane.showConfirmDialog(frame,

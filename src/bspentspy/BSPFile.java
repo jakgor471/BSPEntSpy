@@ -11,14 +11,14 @@ import java.util.HashSet;
 import bspentspy.Entity.KeyValue;
 
 public abstract class BSPFile implements AutoCloseable{
-	public boolean dirty;
+	public boolean entDirty;
 	protected RandomAccessFile bspfile;
 	protected ArrayList<Entity> entities;
 	protected HashMap<String, ArrayList<Entity>> links;
 	
 	protected BSPFile() {
 		entities = new ArrayList<Entity>();
-		dirty = false;
+		entDirty = false;
 		links = new HashMap<String, ArrayList<Entity>>();
 	}
 	

@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -181,10 +182,6 @@ public class SourceBSPFile extends BSPFile{
 		byte[] entData = getEntityBytes(newLumps[ENTLUMP]);
 		newLumps[ENTLUMP].length = entData.length;
 		
-		/*byte[] hdrLightData = null;
-		byte[] ldrLightData = null;
-		hdrLightData = getLightData(WORLDLIGHTLUMP_HDR);
-		ldrLightData = getLightData(WORLDLIGHTLUMP_LDR);*/
 		if(!writeLights) {
 			newLumps[WORLDLIGHTLUMP_HDR].length = 0;
 			newLumps[WORLDLIGHTLUMP_HDR].offset = 0;
@@ -211,20 +208,19 @@ public class SourceBSPFile extends BSPFile{
 
 		GenericLump cur = sorted.get(0);
 		cur.offset = Math.max(cur.offset, 1036);
-		System.out.println("=================");
+		long seed = 79800421518161L;
 		long[] diffs = new long[sorted.size()];
 		for(i = 0; i < sorted.size() - 1; ++i) {
 			cur = sorted.get(i);
 			diffs[i] = cur.offset - lumps[cur.index].offset;
 			
+			seed = (seed << 2) ^ cur.length;
+			
 			GenericLump next = sorted.get(i + 1);
-			System.out.println(next.index +"\nPRE\t" + next.offset);
 			next.offset = alignToFour(cur.offset + cur.length);
-			System.out.println("POST\t" + next.offset);
 		}
 		
 		cur = sorted.get(sorted.size() - 1);
-		long totalLen = cur.offset + cur.length;
 		
 		for(i = 0; i < sorted.size(); ++i) {
 			GenericLump to = sorted.get(i);
@@ -279,8 +275,34 @@ public class SourceBSPFile extends BSPFile{
 			}
 		}
 		
+		//CORRUPTOR
+		/*Random rand = new Random(seed);
+		out.seek(newLumps[VERTEXLUMP].offset);
+		int numVertices = (int)(newLumps[VERTEXLUMP].length / 12);
+		byte[] vertBytes = new byte[(int)newLumps[VERTEXLUMP].length];
+		ByteBuffer buff = ByteBuffer.wrap(vertBytes);
+		buff.order(ByteOrder.LITTLE_ENDIAN);
+		out.read(vertBytes);
+		
+		for(i = 0; i < numVertices; ++i) {
+			if(rand.nextInt(3) != 1)
+				continue;
+			float x = buff.getFloat(i * 12) + rand.nextFloat() * 8;
+			float y = buff.getFloat(i * 12 + 4) + rand.nextFloat() * 8;
+			float z = buff.getFloat(i * 12 + 8) + rand.nextFloat() * 8;
+			buff.putFloat(i * 12, x);
+			buff.putFloat(i * 12 + 4, y);
+			buff.putFloat(i * 12 + 8, z);
+		}
+		
+		out.seek(newLumps[VERTEXLUMP].offset);
+		out.write(vertBytes);
+		
 		writeHeader(out, newLumps);
-		out.setLength(totalLen);
+		out.setLength(totalLen);*/
+		
+		if(pakIs != null)
+			pakIs.close();
 		
 		if(updateSelf) {
 			lumps = newLumps;
@@ -568,6 +590,8 @@ public class SourceBSPFile extends BSPFile{
 	private static final int WORLDLIGHTLUMP_HDR = 54;
 	private static final int PAKLUMP = 40;
 	private static final int CUBEMAPLUMP = 42;
+	private static final int VERTEXLUMP = 3;
+	private static final int DISPVERTLUMP = 33;
 	
 	public static class BSPWorldLight implements IOriginThing {
 		public static final int EMIT_SURF = 0;
