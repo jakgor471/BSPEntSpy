@@ -68,12 +68,9 @@ public abstract class BSPFile implements AutoCloseable{
 		boolean forward = from.offset >= to.offset || from.offset + to.length <= to.offset;
 		int buffSize = 20480;
 		
-		if(!forward)
-			buffSize = Math.min(buffSize, (int)(to.offset - from.offset));
-		
 		byte[] block = new byte[Math.min(buffSize, (int)to.length)];
 		int blocks = (int)to.length / block.length;
-		int remainder = (int)to.length % block.length; //was ... %buffSize, but buffSize is not always equal to block.length!!!! FREAKING BUG ALMOST TORN ALL MY HAIR OFF MY FREAKING SCULP!!!!!!!!!
+		int remainder = (int)(to.length - blocks * block.length); //was ... %buffSize, but buffSize is not always equal to block.length!!!! FREAKING BUG ALMOST TORN ALL MY HAIR OFF MY FREAKING SCULP!!!!!!!!!
 		
 		if(forward) {
 			bspfile.seek(from.offset);
@@ -89,13 +86,15 @@ public abstract class BSPFile implements AutoCloseable{
 			bspfile.read(block, 0, remainder);
 			out.write(block, 0, remainder);
 		} else {
-			long off1 = from.offset + to.length - remainder - 1;
-			long off2 = to.offset + to.length - remainder - 1;
+			long off1 = from.offset + to.length - remainder;
+			long off2 = to.offset + to.length - remainder;
 			
-			bspfile.seek(off1);
-			bspfile.read(block, 0, remainder);
-			out.seek(off2);
-			out.write(block, 0, remainder);
+			if(remainder > 0) {
+				bspfile.seek(off1);
+				bspfile.read(block, 0, remainder);
+				out.seek(off2);
+				out.write(block, 0, remainder);
+			}
 			
 			off1 -= block.length;
 			off2 -= block.length;
@@ -114,6 +113,17 @@ public abstract class BSPFile implements AutoCloseable{
 	
 	protected byte[] getEntityBytes() throws IOException {
 		StringBuilder sb = new StringBuilder();
+		
+		if(!entities.get(0).classname.equals("worldspawn")) {
+			for(int i = 0; i < entities.size(); ++i) {
+				if(!entities.get(i).classname.equals("worldspawn"))
+					continue;
+				Entity worldspawn = entities.get(i);
+				entities.remove(i);
+				entities.add(0, worldspawn);
+				break;
+			}
+		}
 		
 		for(Entity e : entities) {
 			sb.append("{\n");

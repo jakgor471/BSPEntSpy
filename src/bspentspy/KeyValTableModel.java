@@ -2,7 +2,6 @@ package bspentspy;
 
 import java.util.ArrayList;
 
-import javax.swing.JList;
 import javax.swing.table.AbstractTableModel;
 
 import bspentspy.ClassPropertyPanel.KVEntry;

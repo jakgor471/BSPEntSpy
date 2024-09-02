@@ -3,11 +3,9 @@ package bspentspy;
 import java.util.ArrayList;
 import java.util.Comparator;
 
-import javax.swing.JCheckBox;
 import javax.swing.table.AbstractTableModel;
 
 import bspentspy.ClassPropertyPanel.KVEntry;
-import bspentspy.Entity.KeyValue;
 import bspentspy.FGDEntry.PropChoicePair;
 import bspentspy.FGDEntry.PropertyChoices;
 

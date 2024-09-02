@@ -14,11 +14,8 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Random;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -64,6 +61,8 @@ public class SourceBSPFile extends BSPFile{
 		lumpBuffer.order(ByteOrder.LITTLE_ENDIAN);
 		lumps = new BSPLump[64];
 		
+		BSPLump[] sorted = new BSPLump[64];
+		
 		for(int i = 0; i < 64; ++i) {
 			lumps[i] = new BSPLump();
 			lumps[i].index = i;
@@ -71,10 +70,17 @@ public class SourceBSPFile extends BSPFile{
 			lumps[i].length = Integer.toUnsignedLong(lumpBuffer.getInt());
 			lumps[i].version = lumpBuffer.getInt();
 			lumps[i].fourCC = lumpBuffer.getInt();
+			
+			sorted[i] = lumps[i];
 		}
 		
 		mapRev = Integer.reverseBytes(bspfile.readInt());
 		
+		Arrays.sort(sorted, null);
+		
+		for(BSPLump l : sorted) {
+			System.out.println(l.index + ", " + l.offset + ", " + l.length + ", " + (l.offset + l.length));
+		}
 		
 		loadGameLumps();
 		loadEntities();
@@ -223,8 +229,13 @@ public class SourceBSPFile extends BSPFile{
 		cur = sorted.get(sorted.size() - 1);
 		long totalLen = cur.offset + cur.length;
 		
+		System.out.println("WRITE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+		for(GenericLump to : sorted) {
+			System.out.println(to.index + ", " + to.offset + ", " + to.length + ", " + (to.offset + to.length));
+		}
 		for(i = 0; i < sorted.size(); ++i) {
 			GenericLump to = sorted.get(i);
+			
 			if(to.length == 0)
 				continue;
 			
@@ -235,7 +246,7 @@ public class SourceBSPFile extends BSPFile{
 					saveGameLumps(out, newLumps[GAMELUMP], newGlumps);
 					continue;
 				} else if(to.index == ENTLUMP) {
-					out.seek(newLumps[ENTLUMP].offset);
+					out.seek(newLumps[ENTLUMP].offset); //entities are written first and they DESTROY the lump 15!!!!
 					out.write(entData);
 					continue;
 				} else if(to.index == PAKLUMP && pakIs != null) {
@@ -254,6 +265,10 @@ public class SourceBSPFile extends BSPFile{
 				
 				for(int j = i; j >= startIndex; --j) {
 					to = sorted.get(j);
+					
+					if(to.length == 0)
+						continue;
+					
 					if(to.index == GAMELUMP) {
 						copy(out, lumps[GAMELUMP], to);
 						saveGameLumps(out, newLumps[GAMELUMP], newGlumps);
@@ -267,9 +282,6 @@ public class SourceBSPFile extends BSPFile{
 						copy(out, pakIs, newLumps[PAKLUMP].length);
 						continue;
 					}
-					
-					if(to.length == 0)
-						continue;
 					
 					copy(out, lumps[to.index], to);
 				}

@@ -11,9 +11,6 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
-import bspentspy.BSPFile.GenericLump;
-import bspentspy.SourceBSPFile.BSPLump;
-
 public class GoldSrcBSPFile extends BSPFile{
 	private GenericLump[] lumps;
 	private int bspVersion;

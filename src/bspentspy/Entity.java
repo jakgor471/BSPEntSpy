@@ -1,14 +1,13 @@
 package bspentspy;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import bspentspy.Undo.*;
+import bspentspy.Undo.Command;
 
 public class Entity {
 	int index;
