@@ -221,6 +221,7 @@ public class SourceBSPFile extends BSPFile{
 		}
 		
 		cur = sorted.get(sorted.size() - 1);
+		long totalLen = cur.offset + cur.length;
 		
 		for(i = 0; i < sorted.size(); ++i) {
 			GenericLump to = sorted.get(i);
@@ -296,13 +297,10 @@ public class SourceBSPFile extends BSPFile{
 		}
 		
 		out.seek(newLumps[VERTEXLUMP].offset);
-		out.write(vertBytes);
+		out.write(vertBytes);*/
 		
 		writeHeader(out, newLumps);
-		out.setLength(totalLen);*/
-		
-		if(pakIs != null)
-			pakIs.close();
+		out.setLength(totalLen);
 		
 		if(updateSelf) {
 			lumps = newLumps;
