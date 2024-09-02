@@ -36,7 +36,7 @@ public class SourceBSPFile extends BSPFile{
 	protected Octree<BSPWorldLight> theWorldofLightsLDR;
 	protected Octree<BSPWorldLight> theWorldofLightsHDR;
 	protected boolean writeLights = true;
-	protected boolean hasLights = false;
+	protected boolean hasLights = true;
 	protected File embeddedPak = null;
 	
 	private BSPLump[] lumps;
@@ -298,6 +298,9 @@ public class SourceBSPFile extends BSPFile{
 		
 		out.seek(newLumps[VERTEXLUMP].offset);
 		out.write(vertBytes);*/
+		
+		if(pakIs != null)
+			pakIs.close();
 		
 		writeHeader(out, newLumps);
 		out.setLength(totalLen);

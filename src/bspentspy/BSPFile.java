@@ -122,7 +122,6 @@ public abstract class BSPFile implements AutoCloseable{
 			}
 			sb.append("}\n");
 		}
-		sb.append('\0');
 		
 		return sb.toString().getBytes(StandardCharsets.UTF_8);
 	} 
