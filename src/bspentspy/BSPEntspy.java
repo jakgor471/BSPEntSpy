@@ -17,6 +17,7 @@ import java.awt.event.WindowEvent;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
@@ -304,15 +305,15 @@ public class BSPEntspy {
 
 		maddDefaultOption.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
-				rightEntPanel.shouldAddDefaultParameters(maddDefaultOption.getState());
-				preferences.putBoolean("AutoAddParams", maddDefaultOption.getState());
+				rightEntPanel.shouldAddDefaultParameters(maddDefaultOption.isSelected());
+				preferences.putBoolean("AutoAddParams", maddDefaultOption.isSelected());
 			}
 		});
 
 		msmartEditOption.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
-				rightEntPanel.setSmartEdit(msmartEditOption.getState());
-				preferences.putBoolean("SmartEdit", msmartEditOption.getState());
+				rightEntPanel.setSmartEdit(msmartEditOption.isSelected());
+				preferences.putBoolean("SmartEdit", msmartEditOption.isSelected());
 			}
 		});
 
@@ -332,7 +333,7 @@ public class BSPEntspy {
 		
 		JMenu mapmenu = new JMenu("Map");
 		
-		JMenuItem removeLightInfo = new JMenuItem("Remove light information");
+		JCheckBoxMenuItem removeLightInfo = new JCheckBoxMenuItem("Remove light information");
 		removeLightInfo.setToolTipText("Remove worldlight lump data for rebaking the lights with VRAD");
 		removeLightInfo.setEnabled(map != null && map instanceof SourceBSPFile);
 		mapmenu.add(removeLightInfo);
@@ -342,22 +343,34 @@ public class BSPEntspy {
 					return;
 				
 				if(!(map instanceof SourceBSPFile)) {
-					JOptionPane.showMessageDialog(frame, "Unsupported version of BSP. This option works only for Source BSP.");
 					return;
 				}
 				SourceBSPFile bspmap = (SourceBSPFile)map;
 				
-				if(!bspmap.hasLights) {
-					JOptionPane.showMessageDialog(frame, "No light info found. Lumps have been removed or map was not VRAD compiled.");
+				bspmap.writeLights = !removeLightInfo.isSelected();
+			}
+		});
+		
+		mapmenu.addSeparator();
+		
+		JCheckBoxMenuItem removePak = new JCheckBoxMenuItem("Remove Pak lump");
+		removePak.setToolTipText("Remove embedded Pak lump from map file. CAUTION!");
+		removePak.setEnabled(map != null && map instanceof SourceBSPFile);
+		mapmenu.add(removePak);
+		removePak.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				if(map == null)
+					return;
+				
+				if(!(map instanceof SourceBSPFile)) {
 					return;
 				}
+				SourceBSPFile bspmap = (SourceBSPFile)map;
 				
-				int result = JOptionPane.showConfirmDialog(frame, "This action cannot be undone and will take effect on save.\nRemoving worldlight data (lump 15 and 54)" + 
-						" allows to change the lighting by running the map with VRAD (see Help for more information).\nDo you want to proceed?", entspyTitle, JOptionPane.YES_NO_OPTION);
+				bspmap.writePak = !removePak.isSelected();
 				
-				if(result == JOptionPane.NO_OPTION)
-					return;
-				bspmap.writeLights = false;
+				if(!bspmap.writePak)
+					bspmap.embeddedPak = null;
 			}
 		});
 		
@@ -415,6 +428,9 @@ public class BSPEntspy {
 					return;
 				
 				bspmap.embeddedPak = zipfile;
+				bspmap.writePak = true;
+				
+				removePak.setSelected(false);
 			}
 		});
 
@@ -998,11 +1014,15 @@ public class BSPEntspy {
 				mpatchvmf.setEnabled(true);
 				importEntity.setEnabled(true);
 				
+				removeLightInfo.setSelected(false);
+				removePak.setSelected(false);
+				
 				boolean enable = map != null && map instanceof SourceBSPFile;
 				
 				removeLightInfo.setEnabled(enable);
 				exportPak.setEnabled(enable);
 				importPak.setEnabled(enable);
+				removePak.setEnabled(enable);
 			}
 		});
 

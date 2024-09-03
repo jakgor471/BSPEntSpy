@@ -14,7 +14,6 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -33,6 +32,7 @@ public class SourceBSPFile extends BSPFile{
 	protected Octree<BSPWorldLight> theWorldofLightsLDR;
 	protected Octree<BSPWorldLight> theWorldofLightsHDR;
 	protected boolean writeLights = true;
+	protected boolean writePak = true;
 	protected boolean hasLights = true;
 	protected File embeddedPak = null;
 	
@@ -42,6 +42,7 @@ public class SourceBSPFile extends BSPFile{
 	private ArrayList<BSPWorldLight> ldrLights;
 	private ArrayList<ZipPart> pakfiles = null;
 	private int mapRev;
+	private boolean glumpsRelative = false;
 	
 	public boolean read(RandomAccessFile file) throws IOException {
 		file.seek(0);
@@ -61,8 +62,6 @@ public class SourceBSPFile extends BSPFile{
 		lumpBuffer.order(ByteOrder.LITTLE_ENDIAN);
 		lumps = new BSPLump[64];
 		
-		BSPLump[] sorted = new BSPLump[64];
-		
 		for(int i = 0; i < 64; ++i) {
 			lumps[i] = new BSPLump();
 			lumps[i].index = i;
@@ -70,17 +69,9 @@ public class SourceBSPFile extends BSPFile{
 			lumps[i].length = Integer.toUnsignedLong(lumpBuffer.getInt());
 			lumps[i].version = lumpBuffer.getInt();
 			lumps[i].fourCC = lumpBuffer.getInt();
-			
-			sorted[i] = lumps[i];
 		}
 		
 		mapRev = Integer.reverseBytes(bspfile.readInt());
-		
-		Arrays.sort(sorted, null);
-		
-		for(BSPLump l : sorted) {
-			System.out.println(l.index + ", " + l.offset + ", " + l.length + ", " + (l.offset + l.length));
-		}
 		
 		loadGameLumps();
 		loadEntities();
@@ -106,15 +97,6 @@ public class SourceBSPFile extends BSPFile{
 		}
 		
 		System.out.println("PakLump size: " + (double)lumps[PAKLUMP].length / 1000000.0D + "MB");
-	}
-	
-	private long getPakSize() {
-		long size = 0;
-		for(int i = 0; i < pakfiles.size(); ++i) {
-			size += pakfiles.get(i).entry.getCompressedSize();
-		}
-		
-		return size;
 	}
 
 	public void removeCubemapData() throws IOException {
@@ -157,7 +139,10 @@ public class SourceBSPFile extends BSPFile{
 		buff.putInt(bspVersion);
 		
 		for(int i = 0; i < 64; ++i) {
-			buff.putInt((int)newLumps[i].offset);
+			long off = newLumps[i].offset;
+			if(newLumps[i].length <= 0)
+				off = 0;
+			buff.putInt((int)off);
 			buff.putInt((int)newLumps[i].length);
 			buff.putInt(newLumps[i].version);
 			buff.putInt(newLumps[i].fourCC);
@@ -195,6 +180,11 @@ public class SourceBSPFile extends BSPFile{
 			newLumps[WORLDLIGHTLUMP_LDR].offset = 0;
 		}
 		
+		if(!writePak) {
+			newLumps[PAKLUMP].length = 0;
+			newLumps[PAKLUMP].offset = 0;
+		}
+		
 		FileInputStream pakIs = null;
 		if(embeddedPak != null) {
 			try {
@@ -227,17 +217,22 @@ public class SourceBSPFile extends BSPFile{
 		cur = sorted.get(sorted.size() - 1);
 		long totalLen = cur.offset + cur.length;
 		
-		System.out.println("WRITE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-		for(GenericLump to : sorted) {
-			System.out.println(to.index + ", " + to.offset + ", " + to.length + ", " + (to.offset + to.length));
+		System.out.println("WRITE!!!!!!!");
+		for(i = 0; i < sorted.size(); ++i) {
+			GenericLump l = sorted.get(i);
+			BSPLump org = lumps[l.index];
+			System.out.println(l.index + " ===================================================");
+			System.out.println(String.format("NEW\t %,11d\t %,11d\t %,11d", l.offset, l.length, l.offset + l.length));
+			System.out.println(String.format("ORG\t %,11d\t %,11d\t %,11d", org.offset, org.length, org.offset + org.length));
 		}
+		
 		for(i = 0; i < sorted.size(); ++i) {
 			GenericLump to = sorted.get(i);
 			
 			if(to.length == 0)
 				continue;
 			
-			if(to.offset <= lumps[to.index].offset && to.length <= lumps[to.index].length) {
+			if(to.offset <= lumps[to.index].offset && to.length <= lumps[to.index].length || i >= 63) {
 				//difference of offsets is non positive, we can forward-copy them
 				if(to.index == GAMELUMP) {
 					copy(out, lumps[GAMELUMP], to);
@@ -257,9 +252,10 @@ public class SourceBSPFile extends BSPFile{
 			} else {
 				//difference of offsets is positive, we must backward-copy
 				int startIndex = i;
-				++i;
-				while(i < sorted.size() && (to.offset > lumps[to.index].offset || to.length > lumps[to.index].length))
-					++i;
+				to = sorted.get(++i);
+				while(i < sorted.size() && (to.offset > lumps[to.index].offset || to.length > lumps[to.index].length)) {
+					to = sorted.get(++i);
+				}
 				
 				for(int j = i - 1; j >= startIndex; --j) {
 					to = sorted.get(j);
@@ -286,6 +282,9 @@ public class SourceBSPFile extends BSPFile{
 			}
 		}
 		
+		if(pakIs != null)
+			pakIs.close();
+		
 		//CORRUPTOR
 		/*Random rand = new Random(seed);
 		out.seek(newLumps[VERTEXLUMP].offset);
@@ -309,9 +308,6 @@ public class SourceBSPFile extends BSPFile{
 		out.seek(newLumps[VERTEXLUMP].offset);
 		out.write(vertBytes);*/
 		
-		if(pakIs != null)
-			pakIs.close();
-		
 		writeHeader(out, newLumps);
 		out.setLength(totalLen);
 		
@@ -319,6 +315,8 @@ public class SourceBSPFile extends BSPFile{
 			lumps = newLumps;
 			glumps = newGlumps;
 			embeddedPak = null;
+			writePak = true;
+			writeLights = true;
 		}
 	}
 	
@@ -389,8 +387,14 @@ public class SourceBSPFile extends BSPFile{
 			glumps[i].id = glumpBuff.getInt();
 			glumps[i].flags = glumpBuff.getShort();
 			glumps[i].version = Short.toUnsignedInt(glumpBuff.getShort());
-			glumps[i].offset = Integer.toUnsignedLong(glumpBuff.getInt()) - lumps[GAMELUMP].offset; //make it relative to GameLump
+			glumps[i].offset = Integer.toUnsignedLong(glumpBuff.getInt()); //make it relative to GameLump
 			glumps[i].length = Integer.toUnsignedLong(glumpBuff.getInt());
+			
+			if(glumps[i].offset < lumps[GAMELUMP].offset && !glumpsRelative) {
+				glumpsRelative = true;
+				continue;
+			}
+			glumps[i].offset -= lumps[GAMELUMP].offset;
 		}
 	}
 	
@@ -401,12 +405,17 @@ public class SourceBSPFile extends BSPFile{
 		ByteBuffer glumpBuff = ByteBuffer.wrap(glumpBytes);
 		glumpBuff.order(ByteOrder.LITTLE_ENDIAN);
 		
+		long glumpOffset = gameLump.offset;
+		
+		if(glumpsRelative)
+			glumpOffset = 0;
+		
 		glumpBuff.putInt(newGlumps.length);
 		for(int i = 0; i < newGlumps.length; ++i) {
 			glumpBuff.putInt(newGlumps[i].id);
 			glumpBuff.putShort(newGlumps[i].flags);
 			glumpBuff.putShort((short)newGlumps[i].version);
-			glumpBuff.putInt((int)(newGlumps[i].offset + gameLump.offset));
+			glumpBuff.putInt((int)(newGlumps[i].offset + glumpOffset));
 			glumpBuff.putInt((int)newGlumps[i].length);
 		}
 		
@@ -524,10 +533,6 @@ public class SourceBSPFile extends BSPFile{
 		int numldrLights = (int)(lumps[WORLDLIGHTLUMP_LDR].length / 88);
 		int numhdrLights = (int)(lumps[WORLDLIGHTLUMP_HDR].length / 88);
 		
-		final float halfmapsize = MAPSIZE / 2;
-		//theWorldofLightsLDR = new Octree<BSPWorldLight>(-halfmapsize, -halfmapsize, -halfmapsize, MAPSIZE);
-		//theWorldofLightsHDR = new Octree<BSPWorldLight>(-halfmapsize, -halfmapsize, -halfmapsize, MAPSIZE);
-		
 		hasLights = numldrLights + numhdrLights > 0;
 		
 		ldrLights = new ArrayList<BSPWorldLight>(numldrLights);
@@ -537,7 +542,6 @@ public class SourceBSPFile extends BSPFile{
 		BSPLump lump = lumps[WORLDLIGHTLUMP_LDR];
 		ArrayList<BSPWorldLight> arr = ldrLights;
 		
-		Octree<BSPWorldLight> world = theWorldofLightsLDR;
 		for(int i = 0; i < 2; ++i) {			
 			bspfile.seek(lump.offset);
 			byte[] lightBytes = new byte[(int)lump.length];
@@ -578,15 +582,12 @@ public class SourceBSPFile extends BSPFile{
 				lgt.texinfo = lightBuff.getInt();
 				lgt.owner = lightBuff.getInt();
 				
-				//System.out.println(lgt + "\n");
 				arr.add(lgt);
-				//world.insert(lgt);
 			}
 			
 			num = numhdrLights;
 			lump = lumps[WORLDLIGHTLUMP_HDR];
 			arr = hdrLights;
-			//world = theWorldofLightsHDR;
 		}
 	}
 	
