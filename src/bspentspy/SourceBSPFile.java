@@ -215,11 +215,9 @@ public class SourceBSPFile extends BSPFile{
 		GenericLump cur = sorted.get(0);
 		cur.offset = Math.max(cur.offset, 1036);
 		long seed = 79800421518161L;
-		long[] diffs = new long[sorted.size()];
+
 		for(i = 0; i < sorted.size() - 1; ++i) {
 			cur = sorted.get(i);
-			diffs[i] = cur.offset - lumps[cur.index].offset;
-			
 			seed = (seed << 2) ^ cur.length;
 			
 			GenericLump next = sorted.get(i + 1);
@@ -239,7 +237,7 @@ public class SourceBSPFile extends BSPFile{
 			if(to.length == 0)
 				continue;
 			
-			if(diffs[i] <= 0) {
+			if(to.offset <= lumps[to.index].offset && to.length <= lumps[to.index].length) {
 				//difference of offsets is non positive, we can forward-copy them
 				if(to.index == GAMELUMP) {
 					copy(out, lumps[GAMELUMP], to);
@@ -260,10 +258,10 @@ public class SourceBSPFile extends BSPFile{
 				//difference of offsets is positive, we must backward-copy
 				int startIndex = i;
 				++i;
-				while(i < sorted.size() && diffs[i] > 0)
+				while(i < sorted.size() && (to.offset > lumps[to.index].offset || to.length > lumps[to.index].length))
 					++i;
 				
-				for(int j = i; j >= startIndex; --j) {
+				for(int j = i - 1; j >= startIndex; --j) {
 					to = sorted.get(j);
 					
 					if(to.length == 0)

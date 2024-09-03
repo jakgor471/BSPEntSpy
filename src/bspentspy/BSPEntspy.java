@@ -998,9 +998,11 @@ public class BSPEntspy {
 				mpatchvmf.setEnabled(true);
 				importEntity.setEnabled(true);
 				
-				removeLightInfo.setEnabled(map != null && map instanceof SourceBSPFile);
-				exportPak.setEnabled(map != null && map instanceof SourceBSPFile);
-				importPak.setEnabled(map != null && map instanceof SourceBSPFile);
+				boolean enable = map != null && map instanceof SourceBSPFile;
+				
+				removeLightInfo.setEnabled(enable);
+				exportPak.setEnabled(enable);
+				importPak.setEnabled(enable);
 			}
 		});
 
