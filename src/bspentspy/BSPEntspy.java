@@ -1411,7 +1411,7 @@ public class BSPEntspy {
 			System.out.println("Unknown command!\n" + help);
 		}
 		
-		if(runGui) {
+		if(runGui && !failed) {
 			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 			BSPEntspy inst = new BSPEntspy();
 			inst.exec();
