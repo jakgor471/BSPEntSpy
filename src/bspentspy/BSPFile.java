@@ -187,7 +187,7 @@ public abstract class BSPFile implements AutoCloseable{
 		long length;
 
 		public int compareTo(GenericLump o) {
-			return (int)(this.offset - o.offset);
+			return Long.compare(this.offset, o.offset);
 		}
 		
 		public Object clone() {

@@ -53,8 +53,14 @@ public class SourceBSPFile extends BSPFile{
 			return false;
 		}
 		
-		bspfile = file;
+		writeLights = true;
+		writePak = true;
+		hasLights = true;
+		embeddedPak = null;
+		entDirty = true; //at the moment ALWAYS write entities
+		pakfiles = null;
 		
+		bspfile = file;
 		bspVersion = Integer.reverseBytes(bspfile.readInt());
 		byte[] lumpBytes = new byte[1024]; //64 lumps, 16 bytes each
 		bspfile.read(lumpBytes);
@@ -170,19 +176,20 @@ public class SourceBSPFile extends BSPFile{
 		for(i = 0; i < glumps.length; ++i) {
 			newGlumps[i] = (GameLump)glumps[i].clone();
 		}
-		byte[] entData = getEntityBytes(newLumps[ENTLUMP]);
-		newLumps[ENTLUMP].length = entData.length;
+		byte[] entData = null;
+		
+		if(entDirty) {
+			entData = getEntityBytes(newLumps[ENTLUMP]);
+			newLumps[ENTLUMP].length = entData.length;
+		}
 		
 		if(!writeLights) {
 			newLumps[WORLDLIGHTLUMP_HDR].length = 0;
-			newLumps[WORLDLIGHTLUMP_HDR].offset = 0;
 			newLumps[WORLDLIGHTLUMP_LDR].length = 0;
-			newLumps[WORLDLIGHTLUMP_LDR].offset = 0;
 		}
 		
 		if(!writePak) {
 			newLumps[PAKLUMP].length = 0;
-			newLumps[PAKLUMP].offset = 0;
 		}
 		
 		FileInputStream pakIs = null;
@@ -190,6 +197,8 @@ public class SourceBSPFile extends BSPFile{
 			try {
 				pakIs = new FileInputStream(embeddedPak);
 				newLumps[PAKLUMP].length = pakIs.getChannel().size();
+				
+				newLumps[PAKLUMP].offset = Long.MAX_VALUE; //let the PAK lump be at the end so writing to it does not require shifting everything
 				
 			} catch(FileNotFoundException e) {
 				e.printStackTrace();
@@ -217,7 +226,7 @@ public class SourceBSPFile extends BSPFile{
 		cur = sorted.get(sorted.size() - 1);
 		long totalLen = cur.offset + cur.length;
 		
-		System.out.println("WRITE!!!!!!!");
+		System.out.println("===\tWRITE\t===");
 		for(i = 0; i < sorted.size(); ++i) {
 			GenericLump l = sorted.get(i);
 			BSPLump org = lumps[l.index];
@@ -238,7 +247,7 @@ public class SourceBSPFile extends BSPFile{
 					copy(out, lumps[GAMELUMP], to);
 					saveGameLumps(out, newLumps[GAMELUMP], newGlumps);
 					continue;
-				} else if(to.index == ENTLUMP) {
+				} else if(to.index == ENTLUMP && entDirty) {
 					out.seek(newLumps[ENTLUMP].offset); //entities are written first and they DESTROY the lump 15!!!!
 					out.write(entData);
 					continue;
@@ -253,8 +262,9 @@ public class SourceBSPFile extends BSPFile{
 				//difference of offsets is positive, we must backward-copy
 				int startIndex = i;
 				to = sorted.get(++i);
-				while(i < sorted.size() && (to.offset > lumps[to.index].offset || to.length > lumps[to.index].length)) {
-					to = sorted.get(++i);
+
+				for(; i < sorted.size() && (to.offset > lumps[to.index].offset || to.length > lumps[to.index].length); ++i) {
+					to = sorted.get(i);
 				}
 				
 				for(int j = i - 1; j >= startIndex; --j) {
@@ -267,7 +277,7 @@ public class SourceBSPFile extends BSPFile{
 						copy(out, lumps[GAMELUMP], to);
 						saveGameLumps(out, newLumps[GAMELUMP], newGlumps);
 						continue;
-					} else if(to.index == ENTLUMP) {
+					} else if(to.index == ENTLUMP && entDirty) {
 						out.seek(newLumps[ENTLUMP].offset);
 						out.write(entData);
 						continue;

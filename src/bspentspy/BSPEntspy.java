@@ -16,6 +16,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -24,18 +25,24 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.io.RandomAccessFile;
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.prefs.Preferences;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -1373,10 +1380,185 @@ public class BSPEntspy {
 	}
 
 	public static void main(String[] args) throws Exception {
-		UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+		String help = "Options:\n-rename <oldmapname or \"\" to deduce> <new map name> <path to materials directory>\tRenames directories and updates VMT files in specified directory.\n-help\tDisplays help.";
+		
+		boolean runGui = true;
+		boolean failed = false;
+		for(int i = 0; i < args.length && !failed; ++i) {
+			if(args[i].equals("-rename")) {
+				if(i + 3 < args.length) {
+					String orgName = args[i + 1];
+					String newName = args[i + 2];
+					String path = args[i + 3];
+					runGui = false;
+					
+					System.out.println(orgName);
+					
+					commandRename(orgName, newName, path);
+				} else {
+					System.out.println("Invalid -rename format!");
+					failed = true;
+				}
+				i += 3;
+			} else if(args[i].equals("-help")) {
+				System.out.println(help);
+			} else {
+				failed = true;
+			}
+		}
+		
+		if(failed) {
+			System.out.println("Unknown command!\n" + help);
+		}
+		
+		if(runGui) {
+			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+			BSPEntspy inst = new BSPEntspy();
+			inst.exec();
+		}
+	}
+	
+	private static void commandRename(String orgName, String newName, String path) {
+		Path dirPath = Paths.get(path);
+		Path parent = dirPath.getParent();
 
-		BSPEntspy inst = new BSPEntspy();
-		inst.exec();
+		File dir = dirPath.toFile();
+		
+		if(!dir.exists() || !dir.isDirectory()) {
+			System.out.println("ERROR! Specified path is not a directory or does not exist!");
+			return;
+		}
+		
+		if(!dir.getName().toLowerCase().equals("materials")) {
+			System.out.println("ERROR! Due to safety the specified directory must be 'materials', got '" + dir.getName() + "' instead!");
+			return;
+		}
+		
+		if(newName.indexOf('\\') >= 0 || newName.indexOf('/') >= 0 || newName.indexOf('.') >= 0) {
+			System.out.println("ERROR! Specified new name is not valid!");
+			return;
+		}
+		
+		ArrayList<Path> allFiles = new ArrayList<Path>(128);
+		ArrayList<Path> allDirs = new ArrayList<Path>(128);
+		File mapDir = new File(path + "/maps");
+		Path mapDirPath = parent.relativize(mapDir.toPath());
+		
+		if(!mapDir.exists() || !mapDir.isDirectory()) {
+			System.out.println("ERROR! Specified directory does not contain 'maps' directory!");
+			return;
+		}
+		
+		searchForFiles(mapDir, allFiles, allDirs, parent);
+		
+		if(orgName == null || orgName.trim().isEmpty()) {
+			for(Path p : allDirs) {
+				if(p.getParent().equals(mapDirPath)) {
+					orgName = p.getName(p.getNameCount() - 1).toString();
+					break;
+				}
+			}
+		}
+			
+		if(orgName == null) {
+			System.out.println("ERROR! Could not resolve original map name or no name given! (No directory in 'maps/')");
+			return;
+		}
+		
+		//HashSet<String> fileSet = new HashSet<String>();
+		
+		String orgNameSanitized = orgName.trim().toLowerCase();
+		Pattern vmtReplacePattern = Pattern.compile("[\\s\\\"'][/\\\\]?(maps[/\\\\][\\w\\\\/\\d-]*)[\\n\\\"']", Pattern.CASE_INSENSITIVE);
+		for(Path p : allFiles) {
+			String filename = p.getName(p.getNameCount() - 1).toString();
+			
+			if(filename.substring(filename.lastIndexOf('.')).toLowerCase().equals(".vmt")) {
+				File f = parent.resolve(p).toFile();
+				
+				if(!f.exists()) {
+					System.out.println("WARNING! Previously found file '" + p + "' does not exist!!!");
+					continue;
+				}
+				
+				byte[] block = new byte[4096];
+				StringBuilder newContent = null;
+				try(FileInputStream fis = new FileInputStream(f); ByteArrayOutputStream bos = new ByteArrayOutputStream();){
+					int len;
+					int totalLen = 0;
+					
+					while((len = fis.read(block)) > 0 && totalLen < 65536) {
+						bos.write(block, 0, len);
+						totalLen += len;
+					}
+					
+					if(totalLen > 65536) {
+						System.out.println("WARNING! File '" + p + "' too big! Skipping.");
+						continue;
+					}
+					
+					String content = new String(bos.toByteArray());
+					Matcher match = vmtReplacePattern.matcher(content);
+					
+					newContent = new StringBuilder(content.length());
+					
+					boolean rep = false;
+					boolean found = false;
+					int beg = 0;
+					while(match.find()) {
+						String foundStr = match.group(1);
+						String[] split = foundStr.split("[\\\\/]");
+						
+						newContent.append(content.substring(beg, match.start(1)));
+						beg = match.end(1);
+						rep = true;
+						
+						for(int i = 0; i < split.length - 1; ++i) {
+							if(split[i].toLowerCase().equals(orgNameSanitized)) {
+								found = true;
+								split[i] = newName;
+							}
+							newContent.append(split[i]).append("/");
+						}
+						newContent.append(split[split.length - 1]);
+					}
+					
+					if(!rep || !found) {
+						continue;
+					}
+					
+					newContent.append(content.substring(beg));
+				} catch(IOException e) {
+					e.printStackTrace();
+				}
+				
+				if(newContent == null)
+					continue;
+				
+				try(FileOutputStream fos = new FileOutputStream(f); PrintWriter pw = new PrintWriter(fos)){
+					pw.append(newContent);
+					pw.flush();
+					
+					System.out.println("INFO Modified file '" + p + "'");
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+	
+	private static void searchForFiles(File file, List<Path> files, List<Path> dirs, Path relativeTo) {
+		if(relativeTo == null)
+			relativeTo = file.toPath();
+		
+		for(File f : file.listFiles()) {
+			if(f.isDirectory()) {
+				dirs.add(relativeTo.relativize(f.toPath()));
+				searchForFiles(f, files, dirs, relativeTo);
+				continue;
+			}
+			
+			files.add(relativeTo.relativize(f.toPath()));
+		}
 	}
 
 	class FilterListen implements ActionListener {
