@@ -316,7 +316,7 @@ public class SourceBSPFile extends BSPFile{
 			throw new Exception("Not supported Static prop lump version (" + getStaticPropVersion() + ")!");
 		}
 		
-		bspfile.seek(staticPropLump.offset);
+		bspfile.seek(lumps[GAMELUMP].offset + staticPropLump.offset);
 		int dictEntries = Integer.reverseBytes(bspfile.readInt());
 		
 		byte[] block = new byte[128];		
@@ -598,7 +598,7 @@ public class SourceBSPFile extends BSPFile{
 			if(to.length == 0)
 				continue;
 			
-			if(to.offset <= lumps[to.index].offset && to.length <= lumps[to.index].length || i >= 63) {
+			if(i >= 63 || to.offset <= lumps[to.index].offset && to.length <= lumps[to.index].length) {
 				//difference of offsets is non positive, we can forward-copy them
 				if(to.index == GAMELUMP) {
 					saveGameLumps(out, newLumps[GAMELUMP], sortedGlumps, gameLumpData);
@@ -667,6 +667,7 @@ public class SourceBSPFile extends BSPFile{
 			embeddedPak = null;
 			writePak = true;
 			writeLights = true;
+			curSpropVersion = targetSpropVersion;
 		}
 	}
 	
@@ -681,7 +682,7 @@ public class SourceBSPFile extends BSPFile{
 		
 		Collections.sort(sorted);
 		int headerSize = 4 + sorted.size() * 16;
-		sorted.get(0).offset = glump.offset + alignToFour(headerSize);
+		sorted.get(0).offset = alignToFour(headerSize);
 		
 		for(int i = 0; i < sorted.size() - 1; ++i) {
 			GameLump cur = sorted.get(i);
@@ -691,13 +692,14 @@ public class SourceBSPFile extends BSPFile{
 		}
 		
 		GameLump last = sorted.get(sorted.size() - 1);
-		glump.length = last.offset + last.length - glump.offset;
+		glump.length = last.offset + last.length;
 		
 		return sorted;
 	}
 	
-	private void saveGameLumps(RandomAccessFile out, GenericLump gameLump, ArrayList<GameLump> sorted, byte[][] gameLumpData) throws IOException {
-		out.seek(gameLump.offset);
+	private void saveGameLumps(RandomAccessFile out, GenericLump newGamelump, ArrayList<GameLump> sorted, byte[][] gameLumpData) throws IOException {
+		copy(out, lumps[GAMELUMP], newGamelump);
+		out.seek(newGamelump.offset);
 		
 		if(gameLumpData == null)
 			gameLumpData = new byte[sorted.size()][];
@@ -706,10 +708,10 @@ public class SourceBSPFile extends BSPFile{
 		ByteBuffer glumpBuff = ByteBuffer.wrap(glumpHeaderBytes);
 		glumpBuff.order(ByteOrder.LITTLE_ENDIAN);
 		
-		long glumpOffset = 0;
+		long glumpOffset = newGamelump.offset;
 		
 		if(glumpsRelative)
-			glumpOffset = gameLump.offset;
+			glumpOffset = 0;
 		
 		glumpBuff.putInt(sorted.size());
 		for(int i = 0; i < sorted.size(); ++i) {
@@ -717,18 +719,33 @@ public class SourceBSPFile extends BSPFile{
 			glumpBuff.putInt(glump.id);
 			glumpBuff.putShort(glump.flags);
 			glumpBuff.putShort((short)glump.version);
-			glumpBuff.putInt((int)(glump.offset - glumpOffset));
+			glumpBuff.putInt((int)(glump.offset + glumpOffset));
 			glumpBuff.putInt((int)glump.length);
+			
+			//temporarily make glumps relative to start of the file
+			glumps[glump.index].offset += lumps[GAMELUMP].offset;
+			glump.offset += newGamelump.offset;
 		}
+		
+		System.out.println("===\tGAMELUMPS\t===");
+		for(int i = 0; i < sorted.size(); ++i) {
+			GenericLump l = sorted.get(i);
+			GameLump org = glumps[l.index];
+			System.out.println(l.index + " ===================================================");
+			System.out.println(String.format("NEW\t %,11d\t %,11d\t %,11d", l.offset, l.length, l.offset + l.length));
+			System.out.println(String.format("ORG\t %,11d\t %,11d\t %,11d", org.offset, org.length, org.offset + org.length));
+		}
+		
 		out.write(glumpHeaderBytes);
 		
 		for(int i = 0; i < sorted.size(); ++i) {
-			GameLump to = sorted.get(i);
+			/*GameLump to = sorted.get(i);
+			GameLump from = glumps[to.index];
 			
 			if(to.length == 0)
 				continue;
 			
-			if(to.offset <= glumps[to.index].offset && to.length <= glumps[to.index].length || i >= 63) {
+			if(i >= glumps.length - 1 || to.offset <= from.offset && to.offset + to.length <= sorted.get(i + 1).offset) {
 				//difference of offsets is non positive, we can forward-copy them
 				if(gameLumpData[to.index] != null) {
 					out.seek(to.offset);
@@ -741,9 +758,11 @@ public class SourceBSPFile extends BSPFile{
 				//difference of offsets is positive, we must backward-copy
 				int startIndex = i;
 				to = sorted.get(++i);
+				from = glumps[to.index];
 
-				for(; i < sorted.size() && (to.offset > glumps[to.index].offset || to.length > glumps[to.index].length); ++i) {
+				for(; i < sorted.size() - 1 && (to.offset > from.offset || to.offset + to.length > sorted.get(i + 1).offset); ++i) {
 					to = sorted.get(i);
+					from = glumps[to.index];
 				}
 				
 				for(int j = i - 1; j >= startIndex; --j) {
@@ -760,9 +779,16 @@ public class SourceBSPFile extends BSPFile{
 					
 					copy(out, glumps[to.index], to);
 				}
-			}
+			}*/
 		}
 		
+		for(int i = 0; i < sorted.size(); ++i) {
+			GameLump glump = sorted.get(i);
+
+			//make them relative to Glump once again
+			glumps[glump.index].offset -= lumps[GAMELUMP].offset;
+			glump.offset -= newGamelump.offset;
+		}
 	}
 
 	private void loadGameLumps() throws IOException {
@@ -792,7 +818,8 @@ public class SourceBSPFile extends BSPFile{
 			
 			if(glumps[i].offset < lumps[GAMELUMP].offset || glumpsRelative) {
 				glumpsRelative = true;
-				glumps[i].offset += lumps[GAMELUMP].offset;
+			} else {
+				glumps[i].offset -= lumps[GAMELUMP].offset;
 			}
 			
 			if(glumps[i].id == GameLump.STATICPROP_ID)

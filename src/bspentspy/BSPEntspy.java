@@ -1209,7 +1209,7 @@ public class BSPEntspy {
 		RandomAccessFile output = null;
 		try {
 			output = new RandomAccessFile(out, "rw");
-			this.map.save(output, out.equals(infile));
+			this.map.save(output, true);
 			
 			if(!overwrite && !out.equals(infile)) {
 				infile = out;
