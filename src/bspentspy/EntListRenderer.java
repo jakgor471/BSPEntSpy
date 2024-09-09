@@ -22,6 +22,8 @@ public class EntListRenderer extends DefaultListCellRenderer {
 	static ImageIcon weaponIcon;
 	static ImageIcon axisIcon;
 	static ImageIcon scrseqIcon;
+	static ImageIcon cubemapIcon;
+	static ImageIcon staticPropIcon;
 	static HashMap<String, ImageIcon> iconMap;
 
 	static {
@@ -41,6 +43,8 @@ public class EntListRenderer extends DefaultListCellRenderer {
 		weaponIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/weapon.png"));
 		axisIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/axis.png"));
 		scrseqIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/scriptedsequence.png"));
+		cubemapIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/cubemap.png"));
+		staticPropIcon = new ImageIcon(EntListRenderer.class.getResource("/images/newicons/staticprop.png"));
 
 		iconMap.put("light", lightIcon);
 		iconMap.put("light_dynamic", lightIcon);
@@ -73,6 +77,12 @@ public class EntListRenderer extends DefaultListCellRenderer {
 		if (EntListRenderer.iconMap.containsKey(cls)) {
 			return iconMap.get(cls);
 		}
+		
+		if(value instanceof EntityCubemap)
+			return cubemapIcon;
+		
+		if(value instanceof EntityStaticProp)
+			return staticPropIcon;
 
 		if (value.getKeyValue("model").startsWith("*")) {
 			if (cls.indexOf("trigger") > -1)
@@ -95,10 +105,9 @@ public class EntListRenderer extends DefaultListCellRenderer {
 
 		if (cls.indexOf("npc_") > -1 && cls.indexOf("_make") < 0)
 			return npcIcon;
-
-		if (!value.getKeyValue("model").equals("")) {
+		
+		if (!value.getKeyValue("model").equals(""))
 			return modelIcon;
-		}
 
 		return pointIcon;
 	}

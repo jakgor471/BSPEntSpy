@@ -1,9 +1,12 @@
 package bspentspy;
 
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.GridBagLayout;
+import java.awt.GridLayout;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
@@ -53,6 +56,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComboBox;
+import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -64,6 +68,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
@@ -94,7 +99,7 @@ public class BSPEntspy {
 	private ArrayList<ActionListener> onMapLoadInternal = new ArrayList<ActionListener>();
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String entspyTitle = "BSPEntSpy v1.32";
+	public static final String entspyTitle = "BSPEntSpy v1.33";
 
 	private void updateEntList(ArrayList<Entity> ents) {
 		entModel.setEntityList(ents);
@@ -438,6 +443,66 @@ public class BSPEntspy {
 				bspmap.writePak = true;
 				
 				removePak.setSelected(false);
+			}
+		});
+		
+		JCheckBoxMenuItem editCubemaps = new JCheckBoxMenuItem("Edit Cubemaps");
+		editCubemaps.setToolTipText("Edit cubemaps (only 'cubemapsize' is editable)");
+		editCubemaps.setEnabled(false);
+		mapmenu.addSeparator();
+		mapmenu.add(editCubemaps);
+		
+		editCubemaps.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				if(map == null)
+					return;
+				
+				if(!(map instanceof SourceBSPFile)) {
+					JOptionPane.showMessageDialog(frame, "Unsupported version of BSP. This option works only for Source BSP.");
+					return;
+				}
+				SourceBSPFile bspmap = (SourceBSPFile)map;
+				try {
+					if(editCubemaps.isSelected()) {
+						bspmap.loadCubemaps();
+					} else
+						bspmap.unloadCubemaps();
+				} catch (IOException e) {
+					e.printStackTrace();
+					editCubemaps.setSelected(!editCubemaps.isSelected());
+				}
+				
+				updateEntList(map.entities);
+			}
+		});
+		
+		JCheckBoxMenuItem editStaticProps = new JCheckBoxMenuItem("Edit Static props (EXPERIMENTAL)");
+		editStaticProps.setToolTipText("Edit static props");
+		editStaticProps.setEnabled(false);
+		mapmenu.add(editStaticProps);
+		
+		editStaticProps.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				if(map == null)
+					return;
+				
+				if(!(map instanceof SourceBSPFile)) {
+					JOptionPane.showMessageDialog(frame, "Unsupported version of BSP. This option works only for Source BSP.");
+					return;
+				}
+				SourceBSPFile bspmap = (SourceBSPFile)map;
+				try {
+					if(editStaticProps.isSelected()) {
+						bspmap.loadStaticProps();
+					} else
+						bspmap.unloadStaticProps();
+				} catch(Exception e) {
+					JOptionPane.showMessageDialog(frame, "Could not load Static props!\n" + e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
+					e.printStackTrace();
+					editStaticProps.setSelected(!editStaticProps.isSelected());
+				}
+				
+				updateEntList(map.entities);
 			}
 		});
 
@@ -817,6 +882,9 @@ public class BSPEntspy {
 				}
 
 				for (int i = selected.length - 1; i >= 0; --i) {
+					if(!map.entities.get(selected[i]).canBeRemoved())
+						continue;
+					
 					map.entities.remove(selected[i]);
 				}
 
@@ -1030,6 +1098,11 @@ public class BSPEntspy {
 				exportPak.setEnabled(enable);
 				importPak.setEnabled(enable);
 				removePak.setEnabled(enable);
+				editCubemaps.setEnabled(enable);
+				editStaticProps.setEnabled(enable);
+				
+				editCubemaps.setSelected(false);
+				editStaticProps.setSelected(false);
 			}
 		});
 
@@ -1117,6 +1190,25 @@ public class BSPEntspy {
 
 			if (result2 != JOptionPane.YES_OPTION)
 				return;
+		}
+		
+		if(map instanceof SourceBSPFile) {
+			SourceBSPFile bspmap = (SourceBSPFile)map;
+			
+			if(bspmap.isSpropLumpLoaded()) {
+				final String[] versions = {"v4", "v5", "v6"};
+				JPanel panel = new JPanel(new GridLayout(0, 1));
+				JComboBox<String> combo = new JComboBox<String>(versions);
+				combo.setSelectedIndex(2);
+				panel.add(new JLabel("Detected Static prop lump loaded (version: " + bspmap.getStaticPropVersion() + ")."));
+				panel.add(new JLabel("Please select the version to save it as:"));
+				panel.add(combo);
+		        
+		        int result = JOptionPane.showConfirmDialog(frame, panel, entspyTitle, JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+		        if(result == JOptionPane.OK_OPTION) {
+		        	bspmap.setStaticPropVersion((String)combo.getSelectedItem());
+		        }
+			}
 		}
 		
 		RandomAccessFile output = null;
@@ -1741,12 +1833,13 @@ public class BSPEntspy {
 		}
 
 		public CommandAddEntity(Entity e, int index) {
-			super(e);
 			indices = new ArrayList<Integer>();
-			indices.add(index);
+			addEntity(e, index);
 		}
 
 		public void addEntity(Entity e, int index) {
+			if(!e.canBeRemoved())
+				return;
 			entities.add(e);
 			indices.add(index);
 		}

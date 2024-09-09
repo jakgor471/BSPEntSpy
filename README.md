@@ -1,7 +1,7 @@
 # BSPEntSpy - enhanced Entity Lump editor
 BSPEntSpy is an updated version of **EntSpy** originaly made by Rof (http://www.bagthorpe.org/bob/cofrdrbob/).  
 
-**Latest version** of BSPEntSpy is available to **download** here: https://github.com/jakgor471/BSPEntSpy/releases/tag/v1.32
+**Latest version** of BSPEntSpy is available to **download** here: https://github.com/jakgor471/BSPEntSpy/releases/tag/v1.33
 
 ## Features
 * **Importing and exporting** entities
@@ -12,6 +12,7 @@ BSPEntSpy is an updated version of **EntSpy** originaly made by Rof (http://www.
 * **Enhanced filtering** and selection
 * **Exporting / Importing embedded files** facilitating removal of broken cubemaps or packing files into the map file
 * **Removing light information** for rebuilding the lighting using VRAD
+* **Re-saving Static prop lump with different version** to fix 'stale map version' error
 
 ## Changes compared to the original version
 Apart from features listed above the UI has been updated to use system
@@ -30,6 +31,10 @@ Detailed description and instructions are included in **Help** menu tab in BSPEn
 ![comparison](https://github.com/jakgor471/BSPEntSpy/blob/main/images/image2.jpg?raw=true)
 
 ## Changelog
+### BSPEntSpy v1.33 build 09/09/2024
+* Minor and major bug fixes
+* Added option to edit cubemaps (cubemapsize only)
+* Added option to edit static props and re-save the Static Prop lump using different version (fix for 'stale map version' error)
 ### BSPEntSpy v1.32 build 02/09/2024
 * Minor and major bug fixes
 * Added option to export/import files embedded in Pak Lump

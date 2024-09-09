@@ -32,7 +32,7 @@ public class RandomAccessByteOutputStream extends OutputStream{
 			throw new IndexOutOfBoundsException();
 		ensureCapacity(pos + len);
 		System.arraycopy(b, off, data, pos, len);
-		pos += len;
+		pos += len - off;
 		size = Math.max(size, pos);
 	}
 	
@@ -41,17 +41,27 @@ public class RandomAccessByteOutputStream extends OutputStream{
     }
 	
 	public void writeInt(int num) {
+		ensureCapacity(pos + 4);
 		data[pos] = (byte)(num);
 		data[pos + 1] = (byte)(num >> 8);
 		data[pos + 2] = (byte)(num >> 16);
 		data[pos + 3] = (byte)(num >> 24);
 		pos += 4;
+		
+		size = Math.max(size, pos);
 	}
 	
 	public void writeShort(short num) {
+		ensureCapacity(pos + 2);
 		data[pos] = (byte)(num);
 		data[pos + 1] = (byte)(num >> 8);
 		pos += 2;
+		
+		size = Math.max(size, pos);
+	}
+	
+	public void writeFloat(float num) {
+		writeInt(Float.floatToIntBits(num));
 	}
 	
 	public void seek(int pos) {
@@ -60,6 +70,10 @@ public class RandomAccessByteOutputStream extends OutputStream{
 		if(pos < 0)
 			throw new IndexOutOfBoundsException();
 		this.pos = pos;
+	}
+	
+	public int tell() {
+		return pos;
 	}
 	
 	public int size() {

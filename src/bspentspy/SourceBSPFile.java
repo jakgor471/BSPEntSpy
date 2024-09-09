@@ -13,8 +13,14 @@ import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.Charset;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -36,13 +42,19 @@ public class SourceBSPFile extends BSPFile{
 	protected boolean hasLights = true;
 	protected File embeddedPak = null;
 	
+	private int targetSpropVersion = -1;
+	private int curSpropVersion = -1;
 	private BSPLump[] lumps;
 	private GameLump[] glumps;
+	private GameLump staticPropLump = null;
 	private ArrayList<BSPWorldLight> hdrLights;
 	private ArrayList<BSPWorldLight> ldrLights;
 	private ArrayList<ZipPart> pakfiles = null;
 	private int mapRev;
 	private boolean glumpsRelative = false;
+	
+	private ArrayList<EntityCubemap> cubemaps = null;
+	private ArrayList<EntityStaticProp> staticProps = null;
 	
 	public boolean read(RandomAccessFile file) throws IOException {
 		file.seek(0);
@@ -81,41 +93,377 @@ public class SourceBSPFile extends BSPFile{
 		
 		loadGameLumps();
 		loadEntities();
-		//loadLights();
 		
 		return true;
 	}
 	
-	private void loadPak() throws IOException {
-		bspfile.seek(lumps[PAKLUMP].offset);
+	public void unloadCubemaps() {
+		if(cubemaps == null)
+			return;
 		
-		FileInputStream is = new FileInputStream(bspfile.getFD());
-		ZipInputStream zis = new ZipInputStream(is);
-		pakfiles = new ArrayList<ZipPart>();
+		cubemaps = null;
 		
-		ZipEntry ze = null;
-		while((ze = zis.getNextEntry()) != null) {
-			byte[] data = new byte[(int)ze.getSize()];
-			zis.read(data);
+		for(int i = 0; i < entities.size(); ++i) {
+			if(entities.get(i) instanceof EntityCubemap) {
+				entities.remove(i);
+				--i;
+			}
+		}
+	}
+	
+	public void unloadStaticProps() {
+		if(staticProps == null)
+			return;
+		
+		staticProps = null;
+		
+		for(int i = 0; i < entities.size(); ++i) {
+			if(entities.get(i) instanceof EntityStaticProp) {
+				entities.remove(i);
+				--i;
+			}
+		}
+	}
+	
+	public boolean isSpropLumpLoaded() {
+		return staticProps != null;
+	}
+	
+	private byte[] getStaticPropsBytes() throws IOException {
+		if(staticProps == null)
+			return null;
+		
+		try(RandomAccessByteOutputStream lumpBytes = new RandomAccessByteOutputStream()){
+			lumpBytes.seek(4);
 			
-			ZipPart part = new ZipPart(ze, data);
-			pakfiles.add(part);
+			HashMap<String, Integer> dict = new HashMap<String, Integer>();
+			short[] nameIndices = new short[staticProps.size()];
+			int numNames = 0;
+			
+			for(int i = 0; i < staticProps.size(); ++i) {
+				String name = staticProps.get(i).getKeyValue("model");
+				Integer index = dict.get(name);
+				
+				if(index == null) {
+					byte[] strBytes = name.getBytes(utf8Charset);
+					lumpBytes.write(strBytes, 0, Math.min(strBytes.length, 128));
+					
+					int padding = 128 - Math.min(strBytes.length, 128);
+					lumpBytes.write(new byte[padding]);
+					
+					index = numNames;
+					++numNames;
+					dict.put(name, index);
+				}
+				
+				nameIndices[i] = index.shortValue();
+			}
+			
+			int lastPos = lumpBytes.tell();
+			lumpBytes.seek(0);
+			lumpBytes.writeInt(numNames);
+			lumpBytes.seek(lastPos + 4);
+			
+			int numLeaves = 0;
+			short[] firstLeaves = new short[staticProps.size()];
+			short[] leafCounts = new short[staticProps.size()];
+			
+			for(int i = 0; i < staticProps.size(); ++i) {
+				String[] strLeaves = staticProps.get(i).getKeyValue("leaves").split(",\\s*");
+				firstLeaves[i] = (short)numLeaves;
+				leafCounts[i] = (short)strLeaves.length;
+				
+				for(String s : strLeaves) {
+					lumpBytes.writeShort((short)parseInt(s, 0));
+				}
+				
+				numLeaves += strLeaves.length;
+			}
+			
+			int lastPos2 = lumpBytes.tell();
+			lumpBytes.seek(lastPos);
+			lumpBytes.writeInt(numLeaves);
+			lumpBytes.seek(lastPos2);
+			lumpBytes.writeInt(staticProps.size());
+			
+			for(int i = 0; i < staticProps.size(); ++i) {
+				EntityStaticProp prop = staticProps.get(i);
+				String[] vecSplit = prop.getKeyValue("origin").split("\\s+");
+				
+				for(int j = 0; j < 3; ++j) {
+					float value = 0;
+					
+					if(j < vecSplit.length) {
+						value = parseFloat(vecSplit[j], 0f);
+					}
+					
+					lumpBytes.writeFloat(value);
+				}
+				
+				vecSplit = prop.getKeyValue("angles").split("\\s+");
+				
+				for(int j = 0; j < 3; ++j) {
+					float value = 0;
+					
+					if(j < vecSplit.length) {
+						value = parseFloat(vecSplit[j], 0f);
+					}
+					
+					lumpBytes.writeFloat(value);
+				}
+				
+				lumpBytes.writeShort(nameIndices[i]);
+				lumpBytes.writeShort(firstLeaves[i]);
+				lumpBytes.writeShort(leafCounts[i]);
+				
+				lumpBytes.write(parseByte(prop.getKeyValue("solid"), 0));
+				lumpBytes.write(prop.flags);
+				lumpBytes.writeInt(parseInt(prop.getKeyValue("skin"), 0));
+				lumpBytes.writeFloat(parseFloat(prop.getKeyValue("fademindist"), 0));
+				lumpBytes.writeFloat(parseFloat(prop.getKeyValue("fademaxdist"), 0));
+				
+				vecSplit = prop.getKeyValue("lightingorigin").split("\\s+");
+				
+				for(int j = 0; j < 3; ++j) {
+					float value = 0;
+					
+					if(j < vecSplit.length) {
+						value = parseFloat(vecSplit[j], 0f);
+					}
+					
+					lumpBytes.writeFloat(value);
+				}
+				
+				if(targetSpropVersion >= SPROPLUMP_V5) {
+					lumpBytes.writeFloat(parseFloat(prop.getKeyValue("fadescale"), 0));
+				}
+				
+				if(targetSpropVersion == SPROPLUMP_V6) {
+					lumpBytes.writeShort((short)parseInt(prop.getKeyValue("mindxlevel"), 0));
+					lumpBytes.writeShort((short)parseInt(prop.getKeyValue("maxdxlevel"), 0));
+				}
+			}
+			
+			return lumpBytes.toByteArray();
+		} catch(IOException e) {
+			throw e;
+		}
+	}
+	
+	private byte parseByte(String s, int defValue) {
+		byte val = (byte)defValue;
+		try {
+			val = Byte.valueOf(s);
+		} catch(NumberFormatException e) {}
+		
+		return val;
+	}
+	
+	private float parseFloat(String s, float defValue) {
+		float val = defValue;
+		try {
+			val = Float.valueOf(s);
+		} catch(NumberFormatException e) {}
+		
+		return val;
+	}
+	
+	private int parseInt(String s, int defValue) {
+		int val = defValue;
+		try {
+			val = Integer.valueOf(s);
+		} catch(NumberFormatException e) {}
+		
+		return val;
+	}
+	
+	public void setStaticPropVersion(String ver) {
+		if(ver.equals("v4"))
+			targetSpropVersion = SPROPLUMP_V4;
+		else if(ver.equals("v5"))
+			targetSpropVersion = SPROPLUMP_V5;
+		else if(ver.equals("v6"))
+			targetSpropVersion = SPROPLUMP_V6;
+		else
+			targetSpropVersion = -1; //-1 to save with original sprop version
+	}
+	
+	public String getStaticPropVersion() {
+		final String[] lookup = {"v4", "v5", "v6"};
+		
+		if(curSpropVersion > -1 && curSpropVersion < lookup.length)
+			return lookup[curSpropVersion];
+		
+		if(staticPropLump != null)
+			return "v" + Integer.toString(staticPropLump.version);
+		
+		return "";
+	}
+	
+	public void loadStaticProps() throws Exception{
+		if(staticPropLump == null)
+			return;
+		
+		switch(staticPropLump.version) {
+		case 4:
+			curSpropVersion = SPROPLUMP_V4;
+			break;
+		case 5:
+			curSpropVersion = SPROPLUMP_V5;
+			break;
+		case 6:
+			curSpropVersion = SPROPLUMP_V6;
+			break;
+		default:
+			curSpropVersion = SPROPLUMP_INVALIDVERSION;
 		}
 		
-		System.out.println("PakLump size: " + (double)lumps[PAKLUMP].length / 1000000.0D + "MB");
+		if(curSpropVersion == SPROPLUMP_INVALIDVERSION) {
+			throw new Exception("Not supported Static prop lump version (" + getStaticPropVersion() + ")!");
+		}
+		
+		bspfile.seek(staticPropLump.offset);
+		int dictEntries = Integer.reverseBytes(bspfile.readInt());
+		
+		byte[] block = new byte[128];		
+		String[] dict = new String[dictEntries];
+		
+		for(int i = 0; i < dictEntries; ++i) {
+			bspfile.read(block);
+			int j = 0;
+			for(; j < block.length && block[j] > 0; ++j) {}
+			
+			dict[i] = new String(block, 0, j, utf8Charset);
+		}
+		
+		int leafEntries = Integer.reverseBytes(bspfile.readInt());
+		short[] leafDict = new short[leafEntries];
+		block = new byte[leafEntries * 2];
+		bspfile.read(block);
+		
+		ByteBuffer buff = ByteBuffer.wrap(block);
+		buff.order(ByteOrder.LITTLE_ENDIAN);
+		
+		for(int i = 0; i < leafEntries; ++i) {
+			leafDict[i] = buff.getShort();
+		}
+		
+		int numProps = Integer.reverseBytes(bspfile.readInt());
+		//long propLumpLen = staticPropLump.length - 4 - dictEntries * 128 - 4 - leafEntries * 2 - 4;
+		
+		block = new byte[numProps * SPROPLUMP_SIZE[curSpropVersion]];
+		bspfile.read(block);
+		
+		buff = ByteBuffer.wrap(block);
+		buff.order(ByteOrder.LITTLE_ENDIAN);
+		
+		staticProps = new ArrayList<EntityStaticProp>(numProps);
+		
+		for(int i = 0; i < numProps; ++i) {
+			EntityStaticProp prop = new EntityStaticProp();
+			float x = buff.getFloat();
+			float y = buff.getFloat();
+			float z = buff.getFloat();
+			
+			prop.setKeyVal("origin", Float.toString(x) + " " + Float.toString(y) + " " + Float.toString(z));
+			
+			x = buff.getFloat();
+			y = buff.getFloat();
+			z = buff.getFloat();
+			
+			prop.setKeyVal("angles", Float.toString(x) + " " + Float.toString(y) + " " + Float.toString(z));
+			
+			short propType = buff.getShort();
+			prop.setKeyVal("model", dict[propType]);
+			
+			int firstLeaf = Short.toUnsignedInt(buff.getShort());
+			int leafCount = Short.toUnsignedInt(buff.getShort());
+			
+			StringBuilder leaves = new StringBuilder();
+			for(int j = 0; j < leafCount; ++j) {
+				leaves.append(Integer.toUnsignedString(leafDict[firstLeaf + j]));
+				
+				if(j != leafCount - 1)
+					leaves.append(", ");
+			}
+			
+			prop.setKeyVal("leaves", leaves.toString());
+			prop.setKeyVal("solid", Integer.toString(buff.get()));
+			prop.flags = buff.get();
+			prop.setKeyVal("skin", Integer.toString(buff.getInt()));
+			prop.setKeyVal("fademindist", Float.toString(buff.getFloat()));
+			prop.setKeyVal("fademaxdist", Float.toString(buff.getFloat()));
+			
+			x = buff.getFloat();
+			y = buff.getFloat();
+			z = buff.getFloat();
+			
+			prop.setKeyVal("lightingorigin", Float.toString(x) + " " + Float.toString(y) + " " + Float.toString(z));
+			
+			if(curSpropVersion >= SPROPLUMP_V5) {
+				prop.setKeyVal("fadescale", Float.toString(buff.getFloat()));
+			}
+			
+			if(curSpropVersion == SPROPLUMP_V6) {
+				prop.setKeyVal("mindxlevel", Integer.toUnsignedString(buff.getShort()));
+				prop.setKeyVal("maxdxlevel", Integer.toUnsignedString(buff.getShort()));
+			}
+			
+			staticProps.add(prop);
+			entities.add(prop);
+		}
+	}
+	
+	public byte[] getCubemapBytes() throws IOException{
+		byte[] cubemapData = new byte[cubemaps.size() * 16];
+		ByteBuffer buff = ByteBuffer.wrap(cubemapData);
+		buff.order(ByteOrder.LITTLE_ENDIAN);
+		
+		for(int i = 0; i < cubemaps.size(); ++i) {
+			EntityCubemap cubemap = cubemaps.get(i);
+			buff.putInt(cubemap.cubemapOrigin[0]);
+			buff.putInt(cubemap.cubemapOrigin[1]);
+			buff.putInt(cubemap.cubemapOrigin[2]);
+			
+			int size = 0;
+			try {
+				size = Integer.valueOf(cubemap.getKeyValue("cubemapsize"));
+			} catch(NumberFormatException e) {
+				System.out.println("ERROR! Could not parse cubemapsize on cubemap(" + cubemap.cubemapOrigin[0] + " " + cubemap.cubemapOrigin[1] + " " + cubemap.cubemapOrigin[2] + ")!");
+			}
+			
+			buff.putInt(Math.max(Math.min(size, 13), 0));
+		}
+		
+		return cubemapData;
 	}
 
-	public void removeCubemapData() throws IOException {
-		loadPak();
-		Pattern p = Pattern.compile("materials/maps/.*?/c[-\\d]+_[-\\d]+_[-\\d]+\\.[hdrvtf.]+");
+	public void loadCubemaps() throws IOException {
+		unloadCubemaps();
 		
-		for(int i = 0; i < pakfiles.size(); ++i) {
-			ZipPart part = pakfiles.get(i);
+		int numCubemaps = (int)(lumps[CUBEMAPLUMP].length / 16);
+		cubemaps = new ArrayList<EntityCubemap>(numCubemaps);
+		
+		bspfile.seek(lumps[CUBEMAPLUMP].offset);
+		byte[] cubemapData = new byte[(int)lumps[CUBEMAPLUMP].length];
+		ByteBuffer buff = ByteBuffer.wrap(cubemapData);
+		buff.order(ByteOrder.LITTLE_ENDIAN);
+		
+		bspfile.read(cubemapData);
+		for(int i = 0; i < numCubemaps; ++i) {
+			EntityCubemap cubemap = new EntityCubemap();		
+			int x = buff.getInt();
+			int y = buff.getInt();
+			int z = buff.getInt();
+			cubemap.cubemapOrigin[0] = x;
+			cubemap.cubemapOrigin[1] = y;
+			cubemap.cubemapOrigin[2] = z;
+			int size = buff.getInt();
+			cubemap.setKeyVal("origin(readonly)", x + " " + y + " " + z);
+			cubemap.setKeyVal("cubemapsize", String.valueOf(size));
 			
-			if(p.matcher(part.entry.getName()).matches()) {
-				--i;
-				pakfiles.remove(i);
-			}
+			entities.add(cubemap);
+			cubemaps.add(cubemap);
 		}
 	}
 	
@@ -177,10 +525,17 @@ public class SourceBSPFile extends BSPFile{
 			newGlumps[i] = (GameLump)glumps[i].clone();
 		}
 		byte[] entData = null;
+		byte[] cubemapData = null;
+		byte[][] gameLumpData = new byte[newGlumps.length][];
 		
 		if(entDirty) {
 			entData = getEntityBytes(newLumps[ENTLUMP]);
 			newLumps[ENTLUMP].length = entData.length;
+		}
+		
+		if(cubemaps != null) {
+			cubemapData = getCubemapBytes();
+			newLumps[CUBEMAPLUMP].length = cubemapData.length;
 		}
 		
 		if(!writeLights) {
@@ -190,6 +545,15 @@ public class SourceBSPFile extends BSPFile{
 		
 		if(!writePak) {
 			newLumps[PAKLUMP].length = 0;
+		}
+		
+		if(staticProps != null && staticPropLump != null) {
+			if(targetSpropVersion > -1)
+				newGlumps[staticPropLump.index].version = SPROPLUMP_VERSIONLOOKUP[targetSpropVersion];
+			byte[] spropData = getStaticPropsBytes();
+			newGlumps[staticPropLump.index].length = spropData.length;
+			gameLumpData[staticPropLump.index] = spropData;
+			staticPropLump = newGlumps[staticPropLump.index];
 		}
 		
 		FileInputStream pakIs = null;
@@ -209,15 +573,14 @@ public class SourceBSPFile extends BSPFile{
 			}
 		}
 		
+		ArrayList<GameLump> sortedGlumps = updateGameLumps(newLumps[GAMELUMP], newGlumps);
 		Collections.sort(sorted);
 
 		GenericLump cur = sorted.get(0);
 		cur.offset = Math.max(cur.offset, 1036);
-		long seed = 79800421518161L;
 
 		for(i = 0; i < sorted.size() - 1; ++i) {
 			cur = sorted.get(i);
-			seed = (seed << 2) ^ cur.length;
 			
 			GenericLump next = sorted.get(i + 1);
 			next.offset = alignToFour(cur.offset + cur.length);
@@ -244,8 +607,7 @@ public class SourceBSPFile extends BSPFile{
 			if(to.offset <= lumps[to.index].offset && to.length <= lumps[to.index].length || i >= 63) {
 				//difference of offsets is non positive, we can forward-copy them
 				if(to.index == GAMELUMP) {
-					copy(out, lumps[GAMELUMP], to);
-					saveGameLumps(out, newLumps[GAMELUMP], newGlumps);
+					saveGameLumps(out, newLumps[GAMELUMP], sortedGlumps, gameLumpData);
 					continue;
 				} else if(to.index == ENTLUMP && entDirty) {
 					out.seek(newLumps[ENTLUMP].offset); //entities are written first and they DESTROY the lump 15!!!!
@@ -254,6 +616,10 @@ public class SourceBSPFile extends BSPFile{
 				} else if(to.index == PAKLUMP && pakIs != null) {
 					out.seek(newLumps[PAKLUMP].offset);
 					copy(out, pakIs, newLumps[PAKLUMP].length);
+					continue;
+				} else if(to.index == CUBEMAPLUMP && cubemapData != null) {
+					out.seek(newLumps[CUBEMAPLUMP].offset);
+					out.write(cubemapData);
 					continue;
 				}
 				
@@ -274,8 +640,7 @@ public class SourceBSPFile extends BSPFile{
 						continue;
 					
 					if(to.index == GAMELUMP) {
-						copy(out, lumps[GAMELUMP], to);
-						saveGameLumps(out, newLumps[GAMELUMP], newGlumps);
+						saveGameLumps(out, newLumps[GAMELUMP], sortedGlumps, gameLumpData);
 						continue;
 					} else if(to.index == ENTLUMP && entDirty) {
 						out.seek(newLumps[ENTLUMP].offset);
@@ -284,6 +649,10 @@ public class SourceBSPFile extends BSPFile{
 					} else if(to.index == PAKLUMP && pakIs != null) {
 						out.seek(newLumps[PAKLUMP].offset);
 						copy(out, pakIs, newLumps[PAKLUMP].length);
+						continue;
+					} else if(to.index == CUBEMAPLUMP && cubemapData != null) {
+						out.seek(newLumps[CUBEMAPLUMP].offset);
+						out.write(cubemapData);
 						continue;
 					}
 					
@@ -295,29 +664,6 @@ public class SourceBSPFile extends BSPFile{
 		if(pakIs != null)
 			pakIs.close();
 		
-		//CORRUPTOR
-		/*Random rand = new Random(seed);
-		out.seek(newLumps[VERTEXLUMP].offset);
-		int numVertices = (int)(newLumps[VERTEXLUMP].length / 12);
-		byte[] vertBytes = new byte[(int)newLumps[VERTEXLUMP].length];
-		ByteBuffer buff = ByteBuffer.wrap(vertBytes);
-		buff.order(ByteOrder.LITTLE_ENDIAN);
-		out.read(vertBytes);
-		
-		for(i = 0; i < numVertices; ++i) {
-			if(rand.nextInt(3) != 1)
-				continue;
-			float x = buff.getFloat(i * 12) + rand.nextFloat() * 8;
-			float y = buff.getFloat(i * 12 + 4) + rand.nextFloat() * 8;
-			float z = buff.getFloat(i * 12 + 8) + rand.nextFloat() * 8;
-			buff.putFloat(i * 12, x);
-			buff.putFloat(i * 12 + 4, y);
-			buff.putFloat(i * 12 + 8, z);
-		}
-		
-		out.seek(newLumps[VERTEXLUMP].offset);
-		out.write(vertBytes);*/
-		
 		writeHeader(out, newLumps);
 		out.setLength(totalLen);
 		
@@ -327,6 +673,136 @@ public class SourceBSPFile extends BSPFile{
 			embeddedPak = null;
 			writePak = true;
 			writeLights = true;
+		}
+	}
+	
+	private ArrayList<GameLump> updateGameLumps(GenericLump glump, GameLump[] newGlumps) {
+		if(newGlumps.length < 1)
+			return null;
+		
+		ArrayList<GameLump> sorted = new ArrayList<GameLump>();
+		
+		for(GameLump g : newGlumps)
+			sorted.add(g);
+		
+		Collections.sort(sorted);
+		int headerSize = 4 + sorted.size() * 16;
+		sorted.get(0).offset = glump.offset + alignToFour(headerSize);
+		
+		for(int i = 0; i < sorted.size() - 1; ++i) {
+			GameLump cur = sorted.get(i);
+			GameLump next = sorted.get(i + 1);
+			
+			next.offset = alignToFour(cur.offset + cur.length);
+		}
+		
+		GameLump last = sorted.get(sorted.size() - 1);
+		glump.length = last.offset + last.length - glump.offset;
+		
+		return sorted;
+	}
+	
+	private void saveGameLumps(RandomAccessFile out, GenericLump gameLump, ArrayList<GameLump> sorted, byte[][] gameLumpData) throws IOException {
+		out.seek(gameLump.offset);
+		
+		if(gameLumpData == null)
+			gameLumpData = new byte[sorted.size()][];
+		
+		byte[] glumpHeaderBytes = new byte[4 + 16 * sorted.size()];
+		ByteBuffer glumpBuff = ByteBuffer.wrap(glumpHeaderBytes);
+		glumpBuff.order(ByteOrder.LITTLE_ENDIAN);
+		
+		long glumpOffset = 0;
+		
+		if(glumpsRelative)
+			glumpOffset = gameLump.offset;
+		
+		glumpBuff.putInt(sorted.size());
+		for(int i = 0; i < sorted.size(); ++i) {
+			GameLump glump = sorted.get(i);
+			glumpBuff.putInt(glump.id);
+			glumpBuff.putShort(glump.flags);
+			glumpBuff.putShort((short)glump.version);
+			glumpBuff.putInt((int)(glump.offset - glumpOffset));
+			glumpBuff.putInt((int)glump.length);
+		}
+		out.write(glumpHeaderBytes);
+		
+		for(int i = 0; i < sorted.size(); ++i) {
+			GameLump to = sorted.get(i);
+			
+			if(to.length == 0)
+				continue;
+			
+			if(to.offset <= glumps[to.index].offset && to.length <= glumps[to.index].length || i >= 63) {
+				//difference of offsets is non positive, we can forward-copy them
+				if(gameLumpData[to.index] != null) {
+					out.seek(to.offset);
+					out.write(gameLumpData[to.index]);
+					continue;
+				}
+				
+				copy(out, glumps[to.index], to);
+			} else {
+				//difference of offsets is positive, we must backward-copy
+				int startIndex = i;
+				to = sorted.get(++i);
+
+				for(; i < sorted.size() && (to.offset > glumps[to.index].offset || to.length > glumps[to.index].length); ++i) {
+					to = sorted.get(i);
+				}
+				
+				for(int j = i - 1; j >= startIndex; --j) {
+					to = sorted.get(j);
+					
+					if(to.length == 0)
+						continue;
+					
+					if(gameLumpData[to.index] != null) {
+						out.seek(to.offset);
+						out.write(gameLumpData[to.index]);
+						continue;
+					}
+					
+					copy(out, glumps[to.index], to);
+				}
+			}
+		}
+		
+	}
+
+	private void loadGameLumps() throws IOException {
+		BSPLump glump = lumps[GAMELUMP];
+		
+		if(glump.offset == 0)
+			return;
+		
+		bspfile.seek(glump.offset);
+		
+		int lumpCount = Integer.reverseBytes(bspfile.readInt());
+		glumps = new GameLump[lumpCount];
+		
+		byte[] glumpBytes = new byte[16 * lumpCount];
+		bspfile.read(glumpBytes);
+		ByteBuffer glumpBuff = ByteBuffer.wrap(glumpBytes);
+		glumpBuff.order(ByteOrder.LITTLE_ENDIAN);
+		
+		for(int i = 0; i < lumpCount; ++i) {
+			glumps[i] = new GameLump();
+			glumps[i].index = i;
+			glumps[i].id = glumpBuff.getInt();
+			glumps[i].flags = glumpBuff.getShort();
+			glumps[i].version = Short.toUnsignedInt(glumpBuff.getShort());
+			glumps[i].offset = Integer.toUnsignedLong(glumpBuff.getInt()); //make it relative to GameLump
+			glumps[i].length = Integer.toUnsignedLong(glumpBuff.getInt());
+			
+			if(glumps[i].offset < lumps[GAMELUMP].offset || glumpsRelative) {
+				glumpsRelative = true;
+				glumps[i].offset += lumps[GAMELUMP].offset;
+			}
+			
+			if(glumps[i].id == GameLump.STATICPROP_ID)
+				staticPropLump = glumps[i];
 		}
 	}
 	
@@ -374,63 +850,6 @@ public class SourceBSPFile extends BSPFile{
 		
 		return out.toByteArray();
 	} 
-
-	private void loadGameLumps() throws IOException {
-		BSPLump glump = lumps[GAMELUMP];
-		
-		if(glump.offset == 0)
-			return;
-		
-		bspfile.seek(glump.offset);
-		
-		int lumpCount = Integer.reverseBytes(bspfile.readInt());
-		glumps = new GameLump[lumpCount];
-		
-		byte[] glumpBytes = new byte[16 * lumpCount];
-		bspfile.read(glumpBytes);
-		ByteBuffer glumpBuff = ByteBuffer.wrap(glumpBytes);
-		glumpBuff.order(ByteOrder.LITTLE_ENDIAN);
-		
-		for(int i = 0; i < lumpCount; ++i) {
-			glumps[i] = new GameLump();
-			glumps[i].index = GLUMP_INDEX_OFF + i;
-			glumps[i].id = glumpBuff.getInt();
-			glumps[i].flags = glumpBuff.getShort();
-			glumps[i].version = Short.toUnsignedInt(glumpBuff.getShort());
-			glumps[i].offset = Integer.toUnsignedLong(glumpBuff.getInt()); //make it relative to GameLump
-			glumps[i].length = Integer.toUnsignedLong(glumpBuff.getInt());
-			
-			if(glumps[i].offset < lumps[GAMELUMP].offset && !glumpsRelative) {
-				glumpsRelative = true;
-				continue;
-			}
-			glumps[i].offset -= lumps[GAMELUMP].offset;
-		}
-	}
-	
-	private void saveGameLumps(RandomAccessFile out, GenericLump gameLump, GameLump[] newGlumps) throws IOException {
-		out.seek(gameLump.offset);
-		
-		byte[] glumpBytes = new byte[4 + 16 * newGlumps.length];
-		ByteBuffer glumpBuff = ByteBuffer.wrap(glumpBytes);
-		glumpBuff.order(ByteOrder.LITTLE_ENDIAN);
-		
-		long glumpOffset = gameLump.offset;
-		
-		if(glumpsRelative)
-			glumpOffset = 0;
-		
-		glumpBuff.putInt(newGlumps.length);
-		for(int i = 0; i < newGlumps.length; ++i) {
-			glumpBuff.putInt(newGlumps[i].id);
-			glumpBuff.putShort(newGlumps[i].flags);
-			glumpBuff.putShort((short)newGlumps[i].version);
-			glumpBuff.putInt((int)(newGlumps[i].offset + glumpOffset));
-			glumpBuff.putInt((int)newGlumps[i].length);
-		}
-		
-		out.write(glumpBytes);
-	}
 	
 	private byte[] decompress() throws IOException {
 		int id = bspfile.readInt();
@@ -615,6 +1034,16 @@ public class SourceBSPFile extends BSPFile{
 	private static final int VERTEXLUMP = 3;
 	private static final int DISPVERTLUMP = 33;
 	
+	private static final Charset utf8Charset = Charset.forName("UTF-8");
+	
+	private static final int[] SPROPLUMP_SIZE = {60, 60, 64};
+	private static final int[] SPROPLUMP_VERSIONLOOKUP = {4, 5, 6};
+	
+	private static final int SPROPLUMP_V4 = 0;
+	private static final int SPROPLUMP_V5 = 1;
+	private static final int SPROPLUMP_V6 = 2;
+	private static final int SPROPLUMP_INVALIDVERSION = -1;
+	
 	public static class BSPWorldLight implements IOriginThing {
 		public static final int EMIT_SURF = 0;
 		public static final int EMIT_POINT = 1;
@@ -676,6 +1105,8 @@ public class SourceBSPFile extends BSPFile{
 	}
 	
 	private static class GameLump extends GenericLump{
+		public static final int STATICPROP_ID = 0x73707270;
+		
 		int id;
 		short flags;
 		int version;

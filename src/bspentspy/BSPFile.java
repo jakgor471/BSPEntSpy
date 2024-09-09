@@ -111,7 +111,7 @@ public abstract class BSPFile implements AutoCloseable{
 		}
 	}
 	
-	protected byte[] getEntityBytes() throws IOException {
+	protected byte[] getEntityBytes() throws IOException {		
 		StringBuilder sb = new StringBuilder();
 		
 		if(!entities.get(0).classname.equals("worldspawn")) {
@@ -126,6 +126,8 @@ public abstract class BSPFile implements AutoCloseable{
 		}
 		
 		for(Entity e : entities) {
+			if(!e.shouldSave())
+				continue;
 			sb.append("{\n");
 			for(int i = 0; i < e.keyvalues.size(); ++i) {
 				sb.append("\"").append(e.keyvalues.get(i).key).append("\" \"").append(e.keyvalues.get(i).value).append("\"\n");

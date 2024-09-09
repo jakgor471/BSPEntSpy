@@ -11,7 +11,7 @@ import bspentspy.Undo.Command;
 
 public class Entity {
 	int index;
-	float[] origin = new float[] {0, 0, 0};
+	//float[] origin = new float[] {0, 0, 0};
 	boolean mark = false;
 	boolean autoedit = false;
 	String classname;
@@ -24,10 +24,15 @@ public class Entity {
 	private int uniqueInt = 0;
 
 	public Entity() {
+		
 	}
-
-	public Entity(String s) {
-		this.classname = s;
+	
+	public boolean canBeRemoved() {
+		return true;
+	}
+	
+	public boolean shouldSave() {
+		return true;
 	}
 	
 	public long keyValHash() {
@@ -58,7 +63,7 @@ public class Entity {
 	public void clear() {
 		this.classname = null;
 		this.targetname = null;
-		this.origin = null;
+		//this.origin = null;
 		keyvalues.clear();
 		kvmap.clear();
 		uniqueKvmap.clear();
@@ -72,12 +77,12 @@ public class Entity {
 		setKeyVal("targetname", targetname);
 	}
 	
-	public void setOrigin(double x, double y, double z) {
+	/*public void setOrigin(double x, double y, double z) {
 		setKeyVal("origin", String.format("%4f", x) + " " + String.format("%4f", y) + " " + String.format("%4f", z));
 		origin[0] = (float)x;
 		origin[1] = (float)y;
 		origin[2] = (float)z;
-	}
+	}*/
 
 	public String getKeyValue(String keyword) {
 		Integer index = kvmap.get(keyword);
@@ -91,7 +96,7 @@ public class Entity {
 		this.classname = this.getKeyValue("classname");
 		this.targetname = this.getKeyValue("targetname");
 		
-		String[] split = this.getKeyValue("origin").trim().split("\\s+");
+		/*String[] split = this.getKeyValue("origin").trim().split("\\s+");
 		
 		origin[0] = origin[1] = origin[2] = 0;
 		
@@ -105,7 +110,7 @@ public class Entity {
 		} catch(NumberFormatException e) {
 			origin[0] = origin[1] = origin[2] = 0;
 			setKeyVal("origin", "0 0 0");
-		}
+		}*/
 	}
 
 	public String getKeyValString(int i) {
@@ -240,7 +245,7 @@ public class Entity {
 		setnames();
 	}
 
-	public void rehash() {
+	private void rehash() {
 		kvmap.clear();
 		uniqueKvmap.clear();
 
