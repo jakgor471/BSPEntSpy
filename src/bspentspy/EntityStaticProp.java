@@ -1,9 +1,5 @@
 package bspentspy;
 
-import bspentspy.Entity.CommandChangeKey;
-import bspentspy.Entity.CommandDeleteKV;
-import bspentspy.Entity.KeyValue;
-
 public class EntityStaticProp extends Entity {
 	short[] leaves;
 	byte flags;
