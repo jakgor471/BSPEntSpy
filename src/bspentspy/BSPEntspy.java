@@ -519,12 +519,6 @@ public class BSPEntspy {
 				if (!BSPEntspy.this.loadfile()) {
 					return;
 				}
-
-				try {
-					readFile();
-				} catch (IOException e1) {
-					e1.printStackTrace();
-				}
 			}
 		});
 		msave.addActionListener(new ActionListener() {
@@ -1157,6 +1151,13 @@ public class BSPEntspy {
 		System.out.println("Reading map file " + this.filename);
 
 		preferences.put("LastFolder", this.infile.getParent());
+		
+		try {
+			readFile();
+		} catch (IOException e1) {
+			e1.printStackTrace();
+			return false;
+		}
 
 		return true;
 	}
@@ -1178,6 +1179,12 @@ public class BSPEntspy {
 				return;
 			}
 			out = chooser.getSelectedFile();
+			String outName = out.getName();
+			int extIndex = outName.lastIndexOf('.');
+			
+			if(extIndex < 1 || !outName.substring(extIndex).toLowerCase().equals(".bsp")) {
+				out = new File(out.getPath().concat(".bsp"));
+			}
 		}
 
 		if (out.exists()) {
@@ -1207,20 +1214,28 @@ public class BSPEntspy {
 		}
 		
 		RandomAccessFile output = null;
+		File outTemp = out;
+		boolean swap = false;
 		try {
-			output = new RandomAccessFile(out, "rw");
-			this.map.save(output, true);
+			if(out.equals(infile)) {
+				outTemp = new File(out.getPath() + ".temp");
+				swap = true;
+			}
 			
-			if(!overwrite && !out.equals(infile)) {
-				infile = out;
+			output = new RandomAccessFile(outTemp, "rw");
+			this.map.save(output, true);
+			output.close();
+			
+			if(swap) {
 				map.close();
-				map.bspfile = output;
-				this.filename = infile.getName();
-				frame.setTitle(entspyTitle + " - " + this.filename);
-			} else
-				output.close();
+				
+				if(!out.delete() || !outTemp.renameTo(out)) {
+					out = outTemp;
+					throw new IOException("Could not replace the original BSP file ('" + out.getPath() + "') with new file ('" + outTemp.getPath() + "')!");
+				}
+			}
 		} catch (IOException e) {
-			JOptionPane.showMessageDialog(frame, "Error while saving the file!\n" + e.getMessage(), "ERROR",
+			JOptionPane.showMessageDialog(frame, "Error while saving the file!\n" + e.getMessage() + "\nMake sure the file is not open in other software.", "ERROR",
 					JOptionPane.ERROR_MESSAGE);
 			e.printStackTrace();
 			
@@ -1229,6 +1244,18 @@ public class BSPEntspy {
 					output.close();
 				} catch (IOException e1) {
 				}
+			}
+		} finally {
+			try {
+				infile = out;
+				map.close();
+				map.bspfile = new RandomAccessFile(out, "rw");
+				this.filename = infile.getName();
+				frame.setTitle(entspyTitle + " - " + this.filename);
+			} catch(IOException e) {
+				JOptionPane.showMessageDialog(frame, "Error while re-opening the file!\n" + e.getMessage(), "ERROR",
+						JOptionPane.ERROR_MESSAGE);
+				loadfile();
 			}
 		}
 	}

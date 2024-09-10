@@ -62,53 +62,45 @@ public abstract class BSPFile implements AutoCloseable{
 	}
 	
 	protected void copy(RandomAccessFile out, GenericLump from, GenericLump to) throws IOException {
-		/*
-		 * Forward copy is when there's no risk of overriding data
-		 */
-		boolean forward = from.offset >= to.offset || from.offset + to.length <= to.offset;
 		int buffSize = 20480;
 		
 		byte[] block = new byte[Math.min(buffSize, (int)to.length)];
 		int blocks = (int)to.length / block.length;
-		int remainder = (int)(to.length - blocks * block.length); //was ... %buffSize, but buffSize is not always equal to block.length!!!! FREAKING BUG ALMOST TORN ALL MY HAIR OFF MY FREAKING SCULP!!!!!!!!!
+		int remainder = (int)(to.length - blocks * block.length);
 		
-		if(forward) {
-			bspfile.seek(from.offset);
-			out.seek(to.offset);
-			
-			for(int i = 0; i < blocks; ++i) {
-				bspfile.read(block);
-				out.write(block);
-			}
-			
-			if(remainder == 0)
-				return;
-			bspfile.read(block, 0, remainder);
-			out.write(block, 0, remainder);
-		} else {
-			long off1 = from.offset + to.length - remainder;
-			long off2 = to.offset + to.length - remainder;
-			
-			if(remainder > 0) {
-				bspfile.seek(off1);
-				bspfile.read(block, 0, remainder);
-				out.seek(off2);
-				out.write(block, 0, remainder);
-			}
-			
-			off1 -= block.length;
-			off2 -= block.length;
-			
-			for(int i = 0; i < blocks; ++i) {
-				bspfile.seek(off1);
-				bspfile.read(block);
-				out.seek(off2);
-				out.write(block);
-				
-				off1 -= block.length;
-				off2 -= block.length;
-			}
+		bspfile.seek(from.offset);
+		out.seek(to.offset);
+		
+		for(int i = 0; i < blocks; ++i) {
+			bspfile.read(block);
+			out.write(block);
 		}
+		
+		if(remainder == 0)
+			return;
+		
+		bspfile.read(block, 0, remainder);
+		out.write(block, 0, remainder);
+	}
+	
+	public void copy(RandomAccessFile out) throws IOException{
+		byte[] block = new byte[20480];
+		long blocks = out.length() / block.length;
+		long remainder = out.length() % block.length;
+		
+		out.seek(0);
+		bspfile.seek(0);
+		for(long i = 0; i < blocks; ++i) {
+			bspfile.read(block);
+			out.write(block);
+		}
+		
+		if(remainder > 0) {
+			bspfile.read(block, 0, (int)remainder);
+			out.write(block, 0, (int)remainder);
+		}
+		
+		out.setLength(out.length());
 	}
 	
 	protected byte[] getEntityBytes() throws IOException {		

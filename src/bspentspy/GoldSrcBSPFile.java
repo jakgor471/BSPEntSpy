@@ -75,35 +75,27 @@ public class GoldSrcBSPFile extends BSPFile{
 		//yes, that is the null terminator.
 		
 		Collections.sort(sorted);
-		int entIndex = sorted.indexOf(newLumps[ENTLUMP]);
 		
-		if(entIndex < sorted.size() - 1) {
-			GenericLump entLump = newLumps[ENTLUMP];
-			GenericLump nextLump = sorted.get(entIndex + 1);
-			
-			if(nextLump.offset < entLump.offset + entLump.length) {
-				sorted.remove(entIndex);
-				newLumps[ENTLUMP].offset = alignToFour(sorted.get(sorted.size() - 1).offset + sorted.get(sorted.size() - 1).length);
-				sorted.add(entLump);
-				long orgLen = lumps[ENTLUMP].length;
-				
-				for(i = entIndex; i < sorted.size() - 1; ++i) {
-					sorted.get(i).offset = alignToFour(sorted.get(i).offset - orgLen);
-				}
-			}
-		}
+		GenericLump prev = sorted.get(0);
+		prev.offset = 124;
+		prev = null;
 		
 		for(i = 0; i < sorted.size(); ++i) {
 			GenericLump to = sorted.get(i);
 			GenericLump from;
 			
+			if(prev != null)
+				to.offset = alignToFour(prev.offset + prev.length);
+			prev = to;
+			
 			if(to.length == 0)
 				continue;
 			
 			if(to.index == ENTLUMP) {
-				out.seek(newLumps[ENTLUMP].offset);
+				out.seek(to.offset);
 				out.write(entData);
 				out.write(0); //null terminator
+				to.length = entData.length + 1;
 				continue;
 			}
 			from = lumps[to.index];

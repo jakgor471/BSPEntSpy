@@ -502,7 +502,8 @@ public class SourceBSPFile extends BSPFile{
 	
 	//if saving to the same file set updateSelf to true
 	public void save(RandomAccessFile out, boolean updateSelf) throws IOException{
-		if(bspfile == null || out == null) return;
+		if(bspfile == null || out == null)
+			return;
 		
 		BSPLump[] newLumps = new BSPLump[64];
 		GameLump[] newGlumps = new GameLump[glumps.length];
@@ -515,21 +516,9 @@ public class SourceBSPFile extends BSPFile{
 			
 			sorted.add(newLumps[i]);
 		}
+		
 		for(i = 0; i < glumps.length; ++i) {
 			newGlumps[i] = (GameLump)glumps[i].clone();
-		}
-		byte[] entData = null;
-		byte[] cubemapData = null;
-		byte[][] gameLumpData = new byte[newGlumps.length][];
-		
-		if(entDirty) {
-			entData = getEntityBytes(newLumps[ENTLUMP]);
-			newLumps[ENTLUMP].length = entData.length;
-		}
-		
-		if(cubemaps != null) {
-			cubemapData = getCubemapBytes();
-			newLumps[CUBEMAPLUMP].length = cubemapData.length;
 		}
 		
 		if(!writeLights) {
@@ -539,15 +528,6 @@ public class SourceBSPFile extends BSPFile{
 		
 		if(!writePak) {
 			newLumps[PAKLUMP].length = 0;
-		}
-		
-		if(staticProps != null && staticPropLump != null) {
-			if(targetSpropVersion > -1)
-				newGlumps[staticPropLump.index].version = SPROPLUMP_VERSIONLOOKUP[targetSpropVersion];
-			byte[] spropData = getStaticPropsBytes();
-			newGlumps[staticPropLump.index].length = spropData.length;
-			gameLumpData[staticPropLump.index] = spropData;
-			staticPropLump = newGlumps[staticPropLump.index];
 		}
 		
 		FileInputStream pakIs = null;
@@ -567,228 +547,140 @@ public class SourceBSPFile extends BSPFile{
 			}
 		}
 		
-		ArrayList<GameLump> sortedGlumps = updateGameLumps(newLumps[GAMELUMP], newGlumps);
 		Collections.sort(sorted);
 
 		GenericLump cur = sorted.get(0);
 		cur.offset = Math.max(cur.offset, 1036);
-
-		for(i = 0; i < sorted.size() - 1; ++i) {
-			cur = sorted.get(i);
-			
-			GenericLump next = sorted.get(i + 1);
-			next.offset = alignToFour(cur.offset + cur.length);
-		}
 		
-		cur = sorted.get(sorted.size() - 1);
-		long totalLen = cur.offset + cur.length;
-		
-		System.out.println("===\tWRITE\t===");
-		for(i = 0; i < sorted.size(); ++i) {
-			GenericLump l = sorted.get(i);
-			BSPLump org = lumps[l.index];
-			System.out.println(l.index + " ===================================================");
-			System.out.println(String.format("NEW\t %,11d\t %,11d\t %,11d", l.offset, l.length, l.offset + l.length));
-			System.out.println(String.format("ORG\t %,11d\t %,11d\t %,11d", org.offset, org.length, org.offset + org.length));
-		}
+		GenericLump prev = null;
 		
 		for(i = 0; i < sorted.size(); ++i) {
 			GenericLump to = sorted.get(i);
+			if(prev != null)
+				to.offset = alignToFour(prev.offset + prev.length);
+			prev = to;
 			
 			if(to.length == 0)
 				continue;
-			
-			if(i >= 63 || to.offset <= lumps[to.index].offset && to.length <= lumps[to.index].length) {
-				//difference of offsets is non positive, we can forward-copy them
-				if(to.index == GAMELUMP) {
-					saveGameLumps(out, newLumps[GAMELUMP], sortedGlumps, gameLumpData);
-					continue;
-				} else if(to.index == ENTLUMP && entDirty) {
-					out.seek(newLumps[ENTLUMP].offset); //entities are written first and they DESTROY the lump 15!!!!
-					out.write(entData);
-					continue;
-				} else if(to.index == PAKLUMP && pakIs != null) {
-					out.seek(newLumps[PAKLUMP].offset);
-					copy(out, pakIs, newLumps[PAKLUMP].length);
-					continue;
-				} else if(to.index == CUBEMAPLUMP && cubemapData != null) {
-					out.seek(newLumps[CUBEMAPLUMP].offset);
-					out.write(cubemapData);
-					continue;
-				}
-				
-				copy(out, lumps[to.index], to);
-			} else {
-				//difference of offsets is positive, we must backward-copy
-				int startIndex = i;
-				to = sorted.get(++i);
 
-				for(; i < sorted.size() && (to.offset > lumps[to.index].offset || to.length > lumps[to.index].length); ++i) {
-					to = sorted.get(i);
-				}
+			if(to.index == GAMELUMP) {
+				saveGameLumps(out, newLumps[GAMELUMP], newGlumps);
+				continue;
+			} else if(to.index == ENTLUMP && entDirty) {
+				byte[] entData = getEntityBytes((BSPLump) to);
+				to.length = entData.length;
 				
-				for(int j = i - 1; j >= startIndex; --j) {
-					to = sorted.get(j);
-					
-					if(to.length == 0)
-						continue;
-					
-					if(to.index == GAMELUMP) {
-						saveGameLumps(out, newLumps[GAMELUMP], sortedGlumps, gameLumpData);
-						continue;
-					} else if(to.index == ENTLUMP && entDirty) {
-						out.seek(newLumps[ENTLUMP].offset);
-						out.write(entData);
-						continue;
-					} else if(to.index == PAKLUMP && pakIs != null) {
-						out.seek(newLumps[PAKLUMP].offset);
-						copy(out, pakIs, newLumps[PAKLUMP].length);
-						continue;
-					} else if(to.index == CUBEMAPLUMP && cubemapData != null) {
-						out.seek(newLumps[CUBEMAPLUMP].offset);
-						out.write(cubemapData);
-						continue;
-					}
-					
-					copy(out, lumps[to.index], to);
-				}
+				out.seek(to.offset);
+				out.write(entData);
+				continue;
+			} else if(to.index == PAKLUMP && pakIs != null) {
+				out.seek(newLumps[PAKLUMP].offset);
+				copy(out, pakIs, newLumps[PAKLUMP].length);
+				continue;
+			} else if(to.index == CUBEMAPLUMP && cubemaps != null) {
+				byte[] cubemapData = getCubemapBytes();
+				to.length = cubemapData.length;
+				out.seek(to.offset);
+				out.write(cubemapData);
+				continue;
 			}
+			
+			copy(out, lumps[to.index], to);
 		}
 		
 		if(pakIs != null)
 			pakIs.close();
 		
 		writeHeader(out, newLumps);
-		out.setLength(totalLen);
+		
+		cur = sorted.get(sorted.size() - 1);
+		out.setLength(cur.offset + cur.length);
 		
 		if(updateSelf) {
+			close();
+			bspfile = out;
+			
 			lumps = newLumps;
 			glumps = newGlumps;
 			embeddedPak = null;
 			writePak = true;
 			writeLights = true;
 			curSpropVersion = targetSpropVersion;
+			
+			staticPropLump = findStaticPropLump();
 		}
 	}
 	
-	private ArrayList<GameLump> updateGameLumps(GenericLump glump, GameLump[] newGlumps) {
-		if(newGlumps.length < 1)
-			return null;
+	private void saveGameLumps(RandomAccessFile out, GenericLump newGamelump, GameLump[] newGlumps) throws IOException {
+		byte[] glumpHeaderBytes = new byte[4 + 16 * newGlumps.length];
 		
 		ArrayList<GameLump> sorted = new ArrayList<GameLump>();
 		
-		for(GameLump g : newGlumps)
-			sorted.add(g);
-		
-		Collections.sort(sorted);
-		int headerSize = 4 + sorted.size() * 16;
-		sorted.get(0).offset = alignToFour(headerSize);
-		
-		for(int i = 0; i < sorted.size() - 1; ++i) {
-			GameLump cur = sorted.get(i);
-			GameLump next = sorted.get(i + 1);
-			
-			next.offset = alignToFour(cur.offset + cur.length);
+		for(int i = 0; i < newGlumps.length; ++i) {
+			sorted.add(newGlumps[i]);
 		}
 		
-		GameLump last = sorted.get(sorted.size() - 1);
-		glump.length = last.offset + last.length;
+		Collections.sort(sorted);
 		
-		return sorted;
-	}
-	
-	private void saveGameLumps(RandomAccessFile out, GenericLump newGamelump, ArrayList<GameLump> sorted, byte[][] gameLumpData) throws IOException {
-		copy(out, lumps[GAMELUMP], newGamelump);
-		out.seek(newGamelump.offset);
+		GameLump prev = sorted.get(0);
+		prev.offset = alignToFour(glumpHeaderBytes.length);
+		prev = null;
 		
-		if(gameLumpData == null)
-			gameLumpData = new byte[sorted.size()][];
+		for(int i = 0; i < sorted.size(); ++i) {
+			GameLump to = sorted.get(i);
+			if(prev != null)
+				to.offset = alignToFour(prev.offset + prev.length);
+			prev = to;
+			
+			if(to.length == 0)
+				continue;
+			
+			if(to.id == GameLump.STATICPROP_ID && staticProps != null) {
+				if(targetSpropVersion > -1)
+					newGlumps[staticPropLump.index].version = SPROPLUMP_VERSIONLOOKUP[targetSpropVersion];
+				byte[] spropData = getStaticPropsBytes();
+				to.length = spropData.length;
+				out.seek(to.offset + newGamelump.offset);
+				out.write(spropData);
+				continue;
+			}
+			
+			copy(out, glumps[to.index], to, newGamelump.offset);
+		}
 		
-		byte[] glumpHeaderBytes = new byte[4 + 16 * sorted.size()];
+		prev = sorted.get(sorted.size() - 1);
+		newGamelump.length = prev.offset + prev.length;
+		
+		//copy(out, lumps[GAMELUMP], newGamelump);
+		
 		ByteBuffer glumpBuff = ByteBuffer.wrap(glumpHeaderBytes);
 		glumpBuff.order(ByteOrder.LITTLE_ENDIAN);
-		
 		long glumpOffset = newGamelump.offset;
-		
 		if(glumpsRelative)
 			glumpOffset = 0;
 		
-		glumpBuff.putInt(sorted.size());
-		for(int i = 0; i < sorted.size(); ++i) {
-			GameLump glump = sorted.get(i);
+		glumpBuff.putInt(newGlumps.length);
+		for(int i = 0; i < newGlumps.length; ++i) {
+			GameLump glump = newGlumps[i];
+			
 			glumpBuff.putInt(glump.id);
 			glumpBuff.putShort(glump.flags);
 			glumpBuff.putShort((short)glump.version);
 			glumpBuff.putInt((int)(glump.offset + glumpOffset));
 			glumpBuff.putInt((int)glump.length);
-			
-			//temporarily make glumps relative to start of the file
-			glumps[glump.index].offset += lumps[GAMELUMP].offset;
-			glump.offset += newGamelump.offset;
 		}
 		
-		System.out.println("===\tGAMELUMPS\t===");
-		for(int i = 0; i < sorted.size(); ++i) {
-			GenericLump l = sorted.get(i);
-			GameLump org = glumps[l.index];
-			System.out.println(l.index + " ===================================================");
-			System.out.println(String.format("NEW\t %,11d\t %,11d\t %,11d", l.offset, l.length, l.offset + l.length));
-			System.out.println(String.format("ORG\t %,11d\t %,11d\t %,11d", org.offset, org.length, org.offset + org.length));
-		}
-		
+		out.seek(newGamelump.offset);
 		out.write(glumpHeaderBytes);
-		
-		for(int i = 0; i < sorted.size(); ++i) {
-			/*GameLump to = sorted.get(i);
-			GameLump from = glumps[to.index];
-			
-			if(to.length == 0)
-				continue;
-			
-			if(i >= glumps.length - 1 || to.offset <= from.offset && to.offset + to.length <= sorted.get(i + 1).offset) {
-				//difference of offsets is non positive, we can forward-copy them
-				if(gameLumpData[to.index] != null) {
-					out.seek(to.offset);
-					out.write(gameLumpData[to.index]);
-					continue;
-				}
-				
-				copy(out, glumps[to.index], to);
-			} else {
-				//difference of offsets is positive, we must backward-copy
-				int startIndex = i;
-				to = sorted.get(++i);
-				from = glumps[to.index];
-
-				for(; i < sorted.size() - 1 && (to.offset > from.offset || to.offset + to.length > sorted.get(i + 1).offset); ++i) {
-					to = sorted.get(i);
-					from = glumps[to.index];
-				}
-				
-				for(int j = i - 1; j >= startIndex; --j) {
-					to = sorted.get(j);
-					
-					if(to.length == 0)
-						continue;
-					
-					if(gameLumpData[to.index] != null) {
-						out.seek(to.offset);
-						out.write(gameLumpData[to.index]);
-						continue;
-					}
-					
-					copy(out, glumps[to.index], to);
-				}
-			}*/
+	}
+	
+	private GameLump findStaticPropLump() {
+		for(int i = 0; i < glumps.length; ++i) {
+			if(glumps[i].id == GameLump.STATICPROP_ID)
+				return glumps[i];
 		}
 		
-		for(int i = 0; i < sorted.size(); ++i) {
-			GameLump glump = sorted.get(i);
-
-			//make them relative to Glump once again
-			glumps[glump.index].offset -= lumps[GAMELUMP].offset;
-			glump.offset -= newGamelump.offset;
-		}
+		return null;
 	}
 
 	private void loadGameLumps() throws IOException {
@@ -825,6 +717,14 @@ public class SourceBSPFile extends BSPFile{
 			if(glumps[i].id == GameLump.STATICPROP_ID)
 				staticPropLump = glumps[i];
 		}
+	}
+	
+	private void copy(RandomAccessFile out, GameLump from, GameLump to, long glumpOffset) throws IOException {
+		from.offset += lumps[GAMELUMP].offset;
+		to.offset += glumpOffset;
+		copy(out, from, to);
+		from.offset -= lumps[GAMELUMP].offset;
+		to.offset -= glumpOffset;
 	}
 	
 	private void copy(RandomAccessFile out, InputStream in, long maxLen) throws IOException {
