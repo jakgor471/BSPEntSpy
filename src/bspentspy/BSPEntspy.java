@@ -94,7 +94,7 @@ public class BSPEntspy {
 	private ArrayList<ActionListener> onMapLoadInternal = new ArrayList<ActionListener>();
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String entspyTitle = "BSPEntSpy v1.33";
+	public static final String entspyTitle = "BSPEntSpy v1.33a";
 
 	private void updateEntList(ArrayList<Entity> ents) {
 		entModel.setEntityList(ents);
@@ -400,11 +400,13 @@ public class BSPEntspy {
 				
 				try(FileOutputStream os = new FileOutputStream(zipo)) {
 					bspmap.writePakToStream(os);
-					JOptionPane.showMessageDialog(frame, "Pak lump written to '" + zipo.getAbsolutePath() + "'");
 				} catch (IOException e) {
 					JOptionPane.showMessageDialog(frame, "IO Error has occurred: " + e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 					e.printStackTrace();
+					return;
 				}
+				
+				JOptionPane.showMessageDialog(frame, "Pak lump written to '" + zipo.getAbsolutePath() + "'");
 			}
 		});
 		
@@ -1582,7 +1584,7 @@ public class BSPEntspy {
 		//HashSet<String> fileSet = new HashSet<String>();
 		
 		String orgNameSanitized = orgName.trim().toLowerCase();
-		Pattern vmtReplacePattern = Pattern.compile("[\\s\\\"'][/\\\\]?(maps[/\\\\][\\w\\\\/\\d-]*)[\\n\\\"']", Pattern.CASE_INSENSITIVE);
+		Pattern vmtReplacePattern = Pattern.compile("[\\\"']?\\$envmap[\\\"']?\\s*[\\s\\\"'][/\\\\]?(maps[/\\\\][\\w\\/\\d-]*)[\\n\\\"']?", Pattern.CASE_INSENSITIVE);
 		for(Path p : allFiles) {
 			String filename = p.getName(p.getNameCount() - 1).toString();
 			

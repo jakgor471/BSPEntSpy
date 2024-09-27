@@ -13,12 +13,16 @@ public class SimpleFilter implements IFilter {
 	private ArrayList<String> paramNames;
 	private ArrayList<Object> values;
 	private ArrayList<Replace[]> replaces;
+	private float[] origin = new float[3];
+	private float radiusSq = 0;
+	private boolean radiusSearch = false;
 	
 	private static Pattern p = Pattern.compile("\\s*(.*?)\\s*;");
 	private static Pattern p2 = Pattern.compile("\\\"(.*?)\\\"\\s*(in|=|like)\\s*(.*)");
 	private static Pattern inp = Pattern.compile("\\\"([^\\\"]*?)\\\"\\s*[,\\)]");
 	private static Pattern stripQuotes = Pattern.compile("\\\"*(.*?)\\\"*$");
 	private static Pattern repP = Pattern.compile("\\%\\[(.*?)\\]");
+	private static Pattern radiusP = Pattern.compile("@([-\\d\\.]+)\\s+([-\\d\\.]+)\\s+([-\\d\\.]+)\\s*,\\s*([\\d\\.]+)");
 	
 	private static LinkedList<SimpleFilter> recent = new LinkedList<SimpleFilter>();
 	
@@ -55,6 +59,20 @@ public class SimpleFilter implements IFilter {
 		String query = null;
 		if((criterium.trim()).startsWith("$"))
 			query = criterium.substring(criterium.indexOf("$") + 1);
+		else if((criterium.trim()).startsWith("@")) {
+			Matcher match = radiusP.matcher(criterium);
+			
+			if(match.matches()) {
+				radiusSearch = true;
+				
+				for(int i = 0; i < 3; ++i) {
+					origin[i] = Float.valueOf(match.group(i + 1));
+				}
+				
+				radiusSq = Float.valueOf(match.group(4));
+				radiusSq *= radiusSq;
+			}
+		}
 		
 		if(query != null) {
 			paramNames = new ArrayList<String>();
@@ -162,6 +180,14 @@ public class SimpleFilter implements IFilter {
 	}
 	
 	public boolean match(Entity ent) {
+		if(radiusSearch) {
+			float dx = ent.origin[0] - origin[0];
+			float dy = ent.origin[1] - origin[1];
+			float dz = ent.origin[2] - origin[2];
+			
+			return (dx*dx + dy*dy + dz*dz) <= radiusSq;
+		}
+		
 		if(paramNames != null && values != null) {
 			boolean matched = true;
 			

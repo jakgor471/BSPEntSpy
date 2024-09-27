@@ -127,7 +127,7 @@ public abstract class BSPFile implements AutoCloseable{
 			sb.append("}\n");
 		}
 		
-		return sb.toString().getBytes(StandardCharsets.UTF_8);
+		return sb.append('\0').toString().getBytes(StandardCharsets.UTF_8);
 	} 
 	
 	public abstract boolean read(RandomAccessFile in) throws IOException;

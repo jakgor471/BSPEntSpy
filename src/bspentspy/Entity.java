@@ -11,7 +11,7 @@ import bspentspy.Undo.Command;
 
 public class Entity {
 	int index;
-	//float[] origin = new float[] {0, 0, 0};
+	float[] origin = new float[] {0, 0, 0};
 	boolean mark = false;
 	boolean autoedit = false;
 	String classname;
@@ -96,7 +96,7 @@ public class Entity {
 		this.classname = this.getKeyValue("classname");
 		this.targetname = this.getKeyValue("targetname");
 		
-		/*String[] split = this.getKeyValue("origin").trim().split("\\s+");
+		String[] split = this.getKeyValue("origin").trim().split("\\s+");
 		
 		origin[0] = origin[1] = origin[2] = 0;
 		
@@ -109,8 +109,7 @@ public class Entity {
 			origin[2] = Float.valueOf(split[2]);
 		} catch(NumberFormatException e) {
 			origin[0] = origin[1] = origin[2] = 0;
-			setKeyVal("origin", "0 0 0");
-		}*/
+		}
 	}
 
 	public String getKeyValString(int i) {

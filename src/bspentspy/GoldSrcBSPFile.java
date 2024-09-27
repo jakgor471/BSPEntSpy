@@ -69,7 +69,7 @@ public class GoldSrcBSPFile extends BSPFile{
 			sorted.add(newLumps[i]);
 		}
 		byte[] entData = getEntityBytes();
-		newLumps[ENTLUMP].length = entData.length + 1;
+		newLumps[ENTLUMP].length = entData.length;
 		//for whatever reason the size is always bigger by one ?(O.o)?
 		//maybe because of a null terminator, weird. Why make things weird?!
 		//yes, that is the null terminator.
@@ -94,7 +94,6 @@ public class GoldSrcBSPFile extends BSPFile{
 			if(to.index == ENTLUMP) {
 				out.seek(to.offset);
 				out.write(entData);
-				out.write(0); //null terminator
 				to.length = entData.length + 1;
 				continue;
 			}
