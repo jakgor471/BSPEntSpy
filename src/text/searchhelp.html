@@ -5,12 +5,11 @@
  Hold Shift to add all matched entities to a selection.</p>
 <br><br>
 <b>Filter</b><p>Filters the entity list, showing only the entities matching the criteria. Hold Shift to remove the filter.</p>
-
-<h2>Search syntax HELP</h2>
-<hr>
 <p>The entities can be found or filtered by inputting a search-string into the search bar. By default the entity is matched if 
 	and only if a <b>classname</b> or <b>targetname</b> is equal to or contains a search-string. </p>
-<br>
+	
+<h2>Search by criterion syntax HELP</h2>
+<hr>
 <p>There is an option to use advanced search, this way it is possible to precisely specify the searched key-values of an entity.</p>
 <b>Example:</b>
 <p><i>$"targetname" = "zombie1"; "squadname" = "ravenholm_zombies"</i>;</p>
@@ -34,3 +33,10 @@
 <p>Match all entities of which "model" parameter starts with "*" (brush entities):</p>
 <i>$"model" like "\*.*";</i>
 <p>Explanation: "\*" means "match '*' character", ".*" means "any character, zero or more times".</p><br>
+
+<h2>Search in radius syntax HELP</h2>
+<hr>
+<p>It is possible to filter entities by position (search in radius). Such search-string must start with '<b>@</b>' followed by position, comma (',') and radius:</p>
+<b>Example:</b>
+<p><i>@128 -32 65536, 128;</i></p>
+<p>Matches entities within 128 unit radius around (128, -32, 65536)</p><br>

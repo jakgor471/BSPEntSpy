@@ -1,7 +1,7 @@
 # BSPEntSpy - enhanced Entity Lump editor
 BSPEntSpy is an updated version of **EntSpy** originaly made by Rof (http://www.bagthorpe.org/bob/cofrdrbob/).  
 
-**Latest version** of BSPEntSpy is available to **download** here: https://github.com/jakgor471/BSPEntSpy/releases/tag/v1.33
+**Latest version** of BSPEntSpy is available to **download** here: https://github.com/jakgor471/BSPEntSpy/releases/tag/v1.33a
 
 ## Features
 * **Importing and exporting** entities
@@ -31,6 +31,9 @@ Detailed description and instructions are included in **Help** menu tab in BSPEn
 ![comparison](https://github.com/jakgor471/BSPEntSpy/blob/main/images/image2.jpg?raw=true)
 
 ## Changelog
+### BSPEntSpy v1.33a build 17/11/2024 codename R-A
+* Added option to filter entities by position and radius
+* Update checking functionality
 ### BSPEntSpy v1.33 build 09/09/2024
 * Minor and major bug fixes
 * Added option to edit cubemaps (cubemapsize only)
@@ -73,6 +76,10 @@ Detailed description and instructions are included in **Help** menu tab in BSPEn
 
 ### Entspy v0.9 XX/XX/2005
 * Initial release by Rof I guess?
+
+# Dependencies
+* LZMA SDK (included in the source code) https://7-zip.org/sdk.html
+* JSON-Java https://github.com/stleary/JSON-java
 
 # Help
 **Java Runtime Environment** is required to run the application.

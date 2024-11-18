@@ -31,7 +31,9 @@ import java.io.RandomAccessFile;
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.io.UnsupportedEncodingException;
 import java.io.Writer;
+import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
@@ -72,6 +74,9 @@ import javax.swing.WindowConstants;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import bspentspy.ClassPropertyPanel.GotoEvent;
 import bspentspy.Entity.KeyValue;
 import bspentspy.Lexer.LexerException;
@@ -88,13 +93,49 @@ public class BSPEntspy {
 	Preferences preferences;
 	FGD fgdFile = null;
 	HashSet<Entity> previouslySelected = new HashSet<Entity>();
-	// Obfuscator obfuscator;
-	boolean overwritePrompt = false;
 	
 	private ArrayList<ActionListener> onMapLoadInternal = new ArrayList<ActionListener>();
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String entspyTitle = "BSPEntSpy v1.33a";
+	public static final String versionTag = "v1.33a";
+	public static final String entspyTitle = "BSPEntSpy " + versionTag;
+	
+	private static void checkForUpdate() throws UnsupportedEncodingException, IOException {
+		if(!Preferences.userRoot().node(BSPEntspy.class.getName()).getBoolean("CheckForUpdates", true))
+			return;
+		
+		URL url = new URL("https://api.github.com/repos/jakgor471/bspentspy/releases/latest");
+		StringBuilder sb = new StringBuilder();
+		
+		try (BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream(), "UTF-8"))) {
+		    for (String line; (line = reader.readLine()) != null;) {
+		        sb.append(line);
+		    }
+		    
+		    JSONObject json = new JSONObject(sb.toString());
+		    String newTag = json.getString("tag_name");
+			
+			if(!newTag.equals(versionTag)) {
+				String newVersionURL = json.getJSONArray("assets").getJSONObject(0).getString("browser_download_url");
+				System.out.println("Latest version available at " + newVersionURL);
+				
+				Object[] options = {"Copy link to clipboard", "Remind me later"};
+				int chosen = JOptionPane.showOptionDialog(null,
+						"Latest BSPEntSpy version " + newTag + " available! The version you are using (" + versionTag + ") may contain bugs."
+							+ "\nDownload available here:\n\n" + newVersionURL + "\n\nYou can disable this notification in Options menu.",
+						"Update available", JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, options,
+						options[1]);
+				
+				if(chosen == 0) {
+					Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
+					cb.setContents(new StringSelection(newVersionURL), null);
+				}
+			}
+		} catch(FileNotFoundException | JSONException e) {
+			e.printStackTrace();
+			System.out.println("Could not check for updates!");
+		}
+	}
 
 	private void updateEntList(ArrayList<Entity> ents) {
 		entModel.setEntityList(ents);
@@ -128,7 +169,21 @@ public class BSPEntspy {
 
 	public int exec() throws IOException {
 		preferences = Preferences.userRoot().node(getClass().getName());
+		
+		Thread updateThread = new Thread() {
+			public void run() {
+				try {
+					checkForUpdate();
+				} catch (UnsupportedEncodingException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		};
 
+		updateThread.start();
+		
 		this.frame = new JFrame(entspyTitle);
 		this.frame.setIconImage(esIcon.getImage());
 
@@ -309,6 +364,15 @@ public class BSPEntspy {
 				"If FGD file is loaded the default class parameters will be added but not applied unless edited");
 		maddDefaultOption.setEnabled(fgdFile != null);
 		maddDefaultOption.setState(shouldAddDefaultParams);
+		
+		JCheckBoxMenuItem mCheckForUpdates = new JCheckBoxMenuItem("Check for BSPEntSpy updates");
+		mCheckForUpdates.setState(preferences.getBoolean("CheckForUpdates", true));
+		
+		mCheckForUpdates.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				preferences.putBoolean("CheckForUpdates", mCheckForUpdates.isSelected());
+			}
+		});
 
 		maddDefaultOption.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
@@ -326,6 +390,8 @@ public class BSPEntspy {
 
 		optionmenu.add(msmartEditOption);
 		optionmenu.add(maddDefaultOption);
+		optionmenu.addSeparator();
+		optionmenu.add(mCheckForUpdates);
 
 		JMenu entitymenu = new JMenu("Entity");
 		final JMenuItem importEntity = new JMenuItem("Import");
