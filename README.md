@@ -31,6 +31,10 @@ Detailed description and instructions are included in **Help** menu tab in BSPEn
 ![comparison](https://github.com/jakgor471/BSPEntSpy/blob/main/images/image2.jpg?raw=true)
 
 ## Changelog
+### BSPEntSpy v1.33b build 26/02/2025
+* Drag and drop functionality
+* Minor bug fixes
+* R-A completed
 ### BSPEntSpy v1.33a build 17/11/2024 codename R-A
 * Added option to filter entities by position and radius
 * Update checking functionality

@@ -10,6 +10,9 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
+import java.awt.dnd.DnDConstants;
+import java.awt.dnd.DropTarget;
+import java.awt.dnd.DropTargetDropEvent;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
@@ -97,7 +100,7 @@ public class BSPEntspy {
 	private ArrayList<ActionListener> onMapLoadInternal = new ArrayList<ActionListener>();
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String versionTag = "v1.33a";
+	public static final String versionTag = "v1.33b";
 	public static final String entspyTitle = "BSPEntSpy " + versionTag;
 	
 	private static void checkForUpdate() throws UnsupportedEncodingException, IOException {
@@ -155,11 +158,15 @@ public class BSPEntspy {
 			for(ActionListener al : onMapLoadInternal)
 				al.actionPerformed(new ActionEvent(this, 0, "mapload"));
 		} catch (Exception e) {
+			if(map != null)
+				map.close();
+			map = null;
+			entModel.setEntityList(new ArrayList<Entity>());
+			frame.setTitle(entspyTitle);
+			
 			JOptionPane.showMessageDialog(frame, "Map " + infile.getName() + " couldn't be read!", "ERROR!",
 					JOptionPane.ERROR_MESSAGE);
 			e.printStackTrace();
-			if(map != null)
-				map.close();
 
 			return false;
 		}
@@ -584,7 +591,7 @@ public class BSPEntspy {
 				if (BSPEntspy.this.checkchanged("Load BSP")) {
 					return;
 				}
-				if (!BSPEntspy.this.loadfile()) {
+				if (!BSPEntspy.this.loadfile(null)) {
 					return;
 				}
 			}
@@ -1166,9 +1173,10 @@ public class BSPEntspy {
 		frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		frame.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent ev) {
-				if (BSPEntspy.this.checkchanged("Quit Entspy")) {
+				if (BSPEntspy.this.checkchanged("Quit Entspy :)")) {
 					return;
 				}
+				HelpWindow.closeHelp();
 				frame.dispose();
 				if (map != null) {
 					try {
@@ -1182,6 +1190,23 @@ public class BSPEntspy {
 		this.frame.setSize(720, 520);
 		this.frame.getContentPane().add(mainSplit);
 		this.frame.setVisible(true);
+		
+		this.frame.setDropTarget(new DropTarget() {
+			public synchronized void drop(DropTargetDropEvent evt) {
+				try {
+					evt.acceptDrop(DnDConstants.ACTION_COPY);
+					List<File> droppedFiles = (List<File>) evt.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);
+					
+					if(droppedFiles.size() > 0 && !BSPEntspy.this.checkchanged("Load BSP")) {
+						BSPEntspy.this.loadfile(droppedFiles.get(0));
+					}
+					
+					evt.dropComplete(true);
+				} catch (Exception ex) {
+					ex.printStackTrace();
+				}
+			}
+		});
 
 		return 0;
 	}
@@ -1200,17 +1225,23 @@ public class BSPEntspy {
 		return true;
 	}
 
-	public boolean loadfile() {
-		JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
-
-		chooser.setDialogTitle(entspyTitle + " - Open a BSP file");
-		chooser.setFileFilter(new EntFileFilter());
-		int result = chooser.showOpenDialog(this.frame);
-		if (result == JFileChooser.CANCEL_OPTION) {
-			return false;
+	public boolean loadfile(File f) {
+		if(f == null) {
+			JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
+	
+			chooser.setDialogTitle(entspyTitle + " - Open a BSP file");
+			chooser.setFileFilter(new EntFileFilter());
+			int result = chooser.showOpenDialog(this.frame);
+			if (result == JFileChooser.CANCEL_OPTION) {
+				return false;
+			}
+			f = chooser.getSelectedFile();
+			
+			chooser = null;
 		}
-		this.infile = chooser.getSelectedFile();
-		chooser = null;
+		
+		this.infile = f;
+		
 		this.filename = this.infile.getName();
 		if (!(this.infile.exists() && this.infile.canRead())) {
 			System.out.println("Can't read " + this.filename + "!");
@@ -1323,7 +1354,7 @@ public class BSPEntspy {
 			} catch(IOException e) {
 				JOptionPane.showMessageDialog(frame, "Error while re-opening the file!\n" + e.getMessage(), "ERROR",
 						JOptionPane.ERROR_MESSAGE);
-				loadfile();
+				loadfile(null);
 			}
 		}
 	}

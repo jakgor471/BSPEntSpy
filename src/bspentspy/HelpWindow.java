@@ -33,6 +33,12 @@ public class HelpWindow extends JFrame {
 		textPane.setText(text);
 		textPane.setCaretPosition(0);
 	}
+	
+	public static void closeHelp() {
+		if(opened != null)
+			opened.dispose();
+		opened = null;
+	}
 
 	public static HelpWindow openHelp(String title) {
 		if (opened != null) {
