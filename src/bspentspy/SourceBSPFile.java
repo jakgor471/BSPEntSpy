@@ -6,6 +6,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -13,11 +14,14 @@ import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.Channels;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 import SevenZip.Compression.LZMA.Decoder;
 import SevenZip.Compression.LZMA.Encoder;
@@ -36,6 +40,8 @@ public class SourceBSPFile extends BSPFile{
 	protected boolean hasLights = true;
 	protected File embeddedPak = null;
 	
+	private String newMapName = null;
+	
 	private int targetSpropVersion = -1;
 	private int curSpropVersion = -1;
 	private BSPLump[] lumps;
@@ -43,7 +49,8 @@ public class SourceBSPFile extends BSPFile{
 	private GameLump staticPropLump = null;
 	private ArrayList<BSPWorldLight> hdrLights;
 	private ArrayList<BSPWorldLight> ldrLights;
-	private ArrayList<ZipPart> pakfiles = null;
+	private ArrayList<String> materials;
+	private String originalMapName;
 	private int mapRev;
 	private boolean glumpsRelative = false;
 	
@@ -64,7 +71,6 @@ public class SourceBSPFile extends BSPFile{
 		hasLights = true;
 		embeddedPak = null;
 		entDirty = true; //at the moment ALWAYS write entities
-		pakfiles = null;
 		
 		bspfile = file;
 		bspVersion = Integer.reverseBytes(bspfile.readInt());
@@ -85,10 +91,69 @@ public class SourceBSPFile extends BSPFile{
 		
 		mapRev = Integer.reverseBytes(bspfile.readInt());
 		
+		loadMaterials();
 		loadGameLumps();
 		loadEntities();
 		
+		for(String mat : materials) {
+			System.out.println(mat);
+		}
+		
+		/*bspfile.seek(lumps[PAKLUMP].offset);
+		ZipInputStream zis = new ZipInputStream(Channels.newInputStream(bspfile.getChannel()));
+		ZipEntry ze = null;
+		
+		ZipOutputStream zos = new ZipOutputStream(new FileOutputStream("pak.zip"));
+		
+		byte[] buffer = new byte[8192];
+		
+		while((ze = zis.getNextEntry()) != null) {
+			ZipEntry newEntry = new ZipEntry("goges" + ze.getName());
+			newEntry.setMethod(ZipEntry.STORED);
+			newEntry.setSize(ze.getSize());
+			newEntry.setCompressedSize(ze.getCompressedSize());
+			newEntry.setCrc(ze.getCrc());
+			zos.putNextEntry(newEntry);
+			
+			int length, totalLen = 0;
+			while ((length = zis.read(buffer)) > 0) {
+				zos.write(buffer, 0, length);
+				totalLen += length;
+			}
+			
+			zis.closeEntry();
+			zos.closeEntry();
+		}
+		
+		zos.close();*/
+
 		return true;
+	}
+	
+	public String getOriginalName() {
+		if(materials != null && originalMapName == null) {
+			for(String s : materials) {
+				String s2 = s.toLowerCase();
+				if(s2.startsWith("maps/")) {
+					int index1 = s2.indexOf("/") + 1;
+					int index2 = s2.indexOf("/", index1);
+					
+					if(index1 < s2.length() && index2 <= s2.length()) {
+						originalMapName = s2.substring(index1, index2);
+						break;
+					}
+				}
+			}
+		}
+		
+		return originalMapName;
+	}
+	
+	public void changeMapName(String mapname) {
+		if(mapname.equals(getOriginalName()))
+			return;
+		
+		newMapName = mapname;
 	}
 	
 	public void unloadCubemaps() {
@@ -531,7 +596,7 @@ public class SourceBSPFile extends BSPFile{
 		}
 		
 		FileInputStream pakIs = null;
-		if(embeddedPak != null) {
+		if(embeddedPak != null && newMapName == null) {
 			try {
 				pakIs = new FileInputStream(embeddedPak);
 				newLumps[PAKLUMP].length = pakIs.getChannel().size();
@@ -608,6 +673,17 @@ public class SourceBSPFile extends BSPFile{
 			curSpropVersion = targetSpropVersion;
 			
 			staticPropLump = findStaticPropLump();
+			newMapName = null;
+			originalMapName = null;
+		}
+	}
+	
+	private void renameMaterials() {
+		if(newMapName == null || materials == null)
+			return;
+		
+		for(int i = 0; i < materials.size(); ++i) {
+			
 		}
 	}
 	
@@ -822,6 +898,35 @@ public class SourceBSPFile extends BSPFile{
 		updateLinks();
 	}
 	
+	private void loadMaterials() throws IOException {
+		byte[] stringData = new byte[(int)lumps[TEXSTRINGDATALUMP_DATA].length];
+		byte[] tableData = new byte[(int)lumps[TEXSTRINGDATALUMP_TABLE].length];
+		
+		bspfile.seek(lumps[TEXSTRINGDATALUMP_DATA].offset);
+		bspfile.read(stringData);
+		
+		bspfile.seek(lumps[TEXSTRINGDATALUMP_TABLE].offset);
+		bspfile.read(tableData);
+		
+		ByteBuffer tableBuff = ByteBuffer.wrap(tableData);
+		tableBuff.order(ByteOrder.LITTLE_ENDIAN);
+		
+		int numTex = tableData.length / 4;
+		materials = new ArrayList<String>(numTex);
+		
+		StringBuilder sb = new StringBuilder();
+		for(int i = 0; i < numTex; ++i) {
+			byte c;
+			int j = tableBuff.getInt();
+			
+			while((c = stringData[j++]) != 0)
+				sb.append((char)c);
+			
+			materials.add(sb.toString());
+			sb.setLength(0);
+		}
+	}
+	
 	public void removeLightAt(Vector pos) {
 		BSPWorldLight ldr = theWorldofLightsLDR.findClosest(pos.x, pos.y, pos.z);
 		BSPWorldLight hdr = theWorldofLightsHDR.findClosest(pos.x, pos.y, pos.z);
@@ -954,6 +1059,8 @@ public class SourceBSPFile extends BSPFile{
 	private static final int CUBEMAPLUMP = 42;
 	private static final int VERTEXLUMP = 3;
 	private static final int DISPVERTLUMP = 33;
+	private static final int TEXSTRINGDATALUMP_DATA = 43;
+	private static final int TEXSTRINGDATALUMP_TABLE = 44;
 	
 	private static final Charset utf8Charset = Charset.forName("UTF-8");
 	
@@ -1042,16 +1149,6 @@ public class SourceBSPFile extends BSPFile{
 			clone.version = version;
 			
 			return clone;
-		}
-	}
-	
-	private static class ZipPart{
-		ZipEntry entry;
-		byte[] data;
-		
-		public ZipPart(ZipEntry entry, byte[] data) {
-			this.entry = entry;
-			this.data = data;
 		}
 	}
 	

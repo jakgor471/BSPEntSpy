@@ -98,6 +98,7 @@ public class BSPEntspy {
 	HashSet<Entity> previouslySelected = new HashSet<Entity>();
 	
 	private ArrayList<ActionListener> onMapLoadInternal = new ArrayList<ActionListener>();
+	private ArrayList<ActionListener> onMapUnloadInternal = new ArrayList<ActionListener>();
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
 	public static final String versionTag = "v1.33b";
@@ -158,11 +159,7 @@ public class BSPEntspy {
 			for(ActionListener al : onMapLoadInternal)
 				al.actionPerformed(new ActionEvent(this, 0, "mapload"));
 		} catch (Exception e) {
-			if(map != null)
-				map.close();
-			map = null;
-			entModel.setEntityList(new ArrayList<Entity>());
-			frame.setTitle(entspyTitle);
+			unloadfile();
 			
 			JOptionPane.showMessageDialog(frame, "Map " + infile.getName() + " couldn't be read!", "ERROR!",
 					JOptionPane.ERROR_MESSAGE);
@@ -213,6 +210,7 @@ public class BSPEntspy {
 		JMenu filemenu = new JMenu("File");
 		JMenuItem mload = new JMenuItem("Load BSP");
 		JMenuItem msave = new JMenuItem("Save BSP");
+		
 		mload.setToolTipText("Load an new map file");
 		msave.setToolTipText("Save the current map file");
 		mload.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_L, KeyEvent.CTRL_DOWN_MASK));
@@ -225,6 +223,11 @@ public class BSPEntspy {
 		msaveas.setToolTipText("Save the current map to a chosen file");
 		msaveas.setEnabled(false);
 		filemenu.add(msaveas);
+		
+		JMenuItem munload = new JMenuItem("Unload BSP");
+		munload.setToolTipText("Unload the current map file");
+		munload.setEnabled(false);
+		filemenu.add(munload);
 
 		JMenuItem mpatchvmf = new JMenuItem("Patch from VMF");
 		mpatchvmf.setToolTipText("Update entity properties based on a VMF file (see more in Help)");
@@ -600,6 +603,18 @@ public class BSPEntspy {
 
 			public void actionPerformed(ActionEvent ev) {
 				savefile(true);
+			}
+
+		});
+		
+		munload.addActionListener(new ActionListener() {
+
+			public void actionPerformed(ActionEvent ev) {
+				try {
+					unloadfile();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 			}
 
 		});
@@ -1152,6 +1167,7 @@ public class BSPEntspy {
 				msaveas.setEnabled(true);
 				mpatchvmf.setEnabled(true);
 				importEntity.setEnabled(true);
+				munload.setEnabled(true);
 				
 				removeLightInfo.setSelected(false);
 				removePak.setSelected(false);
@@ -1169,7 +1185,32 @@ public class BSPEntspy {
 				editStaticProps.setSelected(false);
 			}
 		});
-
+		
+		onMapUnloadInternal.add(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				msave.setEnabled(false);
+				msaveas.setEnabled(false);
+				mpatchvmf.setEnabled(false);
+				importEntity.setEnabled(false);
+				munload.setEnabled(false);
+				
+				removeLightInfo.setSelected(false);
+				removePak.setSelected(false);
+				
+				boolean enable = false;
+				
+				removeLightInfo.setEnabled(enable);
+				exportPak.setEnabled(enable);
+				importPak.setEnabled(enable);
+				removePak.setEnabled(enable);
+				editCubemaps.setEnabled(enable);
+				editStaticProps.setEnabled(enable);
+				
+				editCubemaps.setSelected(false);
+				editStaticProps.setSelected(false);
+			}
+		});
+		
 		frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		frame.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent ev) {
@@ -1259,6 +1300,19 @@ public class BSPEntspy {
 		}
 
 		return true;
+	}
+	
+	private void unloadfile() throws IOException {
+		if(checkchanged("Unload BSP"))
+			return;
+		if(map != null)
+			map.close();
+		map = null;
+		entModel.setEntityList(new ArrayList<Entity>());
+		frame.setTitle(entspyTitle);
+		
+		for(ActionListener al : onMapUnloadInternal)
+			al.actionPerformed(new ActionEvent(this, 0, "mapunload"));
 	}
 
 	private void savefile(boolean overwrite) {
