@@ -1,0 +1,12 @@
+<h2>Renaming the map</h2>
+<hr>
+
+<p>Renaming the map .bsp file breaks cubemaps on non-world geometry (models, props, weapons etc.). When map is being loaded the Source engine 
+loads the Pakfile (containing, amongst others, cubemap textures and patch materials) embedded in the map. To display cubemaps on said geometry the engine 
+searches <i>materials/&lt;MAP BSP FILENAME&gt;</i> directory but if such directory is not 
+found, due to the BSP file being renamed, the cubemaps are not displayed.</p>
+<p>Cubemaps on world geometry however are not affected, as the internal BSP data still points to a valid materials inside the Pakfile.</p>
+<p><b>Renaming the map</b> using BSPEntSpy (<i>Map &gt; Rename map</i>) renames the internal material data as well as reorganizes the Pakfile and 
+updates the references in patch materials, thus provides a way of completely renaming the map.</p>
+<p>Renaming the map takes effect on save. If an external Pakfile is being imported using <i>Map &gt; Import Pak Lump</i>, said Pakfile is going to be 
+affected by the renaming process.</p>

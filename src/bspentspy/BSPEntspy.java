@@ -99,9 +99,10 @@ public class BSPEntspy {
 	
 	private ArrayList<ActionListener> onMapLoadInternal = new ArrayList<ActionListener>();
 	private ArrayList<ActionListener> onMapUnloadInternal = new ArrayList<ActionListener>();
+	private ArrayList<ActionListener> onMapSaveInternal = new ArrayList<ActionListener>();
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String versionTag = "v1.33b";
+	public static final String versionTag = "v1.4R-A";
 	public static final String entspyTitle = "BSPEntSpy " + versionTag;
 	
 	private static void checkForUpdate() throws UnsupportedEncodingException, IOException {
@@ -185,7 +186,8 @@ public class BSPEntspy {
 				}
 			}
 		};
-
+		
+		//TODO: uncomment
 		updateThread.start();
 		
 		this.frame = new JFrame(entspyTitle);
@@ -322,30 +324,35 @@ public class BSPEntspy {
 		});
 
 		JMenu helpmenu = new JMenu("Help");
-		JMenuItem mhelpSearch = new JMenuItem("Search help");
+		JMenuItem mhelpSearch = new JMenuItem("Searching");
 		helpmenu.add(mhelpSearch);
 
 		mhelpSearch.addActionListener(new HelpActionListener("/text/searchhelp.html"));
 
-		JMenuItem mexportHelp = new JMenuItem("Export / Import help");
+		JMenuItem mexportHelp = new JMenuItem("Exporting / Importing entities");
 		helpmenu.add(mexportHelp);
 
 		mexportHelp.addActionListener(new HelpActionListener("/text/exporthelp.html"));
 
-		JMenuItem mpatchHelp = new JMenuItem("Patching help");
+		JMenuItem mpatchHelp = new JMenuItem("Patching from VMF");
 		helpmenu.add(mpatchHelp);
 
 		mpatchHelp.addActionListener(new HelpActionListener("/text/patchhelp.html"));
 
-		JMenuItem fgdhelp = new JMenuItem("FGD help");
+		JMenuItem fgdhelp = new JMenuItem("FGD files");
 		helpmenu.add(fgdhelp);
 
 		fgdhelp.addActionListener(new HelpActionListener("/text/fgdhelp.html"));
 		
-		JMenuItem lighthelp = new JMenuItem("Remove light info help");
+		JMenuItem lighthelp = new JMenuItem("Removing light info");
 		helpmenu.add(lighthelp);
 
 		lighthelp.addActionListener(new HelpActionListener("/text/lighthelp.html"));
+		
+		JMenuItem renaminghelp = new JMenuItem("Renaming the map");
+		helpmenu.add(renaminghelp);
+
+		renaminghelp.addActionListener(new HelpActionListener("/text/renaminghelp.html"));
 
 		helpmenu.addSeparator();
 
@@ -417,7 +424,7 @@ public class BSPEntspy {
 		JMenu mapmenu = new JMenu("Map");
 		
 		JCheckBoxMenuItem removeLightInfo = new JCheckBoxMenuItem("Remove light information");
-		removeLightInfo.setToolTipText("Remove worldlight lump data for rebaking the lights with VRAD");
+		removeLightInfo.setToolTipText("Remove worldlight lump data for rebaking the lights with VRAD. Takes effect on save.");
 		removeLightInfo.setEnabled(map != null && map instanceof SourceBSPFile);
 		mapmenu.add(removeLightInfo);
 		removeLightInfo.addActionListener(new ActionListener() {
@@ -437,7 +444,7 @@ public class BSPEntspy {
 		mapmenu.addSeparator();
 		
 		JCheckBoxMenuItem removePak = new JCheckBoxMenuItem("Remove Pak lump");
-		removePak.setToolTipText("Remove embedded Pak lump from map file. CAUTION!");
+		removePak.setToolTipText("Remove embedded Pak lump from map file. Takes effect on save. CAUTION!");
 		removePak.setEnabled(map != null && map instanceof SourceBSPFile);
 		mapmenu.add(removePak);
 		removePak.addActionListener(new ActionListener() {
@@ -457,8 +464,50 @@ public class BSPEntspy {
 			}
 		});
 		
+		JCheckBoxMenuItem importPak = new JCheckBoxMenuItem("Import Pak Lump");
+		importPak.setToolTipText("Import Zip file as a Pak Lump. Takes effect on save.");
+		importPak.setEnabled(false);
+		mapmenu.add(importPak);
+		
+		importPak.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				if(map == null)
+					return;
+				
+				if(!(map instanceof SourceBSPFile)) {
+					JOptionPane.showMessageDialog(frame, "Unsupported version of BSP. This option works only for Source BSP.");
+					return;
+				}
+				
+				SourceBSPFile bspmap = (SourceBSPFile)map;
+				if(importPak.isSelected()) {
+					JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
+					if(chooser.showOpenDialog(frame) == JFileChooser.CANCEL_OPTION) {
+						importPak.setSelected(false);
+						return;
+					}
+					
+					File zipfile = chooser.getSelectedFile();
+					
+					/*int result = JOptionPane.showConfirmDialog(frame, "This action will take effect on save. Continue?", entspyTitle, JOptionPane.YES_NO_OPTION);
+					
+					if(result == JOptionPane.NO_OPTION)
+						return;*/
+					
+					bspmap.embeddedPak = zipfile;
+					bspmap.writePak = true;
+					
+					removePak.setSelected(false);
+				} else {
+					bspmap.embeddedPak = null;
+				}
+				
+				removePak.setEnabled(!importPak.isSelected());
+			}
+		});
+		
 		JMenuItem exportPak = new JMenuItem("Export Pak Lump");
-		exportPak.setToolTipText("Export Pak lump to zip file");
+		exportPak.setToolTipText("Export Pak lump to Zip file");
 		exportPak.setEnabled(false);
 		mapmenu.add(exportPak);
 		
@@ -486,38 +535,6 @@ public class BSPEntspy {
 			}
 		});
 		
-		JMenuItem importPak = new JMenuItem("Import Pak Lump");
-		importPak.setToolTipText("Import Zip file as a Pak Lump");
-		importPak.setEnabled(false);
-		mapmenu.add(importPak);
-		
-		importPak.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent ae) {
-				if(map == null)
-					return;
-				
-				if(!(map instanceof SourceBSPFile)) {
-					JOptionPane.showMessageDialog(frame, "Unsupported version of BSP. This option works only for Source BSP.");
-					return;
-				}
-				SourceBSPFile bspmap = (SourceBSPFile)map;
-				JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
-				if(chooser.showOpenDialog(frame) == JFileChooser.CANCEL_OPTION)
-					return;
-				
-				File zipfile = chooser.getSelectedFile();
-				
-				int result = JOptionPane.showConfirmDialog(frame, "This action cannot be undone and will take effect on save. Continue?", entspyTitle, JOptionPane.YES_NO_OPTION);
-				
-				if(result == JOptionPane.NO_OPTION)
-					return;
-				
-				bspmap.embeddedPak = zipfile;
-				bspmap.writePak = true;
-				
-				removePak.setSelected(false);
-			}
-		});
 		
 		JCheckBoxMenuItem editCubemaps = new JCheckBoxMenuItem("Edit Cubemaps");
 		editCubemaps.setToolTipText("Edit cubemaps (only 'cubemapsize' is editable)");
@@ -549,7 +566,7 @@ public class BSPEntspy {
 			}
 		});
 		
-		JCheckBoxMenuItem editStaticProps = new JCheckBoxMenuItem("Edit Static props (EXPERIMENTAL)");
+		JCheckBoxMenuItem editStaticProps = new JCheckBoxMenuItem("Edit Static props");
 		editStaticProps.setToolTipText("Edit static props");
 		editStaticProps.setEnabled(false);
 		mapmenu.add(editStaticProps);
@@ -576,6 +593,37 @@ public class BSPEntspy {
 				}
 				
 				updateEntList(map.entities);
+			}
+		});
+		
+		JCheckBoxMenuItem renameMap = new JCheckBoxMenuItem("Rename map");
+		renameMap.setToolTipText("Rename the internal files and materials. Takes effect on save.");
+		renameMap.setEnabled(false);
+		mapmenu.addSeparator();
+		mapmenu.add(renameMap);
+		
+		renameMap.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				if(!(map instanceof SourceBSPFile)) {
+					return;
+				}
+				
+				SourceBSPFile bspmap = (SourceBSPFile)map;
+				
+				if(renameMap.isSelected()) {
+					JPanel panel = new JPanel(new GridLayout(0, 1));
+					JTextField tfield = new JTextField();
+					panel.add(new JLabel("Original map name: " + bspmap.getOriginalName()));
+					panel.add(new JLabel("Enter new map name:"));
+					panel.add(tfield);
+			        
+			        int result = JOptionPane.showConfirmDialog(frame, panel, entspyTitle + " - Rename map", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+			        if(result == JOptionPane.OK_OPTION) {
+			        	bspmap.changeMapName(tfield.getText().trim());
+			        } else
+			        	renameMap.setSelected(false);
+				} else
+					bspmap.changeMapName(null);
 			}
 		});
 
@@ -1100,20 +1148,6 @@ public class BSPEntspy {
 
 				if (selected.length == 1) {
 					setfindlist(entModel.getElementAt(selected[0]), findmodel);
-					/*Entity ent = entModel.getElementAt(selected[0]);
-					
-					if(map instanceof SourceBSPFile && ent.classname.contains("light")) {
-						SourceBSPFile bspmap = (SourceBSPFile)map;
-						BSPWorldLight light = bspmap.theWorldofLightsLDR.findClosest(ent.origin[0], ent.origin[1], ent.origin[2]);
-						
-						if(light != null && light.origin.distToSqr(new Vector(ent.origin)) < 0.125f)
-							System.out.println("====LDR\n"+light);
-						
-						light = bspmap.theWorldofLightsHDR.findClosest(ent.origin[0], ent.origin[1], ent.origin[2]);
-						
-						if(light != null && light.origin.distToSqr(new Vector(ent.origin)) < 0.125f)
-							System.out.println("====HDR\n"+light);
-					}*/
 				}
 			}
 
@@ -1183,6 +1217,7 @@ public class BSPEntspy {
 				
 				editCubemaps.setSelected(false);
 				editStaticProps.setSelected(false);
+				renameMap.setEnabled(enable);
 			}
 		});
 		
@@ -1201,13 +1236,29 @@ public class BSPEntspy {
 				
 				removeLightInfo.setEnabled(enable);
 				exportPak.setEnabled(enable);
+				importPak.setSelected(false);
 				importPak.setEnabled(enable);
 				removePak.setEnabled(enable);
+				removePak.setSelected(false);
 				editCubemaps.setEnabled(enable);
 				editStaticProps.setEnabled(enable);
+				renameMap.setEnabled(enable);
+				renameMap.setSelected(false);
 				
 				editCubemaps.setSelected(false);
 				editStaticProps.setSelected(false);
+			}
+		});
+		
+		onMapSaveInternal.add(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				if(map instanceof SourceBSPFile) {
+					SourceBSPFile bspmap = (SourceBSPFile)map;
+					removePak.setSelected(!bspmap.writePak);
+					importPak.setSelected(bspmap.embeddedPak != null);
+					renameMap.setSelected(bspmap.newMapName != null);
+					removePak.setEnabled(bspmap.embeddedPak == null);
+				}
 			}
 		});
 		
@@ -1315,9 +1366,9 @@ public class BSPEntspy {
 			al.actionPerformed(new ActionEvent(this, 0, "mapunload"));
 	}
 
-	private void savefile(boolean overwrite) {
+	private boolean savefile(boolean overwrite) {
 		if(map == null)
-			return;
+			return false;
 		
 		File out;
 
@@ -1329,7 +1380,7 @@ public class BSPEntspy {
 
 			int result = chooser.showOpenDialog(this.frame);
 			if (result == JFileChooser.CANCEL_OPTION) {
-				return;
+				return false;
 			}
 			out = chooser.getSelectedFile();
 			String outName = out.getName();
@@ -1344,7 +1395,7 @@ public class BSPEntspy {
 			int result2 = JOptionPane.showConfirmDialog(frame, "File " + out.getName() + " exists. Override?");
 
 			if (result2 != JOptionPane.YES_OPTION)
-				return;
+				return false;
 		}
 		
 		if(map instanceof SourceBSPFile) {
@@ -1398,6 +1449,8 @@ public class BSPEntspy {
 				} catch (IOException e1) {
 				}
 			}
+			
+			return false;
 		} finally {
 			try {
 				infile = out;
@@ -1411,6 +1464,11 @@ public class BSPEntspy {
 				loadfile(null);
 			}
 		}
+		
+		for(ActionListener al : onMapSaveInternal)
+			al.actionPerformed(new ActionEvent(this, 0, "mapsave"));
+		
+		return true;
 	}
 
 	public boolean loadfgdfiles(File file) {
@@ -1686,6 +1744,8 @@ public class BSPEntspy {
 	}
 	
 	private static void commandRename(String orgName, String newName, String path) {
+		System.out.println("DEPRECATED!!! Use 'Rename map' functionality instead!");
+		
 		Path dirPath = Paths.get(path);
 		Path parent = dirPath.getParent();
 

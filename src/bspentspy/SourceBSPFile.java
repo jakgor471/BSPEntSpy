@@ -6,7 +6,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -14,41 +13,41 @@ import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.CharBuffer;
 import java.nio.channels.Channels;
 import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 import SevenZip.Compression.LZMA.Decoder;
 import SevenZip.Compression.LZMA.Encoder;
-import bspentspy.Octree.IOriginThing;
-import bspentspy.Octree.Vector;
 import util.RandomAccessByteOutputStream;
 
 public class SourceBSPFile extends BSPFile{
 	public static final float MAPSIZE = 65536;
+	private static final Pattern VMTREPLACEPATTERN = Pattern.compile("[\\\"']?(?:\\$\\w+|include)\\b[\\\"']?\\s*[\\s\\\"'][\\/\\\\]?([\\w\\/\\d-]*maps/[\\w\\/\\d-]*)[\\n\\\"']?", Pattern.CASE_INSENSITIVE);
 	
 	protected int bspVersion;
-	protected Octree<BSPWorldLight> theWorldofLightsLDR;
-	protected Octree<BSPWorldLight> theWorldofLightsHDR;
 	protected boolean writeLights = true;
 	protected boolean writePak = true;
 	protected boolean hasLights = true;
 	protected File embeddedPak = null;
 	
-	private String newMapName = null;
+	protected String newMapName = null;
 	
 	private int targetSpropVersion = -1;
 	private int curSpropVersion = -1;
 	private BSPLump[] lumps;
 	private GameLump[] glumps;
 	private GameLump staticPropLump = null;
-	private ArrayList<BSPWorldLight> hdrLights;
-	private ArrayList<BSPWorldLight> ldrLights;
 	private ArrayList<String> materials;
 	private String originalMapName;
 	private int mapRev;
@@ -95,38 +94,6 @@ public class SourceBSPFile extends BSPFile{
 		loadGameLumps();
 		loadEntities();
 		
-		for(String mat : materials) {
-			System.out.println(mat);
-		}
-		
-		/*bspfile.seek(lumps[PAKLUMP].offset);
-		ZipInputStream zis = new ZipInputStream(Channels.newInputStream(bspfile.getChannel()));
-		ZipEntry ze = null;
-		
-		ZipOutputStream zos = new ZipOutputStream(new FileOutputStream("pak.zip"));
-		
-		byte[] buffer = new byte[8192];
-		
-		while((ze = zis.getNextEntry()) != null) {
-			ZipEntry newEntry = new ZipEntry("goges" + ze.getName());
-			newEntry.setMethod(ZipEntry.STORED);
-			newEntry.setSize(ze.getSize());
-			newEntry.setCompressedSize(ze.getCompressedSize());
-			newEntry.setCrc(ze.getCrc());
-			zos.putNextEntry(newEntry);
-			
-			int length, totalLen = 0;
-			while ((length = zis.read(buffer)) > 0) {
-				zos.write(buffer, 0, length);
-				totalLen += length;
-			}
-			
-			zis.closeEntry();
-			zos.closeEntry();
-		}
-		
-		zos.close();*/
-
 		return true;
 	}
 	
@@ -150,9 +117,10 @@ public class SourceBSPFile extends BSPFile{
 	}
 	
 	public void changeMapName(String mapname) {
-		if(mapname.equals(getOriginalName()))
+		if(mapname == null) {
+			newMapName = null;
 			return;
-		
+		}
 		newMapName = mapname;
 	}
 	
@@ -595,23 +563,13 @@ public class SourceBSPFile extends BSPFile{
 			newLumps[PAKLUMP].length = 0;
 		}
 		
-		FileInputStream pakIs = null;
-		if(embeddedPak != null && newMapName == null) {
-			try {
-				pakIs = new FileInputStream(embeddedPak);
-				newLumps[PAKLUMP].length = pakIs.getChannel().size();
-				
-				newLumps[PAKLUMP].offset = Long.MAX_VALUE; //let the PAK lump be at the end so writing to it does not require shifting everything
-				
-			} catch(FileNotFoundException e) {
-				e.printStackTrace();
-				
-				if(pakIs != null)
-					pakIs.close();
-				embeddedPak = null;
-			}
+		boolean rename = false;
+		if(getOriginalName() != null && newMapName != null) {
+			renameMaterials();
+			rename = true;
 		}
 		
+		newLumps[PAKLUMP].offset = Long.MAX_VALUE; //let the PAK lump be at the end so writing to it does not require shifting everything
 		Collections.sort(sorted);
 
 		GenericLump cur = sorted.get(0);
@@ -638,9 +596,8 @@ public class SourceBSPFile extends BSPFile{
 				out.seek(to.offset);
 				out.write(entData);
 				continue;
-			} else if(to.index == PAKLUMP && pakIs != null) {
-				out.seek(newLumps[PAKLUMP].offset);
-				copy(out, pakIs, newLumps[PAKLUMP].length);
+			} else if(to.index == PAKLUMP) {
+				savePak(out, lumps[PAKLUMP], newLumps[PAKLUMP], rename);
 				continue;
 			} else if(to.index == CUBEMAPLUMP && cubemaps != null) {
 				byte[] cubemapData = getCubemapBytes();
@@ -648,13 +605,42 @@ public class SourceBSPFile extends BSPFile{
 				out.seek(to.offset);
 				out.write(cubemapData);
 				continue;
+			} else if(to.index == TEXSTRINGDATALUMP_DATA && materials != null) {
+				ByteArrayOutputStream bytes = new ByteArrayOutputStream(materials.size() * 128);
+				
+				for(String mat : materials) {
+					bytes.write(mat.getBytes(utf8Charset));
+					bytes.write(0);
+				}
+				
+				to.length = bytes.size();
+				out.seek(to.offset);
+				bytes.writeTo(Channels.newOutputStream(out.getChannel()));
+				bytes.close();
+				
+				continue;
+			} else if(to.index == TEXSTRINGDATALUMP_TABLE && materials != null) {
+				byte[] bytes = new byte[materials.size() * 4];
+				int offset = 0;
+				
+				ByteBuffer buff = ByteBuffer.wrap(bytes);
+				buff.order(ByteOrder.LITTLE_ENDIAN);
+				
+				to.length = bytes.length;
+				
+				for(String mat : materials) {
+					buff.putInt(offset);
+					offset += mat.length() + 1;
+				}
+				
+				out.seek(to.offset);
+				out.write(bytes);
+				
+				continue;
 			}
 			
 			copy(out, lumps[to.index], to);
 		}
-		
-		if(pakIs != null)
-			pakIs.close();
 		
 		writeHeader(out, newLumps);
 		
@@ -673,17 +659,181 @@ public class SourceBSPFile extends BSPFile{
 			curSpropVersion = targetSpropVersion;
 			
 			staticPropLump = findStaticPropLump();
+			
 			newMapName = null;
 			originalMapName = null;
 		}
 	}
 	
+	private void savePak(RandomAccessFile out, GenericLump oldPakLump, GenericLump newPakLump, boolean rename) throws IOException {
+		if(embeddedPak == null && !rename) {
+			copy(out, oldPakLump, newPakLump);
+			return;
+		}
+		
+		FileInputStream pakIs = null;
+		try {
+			ZipInputStream zis;
+			if(embeddedPak != null) {
+				pakIs = new FileInputStream(embeddedPak);
+				zis = new ZipInputStream(pakIs);
+				copyRenamePak(out, zis, oldPakLump, newPakLump, rename);
+				pakIs.close();
+				pakIs = null;
+			} else {
+				bspfile.seek(oldPakLump.offset);
+				zis = new ZipInputStream(Channels.newInputStream(bspfile.getChannel()));
+				copyRenamePak(out, zis, oldPakLump, newPakLump, rename);
+			}
+		} catch(IOException e) {
+			if(pakIs != null)
+				pakIs.close();
+			embeddedPak = null;
+			throw e;
+		}
+	}
+	
+	private void copyRenamePak(RandomAccessFile out, ZipInputStream zis, GenericLump pakFrom, GenericLump pakTo, boolean rename) throws IOException {
+		out.seek(pakTo.offset);
+		
+		ByteArrayOutputStream bos = new ByteArrayOutputStream((int)pakFrom.length);
+		ZipOutputStream zos = new ZipOutputStream(bos);
+		
+		OutputStream os = Channels.newOutputStream(out.getChannel());
+		
+		ZipEntry ze = null;
+		
+		byte[] buffer = new byte[81920];
+		long totalSize = 0;
+		
+		String orgMapName = null;
+		String mapName = null;
+		
+		if(rename) {
+			orgMapName = "maps/" + getOriginalName().toLowerCase();
+			mapName = "maps/" + newMapName.toLowerCase();
+		}
+		
+		CRC32 crc = new CRC32();
+		
+		while((ze = zis.getNextEntry()) != null) {
+			String newName = ze.getName();
+			
+			if(rename) {
+				int index = newName.toLowerCase().indexOf(orgMapName);
+				
+				if(index > -1)
+					newName = newName.substring(0, index) + mapName + newName.substring(index + orgMapName.length());
+			}
+
+			if(rename && newName.substring(newName.lastIndexOf('.')).toLowerCase().equals(".vmt")) {
+				ZipEntry newEntry = new ZipEntry(newName);
+				newEntry.setMethod(ZipEntry.STORED);
+				
+				byte[] bytes = new byte[(int) ze.getSize()];
+				zis.read(bytes);
+				
+				ByteBuffer buff = ByteBuffer.wrap(bytes);
+				CharsetDecoder chd = utf8Charset.newDecoder();
+				CharBuffer chb = chd.decode(buff);
+				
+				String modified = renameVmt(chb);
+				
+				if(modified != null)
+					bytes = modified.getBytes(utf8Charset);
+				
+				crc.update(bytes);
+				
+				newEntry.setSize(bytes.length);
+				newEntry.setCompressedSize(bytes.length);
+				newEntry.setCrc(crc.getValue());
+				
+				zos.putNextEntry(newEntry);
+				zos.write(bytes);
+				
+				crc.reset();
+			} else {
+				ZipEntry newEntry = new ZipEntry(newName);
+				newEntry.setMethod(ZipEntry.STORED);
+				
+				newEntry.setSize(ze.getSize());
+				newEntry.setCompressedSize(ze.getSize());
+				newEntry.setCrc(ze.getCrc());
+				zos.putNextEntry(newEntry);
+				
+				int length = 0;
+				while ((length = zis.read(buffer)) > 0) {
+					zos.write(buffer, 0, length);
+				}
+			}
+			
+			zis.closeEntry();
+			zos.closeEntry();
+			
+			totalSize += bos.size();
+			bos.writeTo(os);
+			bos.reset();
+		}
+		
+		zos.finish();
+		
+		totalSize += bos.size();
+		bos.writeTo(os);
+		
+		pakTo.length = totalSize;
+	}
+	
+	private String renameVmt(CharSequence content) {
+		Matcher match = VMTREPLACEPATTERN.matcher(content);
+		
+		StringBuilder newContent = new StringBuilder(content.length());
+		
+		int beg = 0;
+		boolean found = false;
+		while(match.find()) {
+			found = true;
+			String foundStr = match.group(1);
+			String[] split = foundStr.split("[\\\\/]");
+			
+			newContent.append(content.subSequence(beg, match.start(1)));
+			beg = match.end(1);
+			boolean foundSplit = false;
+			
+			for(int i = 0; i < split.length - 1; ++i) {
+				if(!foundSplit && split[i].equalsIgnoreCase(getOriginalName())) {
+					foundSplit = true;
+					split[i] = newMapName.toLowerCase();
+				}
+				newContent.append(split[i]).append("/");
+			}
+			
+			newContent.append(split[split.length - 1]);
+		}
+		
+		newContent.append(content.subSequence(beg, content.length()));
+		
+		if(found)
+			return newContent.toString();
+		
+		return null;
+	}
+	
 	private void renameMaterials() {
-		if(newMapName == null || materials == null)
+		if(getOriginalName() == null || materials == null)
 			return;
 		
+		String lowerMapName = "maps/" + newMapName.toLowerCase();
+		String lowerOrgName = "maps/" + getOriginalName().toLowerCase();
+		
 		for(int i = 0; i < materials.size(); ++i) {
+			String org = materials.get(i);
+			String lower = org.toLowerCase();
+			int index = lower.indexOf(lowerOrgName);
 			
+			if(index > -1) {
+				String newMat = org.substring(0, index) + lowerMapName + org.substring(index + lowerOrgName.length());
+				materials.set(i, newMat);
+			}
 		}
 	}
 	
@@ -927,125 +1077,6 @@ public class SourceBSPFile extends BSPFile{
 		}
 	}
 	
-	public void removeLightAt(Vector pos) {
-		BSPWorldLight ldr = theWorldofLightsLDR.findClosest(pos.x, pos.y, pos.z);
-		BSPWorldLight hdr = theWorldofLightsHDR.findClosest(pos.x, pos.y, pos.z);
-		
-		if(pos.distToSqr(ldr.origin) < 0.125f) {
-			theWorldofLightsLDR.remove(ldr);
-			ldrLights.remove(ldr);
-		}
-		if(pos.distToSqr(hdr.origin) < 0.125f) {
-			theWorldofLightsHDR.remove(hdr);
-			hdrLights.remove(hdr);
-		}
-	}
-	
-	private byte[] getLightData(int type) {
-		if(!writeLights)
-			return new byte[0];
-		
-		ArrayList<BSPWorldLight> arr = ldrLights;
-		
-		if(type == WORLDLIGHTLUMP_HDR)
-			arr = hdrLights;
-		byte[] bytes = new byte[arr.size() * 88];
-		ByteBuffer buff = ByteBuffer.wrap(bytes);
-		buff.order(ByteOrder.LITTLE_ENDIAN);
-		
-		for(BSPWorldLight l : arr) {
-			buff.putFloat(l.origin.x);
-			buff.putFloat(l.origin.y);
-			buff.putFloat(l.origin.z);
-			buff.putFloat(l.intensity[0]);
-			buff.putFloat(l.intensity[1]);
-			buff.putFloat(l.intensity[2]);
-			buff.putFloat(l.normal[0]);
-			buff.putFloat(l.normal[1]);
-			buff.putFloat(l.normal[2]);
-			
-			buff.putInt(l.cluster);
-			buff.putInt(l.type);
-			buff.putInt(l.style);
-			
-			buff.putFloat(l.stopdot);
-			buff.putFloat(l.stopdot2);
-			buff.putFloat(l.exponent);
-			buff.putFloat(l.radius);
-			buff.putFloat(l.constant_attn);
-			buff.putFloat(l.linear_attn);
-			buff.putFloat(l.quadratic_attn);
-			
-			buff.putInt(l.flags);
-			buff.putInt(l.texinfo);
-			buff.putInt(l.owner);
-		}
-		
-		return bytes;
-	}
-	
-	private void loadLights() throws IOException {
-		int numldrLights = (int)(lumps[WORLDLIGHTLUMP_LDR].length / 88);
-		int numhdrLights = (int)(lumps[WORLDLIGHTLUMP_HDR].length / 88);
-		
-		hasLights = numldrLights + numhdrLights > 0;
-		
-		ldrLights = new ArrayList<BSPWorldLight>(numldrLights);
-		hdrLights = new ArrayList<BSPWorldLight>(numhdrLights);
-		
-		int num = numldrLights;
-		BSPLump lump = lumps[WORLDLIGHTLUMP_LDR];
-		ArrayList<BSPWorldLight> arr = ldrLights;
-		
-		for(int i = 0; i < 2; ++i) {			
-			bspfile.seek(lump.offset);
-			byte[] lightBytes = new byte[(int)lump.length];
-			ByteBuffer lightBuff = ByteBuffer.wrap(lightBytes);
-			lightBuff.order(ByteOrder.LITTLE_ENDIAN);
-			
-			bspfile.read(lightBytes);
-			
-			System.out.println("Lights: ");
-			for(int j = 0; j < num; ++j) {
-				BSPWorldLight lgt = new BSPWorldLight();
-				lgt.origin = new Vector();
-				lgt.intensity = new float[3];
-				lgt.normal = new float[3];
-				lgt.origin.x = lightBuff.getFloat();
-				lgt.origin.y = lightBuff.getFloat();
-				lgt.origin.z = lightBuff.getFloat();
-				lgt.intensity[0] = lightBuff.getFloat(); // R * A * 39.215
-				lgt.intensity[1] = lightBuff.getFloat();
-				lgt.intensity[2] = lightBuff.getFloat();
-				lgt.normal[0] = lightBuff.getFloat();
-				lgt.normal[1] = lightBuff.getFloat();
-				lgt.normal[2] = lightBuff.getFloat();
-				
-				lgt.cluster = lightBuff.getInt();
-				lgt.type = lightBuff.getInt();
-				lgt.style = lightBuff.getInt();
-				
-				lgt.stopdot = lightBuff.getFloat();
-				lgt.stopdot2 = lightBuff.getFloat();
-				lgt.exponent = lightBuff.getFloat();
-				lgt.radius = lightBuff.getFloat();
-				lgt.constant_attn = lightBuff.getFloat();
-				lgt.linear_attn = lightBuff.getFloat();
-				lgt.quadratic_attn = lightBuff.getFloat();
-				
-				lgt.flags = lightBuff.getInt();
-				lgt.texinfo = lightBuff.getInt();
-				lgt.owner = lightBuff.getInt();
-				
-				arr.add(lgt);
-			}
-			
-			num = numhdrLights;
-			lump = lumps[WORLDLIGHTLUMP_HDR];
-			arr = hdrLights;
-		}
-	}
-	
 	public static final int ID_BSP = 0x56425350; //big endian
 	public static final int ID_LZMA = 0x4C5A4D41; //big endian
 	
@@ -1071,48 +1102,6 @@ public class SourceBSPFile extends BSPFile{
 	private static final int SPROPLUMP_V5 = 1;
 	private static final int SPROPLUMP_V6 = 2;
 	private static final int SPROPLUMP_INVALIDVERSION = -1;
-	
-	public static class BSPWorldLight implements IOriginThing {
-		public static final int EMIT_SURF = 0;
-		public static final int EMIT_POINT = 1;
-		public static final int EMIT_SPOTLIGHT = 2;
-		public static final int EMIT_SKYLIGHT = 3;
-		public static final int EMIT_QUAKELIGHT = 4;
-		public static final int EMIT_AMBIENT = 5;
-		
-		public static final String[] EMIT = {"Surface", "Point", "Spotlight", "Skylight", "Quakelight", "Ambient"};
-		
-		Vector origin;
-		float[] intensity;
-		float[] normal;
-		int cluster;
-		int type;
-	    int style;
-		float stopdot;
-		float stopdot2;
-		float exponent;
-		float radius;
-		float constant_attn;
-		float linear_attn;
-		float quadratic_attn;
-		int flags;
-		int texinfo;
-		int	owner;
-		
-		public Vector getOrigin() {
-			return origin;
-		}
-		
-		public String toString() {
-			return String.format("origin: (%.4f %.4f %.4f)"
-					+ "\nintensity: (%.4f %.4f %.4f)"
-					+ "\nnormal: (%.4f %.4f %.4f)"
-					+ "\ncluster: %d\ntype: %s\nstyle: %d",
-					origin.x, origin.y, origin.z, intensity[0], intensity[1], intensity[2], normal[0], normal[1], normal[2],
-					cluster, EMIT[type], style
-					);
-		}
-	}
 	
 	public static class BSPLump extends GenericLump{
 		int version;
