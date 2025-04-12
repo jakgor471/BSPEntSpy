@@ -1073,7 +1073,7 @@ public class SourceBSPFile extends BSPFile{
 			bspfile.seek(lumps[TEXSTRINGDATALUMP_TABLE].offset);
 			bspfile.read(tableData);
 		}else 
-			stringData = decompress(lumps[TEXSTRINGDATALUMP_TABLE]);
+			tableData = decompress(lumps[TEXSTRINGDATALUMP_TABLE]);
 		
 		if(stringData == null || tableData == null)
 			return;
