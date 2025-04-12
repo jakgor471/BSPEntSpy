@@ -19,7 +19,7 @@ public class GoldSrcBSPFile extends BSPFile{
 		file.seek(0);
 		bspVersion = Integer.reverseBytes(file.readInt());
 		
-		if(bspVersion != 30) {
+		if(bspVersion != 30 && bspVersion != 29) {
 			file.seek(file.getFilePointer() - 4);
 			return false;
 		}

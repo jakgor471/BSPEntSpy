@@ -608,6 +608,8 @@ public class SourceBSPFile extends BSPFile{
 			} else if(to.index == TEXSTRINGDATALUMP_DATA && materials != null) {
 				ByteArrayOutputStream bytes = new ByteArrayOutputStream(materials.size() * 128);
 				
+				((BSPLump)to).fourCC = 0; //no compression at the moment
+				
 				for(String mat : materials) {
 					bytes.write(mat.getBytes(utf8Charset));
 					bytes.write(0);
@@ -622,6 +624,8 @@ public class SourceBSPFile extends BSPFile{
 			} else if(to.index == TEXSTRINGDATALUMP_TABLE && materials != null) {
 				byte[] bytes = new byte[materials.size() * 4];
 				int offset = 0;
+				
+				((BSPLump)to).fourCC = 0;
 				
 				ByteBuffer buff = ByteBuffer.wrap(bytes);
 				buff.order(ByteOrder.LITTLE_ENDIAN);
@@ -998,7 +1002,12 @@ public class SourceBSPFile extends BSPFile{
 		return out.toByteArray();
 	} 
 	
-	private byte[] decompress() throws IOException {
+	private byte[] decompress(BSPLump lump) throws IOException {
+		if(lump.offset == 0)
+			return null;
+		
+		bspfile.seek(lump.offset);
+		
 		int id = bspfile.readInt();
 		int actualSize = Integer.reverseBytes(bspfile.readInt());
 		int lzmaSize = Integer.reverseBytes(bspfile.readInt());
@@ -1028,13 +1037,13 @@ public class SourceBSPFile extends BSPFile{
 		if(entLump.offset == 0)
 			return;
 		
-		bspfile.seek(entLump.offset);
-		
 		byte[] entData = null;
 		if(entLump.fourCC != 0) {
 			entLump.lzma = true;
-			entData = decompress();
+			entData = decompress(entLump);
 		}
+		
+		bspfile.seek(entLump.offset);
 		
 		if (entData == null){
 			entLump.lzma = false;
@@ -1049,14 +1058,25 @@ public class SourceBSPFile extends BSPFile{
 	}
 	
 	private void loadMaterials() throws IOException {
-		byte[] stringData = new byte[(int)lumps[TEXSTRINGDATALUMP_DATA].length];
-		byte[] tableData = new byte[(int)lumps[TEXSTRINGDATALUMP_TABLE].length];
+		byte[] stringData = null;
+		byte[] tableData = null;
 		
-		bspfile.seek(lumps[TEXSTRINGDATALUMP_DATA].offset);
-		bspfile.read(stringData);
+		if(lumps[TEXSTRINGDATALUMP_DATA].fourCC == 0) {
+			stringData = new byte[(int)lumps[TEXSTRINGDATALUMP_DATA].length];
+			bspfile.seek(lumps[TEXSTRINGDATALUMP_DATA].offset);
+			bspfile.read(stringData);
+		}else 
+			stringData = decompress(lumps[TEXSTRINGDATALUMP_DATA]);
 		
-		bspfile.seek(lumps[TEXSTRINGDATALUMP_TABLE].offset);
-		bspfile.read(tableData);
+		if(lumps[TEXSTRINGDATALUMP_TABLE].fourCC == 0) {
+			tableData = new byte[(int)lumps[TEXSTRINGDATALUMP_TABLE].length];
+			bspfile.seek(lumps[TEXSTRINGDATALUMP_TABLE].offset);
+			bspfile.read(tableData);
+		}else 
+			stringData = decompress(lumps[TEXSTRINGDATALUMP_TABLE]);
+		
+		if(stringData == null || tableData == null)
+			return;
 		
 		ByteBuffer tableBuff = ByteBuffer.wrap(tableData);
 		tableBuff.order(ByteOrder.LITTLE_ENDIAN);

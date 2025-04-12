@@ -31,13 +31,12 @@ Detailed description and instructions are included in **Help** menu tab in BSPEn
 **Help panel**  
 ![comparison](https://github.com/jakgor471/BSPEntSpy/blob/main/images/image2.jpg?raw=true)
 
-# Dependencies
-* LZMA SDK (included in the source code) https://7-zip.org/sdk.html
-* JSON-Java https://github.com/stleary/JSON-java
-
 **Java Runtime Environment** is required to run the application.
 
 ## Changelog
+### BSPEntSpy v1.414R-A release 12/04/2025
+* Added support for Quake 1 BSP
+* Fixed bug with LZMA compressed maps (Team Fortress 2)
 ### BSPEntSpy v1.4R-A release 04/03/2025
 * More flexible PAK file importing
 * Functionality for renaming internal map structure (for fixing cubemaps etc.)
@@ -85,3 +84,7 @@ Detailed description and instructions are included in **Help** menu tab in BSPEn
 * Extended the search possibilities
 * Minor tweaks and clean-ups
 * Added new icons
+
+# Dependencies
+* LZMA SDK (included in the source code) https://7-zip.org/sdk.html
+* JSON-Java https://github.com/stleary/JSON-java
