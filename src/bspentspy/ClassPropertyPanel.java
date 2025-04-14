@@ -392,6 +392,12 @@ public class ClassPropertyPanel extends JPanel {
 
 	public void setEntity(Entity e) {
 		editingEntities.clear();
+		
+		if(e == null) {
+			clearEntities();
+			return;
+		}
+		
 		editingEntities.add(e);
 
 		gatherKeyValues();
@@ -530,6 +536,9 @@ public class ClassPropertyPanel extends JPanel {
 		classname = null;
 		origin = null;
 		refreshClassOriginInfo();
+		
+		kvModel.set(keyvalues);
+		flagModel.setFlags(null);
 	}
 
 	public void apply() {

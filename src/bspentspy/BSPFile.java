@@ -118,7 +118,7 @@ public abstract class BSPFile implements AutoCloseable{
 		}
 		
 		for(Entity e : entities) {
-			if(!e.shouldSave())
+			if(!e.shouldSave() || VMF.ignoredClasses.contains(e.getKeyValue("classname")))
 				continue;
 			sb.append("{\n");
 			for(int i = 0; i < e.keyvalues.size(); ++i) {

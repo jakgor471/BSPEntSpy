@@ -2,6 +2,7 @@ package bspentspy;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
@@ -58,6 +59,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComboBox;
+import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -69,6 +71,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
+import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
@@ -172,7 +175,7 @@ public class BSPEntspy {
 		return true;
 	}
 
-	public int exec() throws IOException {
+	public int exec(boolean secret) throws IOException {
 		preferences = Preferences.userRoot().node(getClass().getName());
 		
 		Thread updateThread = new Thread() {
@@ -217,23 +220,23 @@ public class BSPEntspy {
 		msave.setToolTipText("Save the current map file");
 		mload.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_L, KeyEvent.CTRL_DOWN_MASK));
 		msave.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.CTRL_DOWN_MASK));
-		msave.setEnabled(false);
+		//msave.setEnabled(false);
 		filemenu.add(mload);
 		filemenu.add(msave);
 
 		JMenuItem msaveas = new JMenuItem("Save BSP as..");
 		msaveas.setToolTipText("Save the current map to a chosen file");
-		msaveas.setEnabled(false);
+		//msaveas.setEnabled(false);
 		filemenu.add(msaveas);
 		
 		JMenuItem munload = new JMenuItem("Unload BSP");
 		munload.setToolTipText("Unload the current map file");
-		munload.setEnabled(false);
+		//munload.setEnabled(false);
 		filemenu.add(munload);
 
 		JMenuItem mpatchvmf = new JMenuItem("Patch from VMF");
 		mpatchvmf.setToolTipText("Update entity properties based on a VMF file (see more in Help)");
-		mpatchvmf.setEnabled(false);
+		//mpatchvmf.setEnabled(false);
 		filemenu.add(mpatchvmf);
 
 		filemenu.addSeparator();
@@ -252,11 +255,11 @@ public class BSPEntspy {
 		JMenu editmenu = new JMenu("Edit");
 		JMenuItem mUndo = new JMenuItem("Undo");
 		mUndo.setToolTipText("Undo last edit");
-		mUndo.setEnabled(false);
+		//mUndo.setEnabled(false);
 		mUndo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, KeyEvent.CTRL_DOWN_MASK));
 
 		JMenuItem mRedo = new JMenuItem("Redo");
-		mRedo.setEnabled(false);
+		//mRedo.setEnabled(false);
 		mRedo.setToolTipText("Redo last edit");
 		mRedo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Y, KeyEvent.CTRL_DOWN_MASK));
 
@@ -287,7 +290,7 @@ public class BSPEntspy {
 		});
 
 		JMenuItem mInvertSel = new JMenuItem("Invert selection");
-		mInvertSel.setEnabled(true);
+		//mInvertSel.setEnabled(true);
 		mInvertSel.setToolTipText("Invert the selection");
 		mInvertSel.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_I, KeyEvent.CTRL_DOWN_MASK));
 		editmenu.addSeparator();
@@ -413,19 +416,19 @@ public class BSPEntspy {
 		JMenu entitymenu = new JMenu("Entity");
 		final JMenuItem importEntity = new JMenuItem("Import");
 		importEntity.setToolTipText("Import entities from a file");
-		importEntity.setEnabled(false);
+		//importEntity.setEnabled(false);
 		entitymenu.add(importEntity);
 
 		final JMenuItem exportEntity = new JMenuItem("Export");
 		exportEntity.setToolTipText("Export selected entities to a file");
-		exportEntity.setEnabled(false);
+		//exportEntity.setEnabled(false);
 		entitymenu.add(exportEntity);
 		
 		JMenu mapmenu = new JMenu("Map");
 		
 		JCheckBoxMenuItem removeLightInfo = new JCheckBoxMenuItem("Remove light information");
 		removeLightInfo.setToolTipText("Remove worldlight lump data for rebaking the lights with VRAD. Takes effect on save.");
-		removeLightInfo.setEnabled(map != null && map instanceof SourceBSPFile);
+		//removeLightInfo.setEnabled(map != null && map instanceof SourceBSPFile);
 		mapmenu.add(removeLightInfo);
 		removeLightInfo.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
@@ -445,7 +448,7 @@ public class BSPEntspy {
 		
 		JCheckBoxMenuItem removePak = new JCheckBoxMenuItem("Remove Pak lump");
 		removePak.setToolTipText("Remove embedded Pak lump from map file. Takes effect on save. CAUTION!");
-		removePak.setEnabled(map != null && map instanceof SourceBSPFile);
+		//removePak.setEnabled(map != null && map instanceof SourceBSPFile);
 		mapmenu.add(removePak);
 		removePak.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
@@ -466,7 +469,7 @@ public class BSPEntspy {
 		
 		JCheckBoxMenuItem importPak = new JCheckBoxMenuItem("Import Pak Lump");
 		importPak.setToolTipText("Import Zip file as a Pak Lump. Takes effect on save.");
-		importPak.setEnabled(false);
+		//importPak.setEnabled(false);
 		mapmenu.add(importPak);
 		
 		importPak.addActionListener(new ActionListener() {
@@ -508,7 +511,7 @@ public class BSPEntspy {
 		
 		JMenuItem exportPak = new JMenuItem("Export Pak Lump");
 		exportPak.setToolTipText("Export Pak lump to Zip file");
-		exportPak.setEnabled(false);
+		//exportPak.setEnabled(false);
 		mapmenu.add(exportPak);
 		
 		exportPak.addActionListener(new ActionListener() {
@@ -538,7 +541,7 @@ public class BSPEntspy {
 		
 		JCheckBoxMenuItem editCubemaps = new JCheckBoxMenuItem("Edit Cubemaps");
 		editCubemaps.setToolTipText("Edit cubemaps (only 'cubemapsize' is editable)");
-		editCubemaps.setEnabled(false);
+		//editCubemaps.setEnabled(false);
 		mapmenu.addSeparator();
 		mapmenu.add(editCubemaps);
 		
@@ -568,7 +571,7 @@ public class BSPEntspy {
 		
 		JCheckBoxMenuItem editStaticProps = new JCheckBoxMenuItem("Edit Static props");
 		editStaticProps.setToolTipText("Edit static props");
-		editStaticProps.setEnabled(false);
+		//editStaticProps.setEnabled(false);
 		mapmenu.add(editStaticProps);
 		
 		editStaticProps.addActionListener(new ActionListener() {
@@ -598,7 +601,7 @@ public class BSPEntspy {
 		
 		JCheckBoxMenuItem renameMap = new JCheckBoxMenuItem("Rename map");
 		renameMap.setToolTipText("Rename the internal files and materials. Takes effect on save.");
-		renameMap.setEnabled(false);
+		//renameMap.setEnabled(false);
 		mapmenu.addSeparator();
 		mapmenu.add(renameMap);
 		
@@ -626,6 +629,49 @@ public class BSPEntspy {
 					bspmap.changeMapName(null);
 			}
 		});
+		
+		JMenuItem editMaterials = new JMenuItem("Edit Materials");
+		//editMaterials.setEnabled(false);
+		mapmenu.addSeparator();
+		mapmenu.add(editMaterials);
+		
+		editMaterials.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				if(!(map instanceof SourceBSPFile))
+					return;
+				
+				SourceBSPFile bspmap = (SourceBSPFile)map;
+				
+				JDialog subframe = new JDialog(frame, "Edit Materials");
+				MaterialTableModel model = new MaterialTableModel(bspmap.materials);
+				JTable matTable = new JTable(model);
+				matTable.getColumnModel().getColumn(0).setMaxWidth(50);
+				
+				subframe.getContentPane().add(new JScrollPane(matTable));
+				
+				subframe.setModalityType(Dialog.ModalityType.APPLICATION_MODAL);
+				subframe.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+				subframe.setSize(400, 520);
+				subframe.setLocation(frame.getLocation());
+				subframe.setVisible(true);
+			}
+		});
+		
+		JMenu secretMenu = new JMenu("Secret");
+		JCheckBoxMenuItem randomizeMaterials = new JCheckBoxMenuItem("__randomize_materials__");
+		//randomizeMaterials.setEnabled(false);
+		randomizeMaterials.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				if(!(map instanceof SourceBSPFile)) {
+					return;
+				}
+				
+				SourceBSPFile bspmap = (SourceBSPFile)map;
+				
+				bspmap.randomMats = randomizeMaterials.isSelected();
+			}
+		});
+		secretMenu.add(randomizeMaterials);
 
 		JMenuBar menubar = new JMenuBar();
 		menubar.add(filemenu);
@@ -634,6 +680,10 @@ public class BSPEntspy {
 		menubar.add(mapmenu);
 		menubar.add(optionmenu);
 		menubar.add(helpmenu);
+		
+		if(secret)
+			menubar.add(secretMenu);
+		
 		this.frame.setJMenuBar(menubar);
 
 		mload.addActionListener(new ActionListener() {
@@ -795,7 +845,7 @@ public class BSPEntspy {
 		cpyent.setEnabled(false);
 		final JButton delent = new JButton("Del");
 		delent.setToolTipText("Delete the selected entities");
-		delent.setEnabled(false);
+		//delent.setEnabled(false);
 		entbut.add(updent);
 		entbut.add(addent);
 		entbut.add(cpyent);
@@ -889,12 +939,12 @@ public class BSPEntspy {
 
 		final JButton cpToClipEnt = new JButton("Copy");
 		cpToClipEnt.setToolTipText("Copy selected entities to clipboard");
-		cpToClipEnt.setEnabled(false);
+		//cpToClipEnt.setEnabled(false);
 		entexp.add(cpToClipEnt);
 
 		final JButton pstFromClipEnt = new JButton("Paste");
 		pstFromClipEnt.setToolTipText("Paste entities from clipboard");
-		pstFromClipEnt.setEnabled(true);
+		//pstFromClipEnt.setEnabled(true);
 		entexp.add(pstFromClipEnt);
 
 		cpToClipEnt.addActionListener(new ActionListener() {
@@ -1203,6 +1253,10 @@ public class BSPEntspy {
 				importEntity.setEnabled(true);
 				munload.setEnabled(true);
 				
+				updent.setEnabled(true);
+				addent.setEnabled(true);
+				pstFromClipEnt.setEnabled(true);
+				
 				removeLightInfo.setSelected(false);
 				removePak.setSelected(false);
 				
@@ -1218,6 +1272,9 @@ public class BSPEntspy {
 				editCubemaps.setSelected(false);
 				editStaticProps.setSelected(false);
 				renameMap.setEnabled(enable);
+				randomizeMaterials.setEnabled(enable);
+				
+				editMaterials.setEnabled(enable);
 			}
 		});
 		
@@ -1231,6 +1288,23 @@ public class BSPEntspy {
 				
 				removeLightInfo.setSelected(false);
 				removePak.setSelected(false);
+				
+				mUndo.setEnabled(false);
+				mRedo.setEnabled(false);
+				editMaterials.setEnabled(false);
+				
+				delent.setEnabled(false);
+				cpyent.setEnabled(false);
+				exportEntity.setEnabled(false);
+				cpToClipEnt.setEnabled(false);
+				addent.setEnabled(false);
+				updent.setEnabled(false);
+				pstFromClipEnt.setEnabled(false);
+				
+				rightEntPanel.clearEntities();
+				setfindlist(null, findmodel);
+				findcombo.setEnabled(false);
+				findbutton.setEnabled(false);
 				
 				boolean enable = false;
 				
@@ -1247,6 +1321,7 @@ public class BSPEntspy {
 				
 				editCubemaps.setSelected(false);
 				editStaticProps.setSelected(false);
+				randomizeMaterials.setEnabled(enable);
 			}
 		});
 		
@@ -1258,9 +1333,13 @@ public class BSPEntspy {
 					importPak.setSelected(bspmap.embeddedPak != null);
 					renameMap.setSelected(bspmap.newMapName != null);
 					removePak.setEnabled(bspmap.embeddedPak == null);
+					randomizeMaterials.setSelected(bspmap.randomMats);
 				}
 			}
 		});
+		
+		for(ActionListener al : onMapUnloadInternal)
+			al.actionPerformed(new ActionEvent(this, 0, "mapunload"));
 		
 		frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		frame.addWindowListener(new WindowAdapter() {
@@ -1279,11 +1358,12 @@ public class BSPEntspy {
 				}
 			}
 		});
-		this.frame.setSize(720, 520);
-		this.frame.getContentPane().add(mainSplit);
-		this.frame.setVisible(true);
+		frame.setSize(720, 520);
+		frame.getContentPane().add(mainSplit);
+		frame.setLocationRelativeTo(null);
+		frame.setVisible(true);
 		
-		this.frame.setDropTarget(new DropTarget() {
+		frame.setDropTarget(new DropTarget() {
 			public synchronized void drop(DropTargetDropEvent evt) {
 				try {
 					evt.acceptDrop(DnDConstants.ACTION_COPY);
@@ -1305,6 +1385,9 @@ public class BSPEntspy {
 
 	public boolean setfindlist(Entity sel, DefaultComboBoxModel<Entity> model) {
 		model.removeAllElements();
+		
+		if(sel == null)
+			return false;
 
 		List<Entity> ents = map.getLinkedEntities(sel);
 
@@ -1686,7 +1769,7 @@ public class BSPEntspy {
 		temp.loadFromReader(in, "clipboard");
 
 		for (int i = 0; i < temp.ents.size(); ++i) {
-			if (VMF.ignoredClasses.contains(temp.ents.get(i).classname)) {
+			if (VMF.ignoredClasses.contains(temp.ents.get(i).classname) && !temp.ents.get(i).classname.equals("env_cubemap")) {
 				temp.ents.remove(i--);
 			}
 		}
@@ -1709,6 +1792,7 @@ public class BSPEntspy {
 		
 		boolean runGui = true;
 		boolean failed = false;
+		boolean secret = true; //TODO
 		for(int i = 0; i < args.length && !failed; ++i) {
 			if(args[i].equals("-rename")) {
 				if(i + 3 < args.length) {
@@ -1727,7 +1811,9 @@ public class BSPEntspy {
 				i += 3;
 			} else if(args[i].equals("-help")) {
 				System.out.println(help);
-			} else {
+			} else if(args[i].equals("-secret2131")){
+				secret = true;
+			}else {
 				failed = true;
 			}
 		}
@@ -1739,7 +1825,7 @@ public class BSPEntspy {
 		if(runGui && !failed) {
 			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 			BSPEntspy inst = new BSPEntspy();
-			inst.exec();
+			inst.exec(secret);
 		}
 	}
 	

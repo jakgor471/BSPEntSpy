@@ -5,7 +5,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -20,6 +19,7 @@ import java.nio.charset.CharsetDecoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.CRC32;
@@ -42,13 +42,15 @@ public class SourceBSPFile extends BSPFile{
 	protected File embeddedPak = null;
 	
 	protected String newMapName = null;
+	protected boolean randomMats = false;
+	
+	protected ArrayList<String> materials;
 	
 	private int targetSpropVersion = -1;
 	private int curSpropVersion = -1;
 	private BSPLump[] lumps;
 	private GameLump[] glumps;
 	private GameLump staticPropLump = null;
-	private ArrayList<String> materials;
 	private String originalMapName;
 	private int mapRev;
 	private boolean glumpsRelative = false;
@@ -494,6 +496,61 @@ public class SourceBSPFile extends BSPFile{
 		}
 	}
 	
+	private void updateCubemaps() {
+		ArrayList<Entity> cubemapEnts = new ArrayList<Entity>();
+		
+		for(Entity e : entities) {
+			if(e instanceof EntityCubemap || !e.getKeyValue("classname").equals("env_cubemap"))
+				continue;
+			
+			String[] split = e.getKeyValue("origin").split(" ");
+			
+			try {
+				for(int i = 0; i < split.length; ++i) {
+					e.origin[i] = Float.parseFloat(split[i]);
+				}
+			} catch(NumberFormatException ex) {
+				ex.printStackTrace();
+				continue;
+			}
+			
+			cubemapEnts.add(e);
+		}
+		
+		for(EntityCubemap e : cubemaps) {
+			double minDist = Double.MAX_VALUE;
+			int closestIndex = 0;
+			Entity closest = null;
+			
+			int size = cubemapEnts.size();
+			
+			for(int i = 0; i < size; ++i) {
+				Entity e2 = cubemapEnts.get(i);
+				float x = (float)e.cubemapOrigin[0] - e2.origin[0];
+				float y = (float)e.cubemapOrigin[1] - e2.origin[1];
+				float z = (float)e.cubemapOrigin[2] - e2.origin[2];
+				
+				double dist = x*x + y*y + z*z;
+				if(dist < minDist) {
+					minDist = dist;
+					closest = e2;
+					closestIndex = i;
+				}
+			}
+			
+			if(minDist > 2 || closest == null)
+				continue;
+			
+			e.setKeyVal("cubemapsize", closest.getKeyValue("cubemapsize"));
+			
+			Entity last = cubemapEnts.get(size - 1);
+			cubemapEnts.set(size - 1, closest);
+			cubemapEnts.set(closestIndex, last);
+			--size;
+		}
+	}
+	
+	
 	public void writePakToStream(OutputStream fo) throws IOException {
 		bspfile.seek(lumps[PAKLUMP].offset);
 		
@@ -569,6 +626,17 @@ public class SourceBSPFile extends BSPFile{
 			rename = true;
 		}
 		
+		if(materials != null && !materials.isEmpty() && randomMats) {
+			Random rand = new Random(materials.get(0).hashCode());
+			
+			for(i = 0; i < materials.size(); ++i) {
+				int index = rand.nextInt(materials.size());
+				String mat = materials.get(index);
+				materials.set(index, materials.get(i));
+				materials.set(i, mat);
+			}
+		}
+		
 		newLumps[PAKLUMP].offset = Long.MAX_VALUE; //let the PAK lump be at the end so writing to it does not require shifting everything
 		Collections.sort(sorted);
 
@@ -600,6 +668,7 @@ public class SourceBSPFile extends BSPFile{
 				savePak(out, lumps[PAKLUMP], newLumps[PAKLUMP], rename);
 				continue;
 			} else if(to.index == CUBEMAPLUMP && cubemaps != null) {
+				updateCubemaps();
 				byte[] cubemapData = getCubemapBytes();
 				to.length = cubemapData.length;
 				out.seek(to.offset);
