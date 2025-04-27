@@ -9,6 +9,7 @@ import bspentspy.ClassPropertyPanel.KVEntry;
 import bspentspy.FGDEntry.PropChoicePair;
 import bspentspy.FGDEntry.PropertyChoices;
 
+@SuppressWarnings("serial")
 public class FlagTableModel extends AbstractTableModel {
 	private FGDEntry fgdData;
 	private ArrayList<PropChoicePair> flags;

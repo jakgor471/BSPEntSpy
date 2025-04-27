@@ -645,6 +645,7 @@ public class BSPEntspy {
 				JDialog subframe = new JDialog(frame, "Edit Materials");
 				MaterialTableModel model = new MaterialTableModel(bspmap.materials);
 				JTable matTable = new JTable(model);
+				matTable.getTableHeader().setReorderingAllowed(false);
 				matTable.getColumnModel().getColumn(0).setMaxWidth(50);
 				
 				subframe.getContentPane().add(new JScrollPane(matTable));
