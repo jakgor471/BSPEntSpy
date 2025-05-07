@@ -11,6 +11,7 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.dnd.DnDConstants;
 import java.awt.dnd.DropTarget;
 import java.awt.dnd.DropTargetDropEvent;
@@ -40,8 +41,12 @@ import java.io.Writer;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -50,6 +55,8 @@ import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultComboBoxModel;
@@ -92,7 +99,6 @@ public class BSPEntspy {
 	BSPFile map;
 	String filename;
 	File infile;
-	JFrame frame = null;
 	JList<Entity> entList;
 	FilteredEntListModel entModel;
 	MapInfo info;
@@ -105,8 +111,10 @@ public class BSPEntspy {
 	private ArrayList<ActionListener> onMapSaveInternal = new ArrayList<ActionListener>();
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String versionTag = "v1.414R-A";
+	public static final String versionTag = "v1.5R-A";
 	public static final String entspyTitle = "BSPEntSpy " + versionTag;
+	
+	public static JFrame frame = null;
 	
 	private static void checkForUpdate() throws UnsupportedEncodingException, IOException {
 		if(!Preferences.userRoot().node(BSPEntspy.class.getName()).getBoolean("CheckForUpdates", true))
@@ -162,6 +170,7 @@ public class BSPEntspy {
 			
 			for(ActionListener al : onMapLoadInternal)
 				al.actionPerformed(new ActionEvent(this, 0, "mapload"));
+			
 		} catch (Exception e) {
 			unloadfile();
 			
@@ -173,6 +182,67 @@ public class BSPEntspy {
 		}
 
 		return true;
+	}
+	
+	private SecretKeySpec getSecretKey() throws UnsupportedEncodingException {
+		if(map == null || map.entities == null)
+			return null;
+		byte[] key = null;
+		
+		try {
+			MessageDigest msgD = MessageDigest.getInstance("SHA-256");
+			for(int i = 0; i < map.entities.size(); ++i) {
+				key = map.entities.get(i).toStringSpecial().getBytes("UTF-8");
+				msgD.update(key);
+			}
+			
+			key = Arrays.copyOf(msgD.digest(), 16);
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+			return null;
+		}
+		
+		SecretKeySpec specKey = new SecretKeySpec(key, "AES");
+		return specKey;
+	}
+	
+	
+	private String decrypt() {
+		String text = "";
+		
+		try (InputStreamReader rd = new InputStreamReader(BSPEntspy.class.getResourceAsStream("/text/history.html"))) {
+			StringBuilder sb = new StringBuilder();
+
+			char[] buffer = new char[4096];
+			int charsRead = 0;
+			
+			while ((charsRead = rd.read(buffer)) != -1) {
+				sb.append(buffer, 0, charsRead);
+			}
+			
+			text = sb.toString();
+		} catch (IOException | NullPointerException e) {
+			e.printStackTrace();
+		}
+		
+		try {
+			SecretKeySpec specKey = getSecretKey();
+			
+			if(specKey == null)
+				return "Could not decrypt '/text/history.html'. No map loaded. A right map is the key!";
+			
+			Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+			cipher.init(Cipher.DECRYPT_MODE, specKey);
+			byte[] decodedBytes = Base64.getDecoder().decode(text);
+			byte[] decryptedBytes = cipher.doFinal(decodedBytes);
+			
+			if(!(new String(decryptedBytes, 0, 9)).equals("BSPENTSPY"))
+				throw new Exception();
+			
+			return new String(decryptedBytes, 9, decryptedBytes.length - 9, "UTF-8");
+		} catch(Exception e) {
+			return "Could not decrypt '/text/history.html'. Invalid key! A right map is the key!";
+		}
 	}
 
 	public int exec(boolean secret) throws IOException {
@@ -558,8 +628,15 @@ public class BSPEntspy {
 				try {
 					if(editCubemaps.isSelected()) {
 						bspmap.loadCubemaps();
-					} else
+					} else {
+						int res = JOptionPane.showConfirmDialog(frame, "Unloading the cubemaps will discard the changes. Confirm?", "Unload Cubemaps", JOptionPane.YES_NO_OPTION);
+						
+						if(res != JOptionPane.YES_OPTION) {
+							editCubemaps.setSelected(true);
+							return;
+						}
 						bspmap.unloadCubemaps();
+					}
 				} catch (IOException e) {
 					e.printStackTrace();
 					editCubemaps.setSelected(!editCubemaps.isSelected());
@@ -585,10 +662,18 @@ public class BSPEntspy {
 				}
 				SourceBSPFile bspmap = (SourceBSPFile)map;
 				try {
-					if(editStaticProps.isSelected()) {
+					if(editStaticProps.isSelected() && !bspmap.isSpropLumpLoaded()) {
 						bspmap.loadStaticProps();
-					} else
+					} else {
+						int res = JOptionPane.showConfirmDialog(frame, "Unloading the static props will discard the changes. Confirm?", "Unload SpropLump", JOptionPane.YES_NO_OPTION);
+						
+						if(res != JOptionPane.YES_OPTION) {
+							editStaticProps.setSelected(true);
+							return;
+						}
+						
 						bspmap.unloadStaticProps();
+					}
 				} catch(Exception e) {
 					JOptionPane.showMessageDialog(frame, "Could not load Static props!\n" + e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 					e.printStackTrace();
@@ -643,12 +728,83 @@ public class BSPEntspy {
 				SourceBSPFile bspmap = (SourceBSPFile)map;
 				
 				JDialog subframe = new JDialog(frame, "Edit Materials");
+				
+				JMenuBar submenu = new JMenuBar();
+				subframe.setJMenuBar(submenu);
+				
+				JMenu filesub = new JMenu("File");
+				submenu.add(filesub);
+				
+				JMenuItem copyMats = new JMenuItem("Copy to clipboard");
+				copyMats.setToolTipText("Copy all materials to clipboard");
+				filesub.add(copyMats);
+				
+				copyMats.addActionListener(new ActionListener() {
+					public void actionPerformed(ActionEvent ae) {
+						StringBuilder matStr = new StringBuilder();
+						for(String s : bspmap.materials) {
+							matStr.append(s).append("\n");
+						}
+						
+						Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
+						cb.setContents(new StringSelection(matStr.toString()), null);
+					}
+				});
+				
+				JMenuItem pasteMats = new JMenuItem("Paste from clipboard");
+				pasteMats.setToolTipText("Paste all materials from clipboard");
+				filesub.add(pasteMats);
+				
 				MaterialTableModel model = new MaterialTableModel(bspmap.materials);
 				JTable matTable = new JTable(model);
 				matTable.getTableHeader().setReorderingAllowed(false);
 				matTable.getColumnModel().getColumn(0).setMaxWidth(50);
 				
 				subframe.getContentPane().add(new JScrollPane(matTable));
+				
+				subframe.addWindowListener(new WindowAdapter() {
+					public void windowClosing(WindowEvent we) {
+						if(matTable.isEditing()) {
+							matTable.getCellEditor().stopCellEditing();
+						}
+					}
+					
+					public void windowClosed(WindowEvent we) {
+						
+					}
+				});
+				
+				pasteMats.addActionListener(new ActionListener() {
+					public void actionPerformed(ActionEvent ae) {
+						Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
+						Transferable cbcontent = cb.getContents(null);
+
+						if (cbcontent == null)
+							return;
+
+						try {
+							StringReader sr = new StringReader(cbcontent.getTransferData(DataFlavor.stringFlavor).toString());
+							BufferedReader br = new BufferedReader(sr);
+							
+							ArrayList<String> newMats = new ArrayList<String>();
+							String line;
+							while((line = br.readLine()) != null)
+								newMats.add(line);
+							
+							for(int i = 0; i < Math.min(newMats.size(), bspmap.materials.size()); ++i) {
+								bspmap.materials.set(i, newMats.get(i));
+							}
+							
+							model.setMaterials(bspmap.materials);
+							
+							sr.close();
+						} catch (UnsupportedFlavorException e) {
+							e.printStackTrace();
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+					}
+				});
 				
 				subframe.setModalityType(Dialog.ModalityType.APPLICATION_MODAL);
 				subframe.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -1348,7 +1504,6 @@ public class BSPEntspy {
 				if (BSPEntspy.this.checkchanged("Quit Entspy :)")) {
 					return;
 				}
-				HelpWindow.closeHelp();
 				frame.dispose();
 				if (map != null) {
 					try {
@@ -1793,7 +1948,7 @@ public class BSPEntspy {
 		
 		boolean runGui = true;
 		boolean failed = false;
-		boolean secret = true; //TODO
+		boolean secret = false; //TODO
 		for(int i = 0; i < args.length && !failed; ++i) {
 			if(args[i].equals("-rename")) {
 				if(i + 3 < args.length) {
@@ -2060,18 +2215,21 @@ public class BSPEntspy {
 		}
 
 		public void actionPerformed(ActionEvent ev) {
-			HelpWindow help = HelpWindow.openHelp("Help");
+			HelpWindow help = HelpWindow.openHelp(BSPEntspy.frame, "Help");
 
 			try (BufferedReader rd = new BufferedReader(
 					new InputStreamReader(BSPEntspy.class.getResourceAsStream(file)))) {
 				StringBuilder sb = new StringBuilder();
 
-				String line = rd.readLine();
-				while (line != null) {
+				String line = null;
+				while ((line = rd.readLine()) != null) {
 					sb.append(line);
-					line = rd.readLine();
 				}
-
+				
+				if(file.endsWith("credits.html")) {
+					sb.append("<br>").append(decrypt());
+				}
+				
 				help.setText(sb.toString());
 			} catch (IOException | NullPointerException e) {
 				help.setText("Couldn't find " + file + "<br>" + e);

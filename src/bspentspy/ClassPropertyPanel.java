@@ -225,7 +225,7 @@ public class ClassPropertyPanel extends JPanel {
 		help.setToolTipText("Display help about the entity");
 		help.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
-				HelpWindow help = HelpWindow.openHelp("Entity help");
+				HelpWindow help = HelpWindow.openHelp(BSPEntspy.frame, "Entity help");
 				help.setText(getHelpText());
 				help.setSize(720, 520);
 				help.setVisible(true);

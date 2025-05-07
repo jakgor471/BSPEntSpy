@@ -15,6 +15,7 @@ public class MaterialTableModel extends AbstractTableModel{
 	
 	public void setMaterials(ArrayList<String> materials) {
 		this.materials = materials;
+		this.fireTableDataChanged();
 	}
 	
 	public int getRowCount() {

@@ -1,19 +1,19 @@
 package bspentspy;
 
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JScrollPane;
 import javax.swing.JTextPane;
 import javax.swing.text.html.HTMLEditorKit;
 
 @SuppressWarnings("serial")
-public class HelpWindow extends JFrame {
+public class HelpWindow extends JDialog {
 	private static HelpWindow opened = null;
 
 	JTextPane textPane;
 
-	private HelpWindow(String title) {
-		super(title);
-		this.setIconImage(BSPEntspy.esIcon.getImage());
+	private HelpWindow(JFrame parent, String title) {
+		super(parent, title);
 
 		textPane = new JTextPane();
 		textPane.setEditable(false);
@@ -23,7 +23,7 @@ public class HelpWindow extends JFrame {
 
 		JScrollPane scp = new JScrollPane(textPane);
 
-		this.add(scp);
+		this.getContentPane().add(scp);
 		scp.getVerticalScrollBar().setValue(0);
 
 		this.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
@@ -40,7 +40,7 @@ public class HelpWindow extends JFrame {
 		opened = null;
 	}
 
-	public static HelpWindow openHelp(String title) {
+	public static HelpWindow openHelp(JFrame parent, String title) {
 		if (opened != null) {
 			opened.setTitle(title);
 			opened.setText("");
@@ -48,7 +48,8 @@ public class HelpWindow extends JFrame {
 			return opened;
 		}
 
-		opened = new HelpWindow(title);
+		opened = new HelpWindow(parent, title);
+		opened.setLocation(BSPEntspy.frame.getLocation());
 		return opened;
 	}
 }

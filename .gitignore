@@ -6,3 +6,4 @@ bin/
 releases/
 **/*.zip
 dependencies/
+secret.html
