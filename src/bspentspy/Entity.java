@@ -35,6 +35,10 @@ public class Entity {
 		return true;
 	}
 	
+	public boolean isKeyValueDuplicated(String key) {
+		return duplicates.containsKey(key);
+	}
+	
 	public long keyValHash() {
 		long hash = 76646989558427L;
 		for(KeyValue kvl : keyvalues) {
@@ -186,6 +190,8 @@ public class Entity {
 
 		if (duplicates.containsKey(kvl.key))
 			duplicates.put(kvl.key, duplicates.get(kvl.key) + 1);
+		if(kvmap.containsKey(kvl.key))
+			duplicates.put(kvl.key, 1);
 
 		for (int i = index; i < size(); ++i) {
 			kvmap.put(keyvalues.get(i).key, i);
@@ -489,7 +495,7 @@ public class Entity {
 			ListIterator<KeyValue> it = keyvalues.listIterator();
 
 			while (it.hasNext()) {
-				((Entity) target).delKeyValById(it.previous().uniqueId);
+				((Entity) target).delKeyValById(it.next().uniqueId);
 			}
 		}
 	}

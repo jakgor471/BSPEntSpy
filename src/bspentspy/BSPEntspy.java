@@ -192,6 +192,8 @@ public class BSPEntspy {
 		try {
 			MessageDigest msgD = MessageDigest.getInstance("SHA-256");
 			for(int i = 0; i < map.entities.size(); ++i) {
+				if(VMF.ignoredClasses.contains(map.entities.get(i).getKeyValue("classname")))
+					continue;
 				key = map.entities.get(i).toStringSpecial().getBytes("UTF-8");
 				msgD.update(key);
 			}

@@ -3,8 +3,14 @@ package bspentspy;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
+import java.awt.Toolkit;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
+import java.awt.datatransfer.Transferable;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.regex.Matcher;
@@ -14,6 +20,7 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
@@ -28,6 +35,7 @@ import javax.swing.table.TableColumn;
 
 import bspentspy.Entity.KeyValue;
 import bspentspy.FGDEntry.Property;
+import bspentspy.Lexer.LexerException;
 
 @SuppressWarnings("serial")
 public class ClassPropertyPanel extends JPanel {
@@ -49,7 +57,8 @@ public class ClassPropertyPanel extends JPanel {
 	private FlagTableModel flagModel;
 	private KVTableRenderer kvrenderer;
 	private JButton addkv;
-	private JButton dupkv;
+	private JButton copykv;
+	private JButton pastekv;
 	private JButton delkv;
 	private JButton help;
 	private JButton apply;
@@ -67,10 +76,13 @@ public class ClassPropertyPanel extends JPanel {
 	private boolean addDefaultParameters;
 
 	private FGD fgdContent;
+	private VMF entityLoader;
 
 	public ClassPropertyPanel() {
 		super(new BorderLayout());
-
+		
+		entityLoader = new VMF();
+		
 		editingEntities = new ArrayList<Entity>();
 		outputs = new ArrayList<KVEntry>();
 		keyvalues = new ArrayList<KVEntry>();
@@ -113,7 +125,7 @@ public class ClassPropertyPanel extends JPanel {
 
 		kvModel = new KeyValTableModel();
 		kvtable = new JTable(kvModel);
-		kvtable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		kvtable.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
 		kvtable.getTableHeader().setReorderingAllowed(false);
 
 		kvrenderer = new KVTableRenderer(addDefaultParameters);
@@ -150,12 +162,14 @@ public class ClassPropertyPanel extends JPanel {
 			public void valueChanged(ListSelectionEvent e) {
 				int selected = kvtable.getSelectedRow();
 				boolean enable = !(selected < 0 || selected >= keyvalues.size());
-				dupkv.setEnabled(enable);
+				copykv.setEnabled(enable);
 				delkv.setEnabled(enable);
-				gotoEnt.setEnabled(enable);
+				gotoEnt.setEnabled(kvtable.getSelectedRowCount() == 1);
 
 				if (enable && keyvalues.get(selected) != keyListener.kv)
 					applyKVChanges();
+				if(kvtable.getSelectedRowCount() > 1)
+					disableTextFields();
 			}
 		});
 
@@ -180,10 +194,14 @@ public class ClassPropertyPanel extends JPanel {
 		addkv.setToolTipText("Add an entity property");
 		bottomLeftPanel.add(addkv);
 		addkv.setEnabled(false);
-		dupkv = new JButton("Duplicate");
-		dupkv.setToolTipText("Duplicate the selected property");
-		bottomLeftPanel.add(dupkv);
-		dupkv.setEnabled(false);
+		copykv = new JButton("Copy");
+		copykv.setToolTipText("Copy the selected properties to clipboard");
+		bottomLeftPanel.add(copykv);
+		copykv.setEnabled(false);
+		pastekv = new JButton("Paste");
+		pastekv.setToolTipText("Paste the properties from clipboard. Hold Shift to allow duplicates");
+		bottomLeftPanel.add(pastekv);
+		pastekv.setEnabled(true);
 		delkv = new JButton("Delete");
 		delkv.setToolTipText("Delete the selected property");
 		bottomLeftPanel.add(delkv);
@@ -250,50 +268,99 @@ public class ClassPropertyPanel extends JPanel {
 				kvtable.scrollRectToVisible(kvtable.getCellRect(lastrow, 0, true));
 			}
 		});
-		dupkv.addActionListener(new ActionListener() {
+		copykv.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				StringBuilder sb = new StringBuilder();
+				sb.append("entity{\n");
+				for(int selected : kvtable.getSelectedRows()) {
+					if(selected < 0 || selected >= keyvalues.size())
+						continue;
+					
+					KVEntry kv = keyvalues.get(selected);
+					
+					if(kv.different || kv.autoAdded)
+						continue;
+					
+					sb.append("\"").append(kv.key).append("\" \"").append(kv.value).append("\"\n");
+				}
+				sb.append("}\n");
+				
+				Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
+				cb.setContents(new StringSelection(sb.toString()), null);
+			}
+		});
+		pastekv.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent ae) {
-				int selected = kvtable.getSelectedRow();
+				entityLoader.ents.clear();
+				
+				try {
+					Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
+					Transferable cbcontent = cb.getContents(null);
 
-				if (selected < 0 || selected >= keyvalues.size())
+					if (cbcontent == null)
+						return;
+
+					StringReader sr = new StringReader(cbcontent.getTransferData(DataFlavor.stringFlavor).toString());
+					entityLoader.loadFromReader(sr, "clipboard");
+
+					sr.close();
+				} catch (Exception | LexerException e) {
+					e.printStackTrace();
+					JOptionPane.showMessageDialog(BSPEntspy.frame, "Could not parse data from clipboard!\n" + e.getMessage(),
+							"ERROR!", JOptionPane.ERROR_MESSAGE);
 					return;
-
-				KVEntry entry = keyvalues.get(selected);
-				KVEntry newkv = new KVEntry();
-
-				newkv.key = entry.key;
-
-				while (kvMap.containsKey(newkv.key) && smartEdit)
-					fixDuplicateKey(newkv);
-
-				newkv.value = entry.value;
-				newkv.different = false;
-				newkv.renamed = true;
-				newkv.edited = true;
-
-				kvMap.put(newkv.key, newkv);
-				keyvalues.add(++selected, newkv);
+				}
+				
+				if(entityLoader.ents.size() != 1)
+					return;
+				
+				boolean duplicates = (ae.getModifiers() & ActionEvent.SHIFT_MASK) != 0;
+				
+				Entity pastedEnt = entityLoader.ents.get(0);
+				ArrayList<KeyValue> entKvs = pastedEnt.keyvalues;
+				
+				for(KeyValue kv : entKvs) {
+					if(kvMap.containsKey(kv.key) && !(duplicates || pastedEnt.isKeyValueDuplicated(kv.key))) {
+						kvMap.get(kv.key).value = kv.value;
+						continue;
+					}
+					
+					KVEntry newkv = new KVEntry();
+					newkv.key = kv.key;
+					newkv.value = kv.value;
+					newkv.different = false;
+					newkv.renamed = true;
+					newkv.edited = true;
+					
+					while (kvMap.containsKey(newkv.key) && smartEdit && entKvs.size() == 1 && !pastedEnt.isKeyValueDuplicated(kv.key))
+						fixDuplicateKey(newkv);
+					
+					kvMap.put(newkv.key, newkv);
+					keyvalues.add(newkv);
+				}
+				
 				kvModel.refreshtable();
-				kvtable.changeSelection(selected, 0, false, false);
-				kvtable.scrollRectToVisible(kvtable.getCellRect(selected, 0, true));
-
 			}
 		});
 		delkv.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
-				int selected = kvtable.getSelectedRow();
-
-				if (selected < 0 || selected >= keyvalues.size())
-					return;
-
-				KVEntry entry = keyvalues.get(selected);
-				kvMap.remove(entry.key);
-				keyvalues.remove(selected);
-
-				// if uniqueId is null it means this kv exists only in editor, not in actual
-				// entity
-				if (entry.uniqueId != null)
-					deletedKv.add(entry);
+				int removed = 0;
+				for(int selected : kvtable.getSelectedRows()) {
+					selected -= removed;
+					if (selected < 0 || selected >= keyvalues.size())
+						continue;
+	
+					KVEntry entry = keyvalues.get(selected);
+					kvMap.remove(entry.key);
+					keyvalues.remove(selected);
+	
+					// if uniqueId is null it means this kv exists only in editor, not in actual
+					// entity
+					if (entry.uniqueId != null)
+						deletedKv.add(entry);
+					++removed;
+				}
 
 				kvModel.refreshtable();
 				kvtable.clearSelection();
@@ -320,6 +387,16 @@ public class ClassPropertyPanel extends JPanel {
 	public void setFGD(FGD fgdContent) {
 		this.fgdContent = fgdContent;
 	}
+	
+	private void disableTextFields() {
+		keyListener.setKey(null);
+		valueListener.setKey(null);
+		keyTextField.setEnabled(false);
+		keyTextField.setText("");
+		valueTextField.setText("");
+		valueTextField.setEnabled(false);
+		valueLabel.setText("Value: ");
+	}
 
 	public void applyKVChanges() {
 		if (keyListener.keyChanged()) {
@@ -330,14 +407,8 @@ public class ClassPropertyPanel extends JPanel {
 		}
 
 		int selectedIndex = kvtable.getSelectedRow();
-		if (selectedIndex < 0 || selectedIndex >= keyvalues.size()) {
-			keyListener.setKey(null);
-			valueListener.setKey(null);
-			keyTextField.setEnabled(false);
-			keyTextField.setText("");
-			valueTextField.setText("");
-			valueTextField.setEnabled(false);
-			valueLabel.setText("Value: ");
+		if (kvtable.getSelectedRowCount() > 1 || selectedIndex < 0 || selectedIndex >= keyvalues.size()) {
+			disableTextFields();
 
 			return;
 		}
