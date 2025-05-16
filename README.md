@@ -1,9 +1,10 @@
-# BSPEntSpy - enhanced Entity Lump editor
+# BSPEntSpy - enhanced Entity Lump editor :mag:
 BSPEntSpy is an updated version of **EntSpy** originaly made by Rof (http://www.bagthorpe.org/bob/cofrdrbob/).  
 
 **Latest version** of BSPEntSpy is available to **download** here: https://github.com/jakgor471/BSPEntSpy/releases/latest
+![download count](https://img.shields.io/github/downloads/jakgor471/bspentspy/total.svg):fire:
 
-## Features
+## Features :heavy_check_mark:
 * **Importing and exporting** entities
 * **Patching from VMF**
 * **FGD support** for SmartEdit like editing
@@ -15,7 +16,7 @@ BSPEntSpy is an updated version of **EntSpy** originaly made by Rof (http://www.
 * **Removing light information** for rebuilding the lighting using VRAD
 * **Re-saving Static prop lump with different version** to fix 'stale map version' error
 
-## Changes compared to the original version
+## Changes compared to the original version :recycle:
 Apart from features listed above the UI has been updated to use system
 *Look and Feel*, instead of Java's default, dated and ugly *Metal* theme.  
 Other changes include:
@@ -33,7 +34,7 @@ Detailed description and instructions are included in **Help** menu tab in BSPEn
 
 **Java Runtime Environment** is required to run the application.
 
-## Changelog
+## Changelog :fire:
 ### BSPEntSpy v1.5 release 17/05/2025 ANNIVERSARY EDITION
 * Material edititing functionality
 * Enhanced cubemap editing
