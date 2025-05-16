@@ -322,7 +322,9 @@ public class ClassPropertyPanel extends JPanel {
 				
 				for(KeyValue kv : entKvs) {
 					if(kvMap.containsKey(kv.key) && !(duplicates || pastedEnt.isKeyValueDuplicated(kv.key))) {
-						kvMap.get(kv.key).value = kv.value;
+						KVEntry edited = kvMap.get(kv.key);
+						edited.value = kv.value;
+						edited.edited = true;
 						continue;
 					}
 					

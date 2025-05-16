@@ -34,6 +34,12 @@ Detailed description and instructions are included in **Help** menu tab in BSPEn
 **Java Runtime Environment** is required to run the application.
 
 ## Changelog
+### BSPEntSpy v1.5 release 17/05/2025 ANNIVERSARY EDITION
+* Material edititing functionality
+* Enhanced cubemap editing
+* Multiple KeyValue edit, copy and paste
+* Minor bug fixes
+* Anniversary Credits-secret ;)
 ### BSPEntSpy v1.414R-A release 12/04/2025
 * Added support for Quake 1 BSP
 * Fixed bug with LZMA compressed maps (Team Fortress 2)

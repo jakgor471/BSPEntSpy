@@ -111,7 +111,7 @@ public class BSPEntspy {
 	private ArrayList<ActionListener> onMapSaveInternal = new ArrayList<ActionListener>();
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String versionTag = "v1.5R-A";
+	public static final String versionTag = "v1.5";
 	public static final String entspyTitle = "BSPEntSpy " + versionTag;
 	
 	public static JFrame frame = null;
@@ -313,8 +313,9 @@ public class BSPEntspy {
 
 		filemenu.addSeparator();
 
-		JMenuItem mloadfgd = new JMenuItem("Load FGD file");
+		JCheckBoxMenuItem mloadfgd = new JCheckBoxMenuItem("Load FGD file");
 		mloadfgd.setToolTipText("Load an FGD file to enable Smart Edit");
+		mloadfgd.setSelected(fgdFile != null);
 		filemenu.add(mloadfgd);
 		
 		filemenu.addSeparator();
@@ -923,6 +924,24 @@ public class BSPEntspy {
 
 		mloadfgd.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
+				if(!mloadfgd.isSelected() && fgdFile != null) {
+					String filename = "unknown.fgd";
+					
+					if(fgdFile.loadedFgds.size() > 0)
+						filename = fgdFile.loadedFgds.get(0);
+					
+					int result2 = JOptionPane.showConfirmDialog(frame, "Unload '" + filename + "' FGD file?");
+
+					if (result2 == JOptionPane.NO_OPTION) {
+						mloadfgd.setSelected(fgdFile != null);
+						return;
+					}
+					preferences.remove("LastFGDFile");
+					fgdFile = null;
+					
+					return;
+				}
+				
 				fgdFile = null;
 
 				JFileChooser chooser = new JFileChooser(preferences.get("LastFGDDir", System.getProperty("user.dir")));
@@ -944,6 +963,8 @@ public class BSPEntspy {
 
 				msmartEditOption.setEnabled(fgdFile != null);
 				maddDefaultOption.setEnabled(fgdFile != null);
+				
+				mloadfgd.setSelected(fgdFile != null);
 
 				rightEntPanel.setFGD(fgdFile);
 			}
