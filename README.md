@@ -35,7 +35,7 @@ Detailed description and instructions are included in **Help** menu tab in BSPEn
 **Java Runtime Environment** is required to run the application.
 
 ## Changelog :fire:
-### BSPEntSpy v1.5 release 17/05/2025 ANNIVERSARY EDITION
+### BSPEntSpy v1.5 release 17/05/2025 ANNIVERSARY EDITION :birthday:
 * Material edititing functionality
 * Enhanced cubemap editing
 * Multiple KeyValue edit, copy and paste
