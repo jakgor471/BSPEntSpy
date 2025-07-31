@@ -20,6 +20,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
@@ -57,6 +58,7 @@ import java.util.regex.Pattern;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
+import javax.imageio.ImageIO;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultComboBoxModel;
@@ -514,6 +516,33 @@ public class BSPEntspy {
 				SourceBSPFile bspmap = (SourceBSPFile)map;
 				
 				bspmap.writeLights = !removeLightInfo.isSelected();
+			}
+		});
+		
+		JMenuItem exportLightmaps = new JMenuItem("Export Lightmaps");
+		mapmenu.add(exportLightmaps);
+		exportLightmaps.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				if(map == null)
+					return;
+				
+				if(!(map instanceof SourceBSPFile)) {
+					return;
+				}
+				SourceBSPFile bspmap = (SourceBSPFile)map;
+				
+				try {
+					ArrayList<BufferedImage> lightmaps = bspmap.getLightmaps();
+					
+					int i = 0; 
+					for(BufferedImage img : lightmaps) {
+						File output = new File(infile.getParent() + "/lightmaps/" + i++ + ".png");
+						ImageIO.write(img, "png", output);
+					}
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 		});
 		
@@ -1446,6 +1475,7 @@ public class BSPEntspy {
 				exportPak.setEnabled(enable);
 				importPak.setEnabled(enable);
 				removePak.setEnabled(enable);
+				exportLightmaps.setEnabled(enable);
 				editCubemaps.setEnabled(enable);
 				editStaticProps.setEnabled(enable);
 				
@@ -1489,6 +1519,7 @@ public class BSPEntspy {
 				boolean enable = false;
 				
 				removeLightInfo.setEnabled(enable);
+				exportLightmaps.setEnabled(enable);
 				exportPak.setEnabled(enable);
 				importPak.setSelected(false);
 				importPak.setEnabled(enable);

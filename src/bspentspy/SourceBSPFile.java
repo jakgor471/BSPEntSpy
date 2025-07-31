@@ -1,5 +1,6 @@
 package bspentspy;
 
+import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -17,6 +18,7 @@ import java.nio.channels.Channels;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Random;
@@ -97,6 +99,79 @@ public class SourceBSPFile extends BSPFile{
 		loadEntities();
 		
 		return true;
+	}
+	
+	private static class ligthmapInfo{
+		int width;
+		int height;
+		int faceId;
+		boolean bump;
+	}
+	
+	public ArrayList<BufferedImage> getLightmaps() throws IOException {
+		int numFaces = (int) (lumps[FACELUMP].length / 56);
+		byte[] faceBytes = new byte[(int)lumps[FACELUMP].length];
+		byte[] texBytes = new byte[(int)lumps[TEXTURELUMP].length];
+		
+		ArrayList<BufferedImage> lightmaps = new ArrayList<>();
+
+		bspfile.seek(lumps[FACELUMP].offset);
+		bspfile.read(faceBytes);
+		bspfile.seek(lumps[TEXTURELUMP].offset);
+		bspfile.read(texBytes);
+		
+		ByteBuffer faceBuffer = ByteBuffer.wrap(faceBytes);
+		faceBuffer.order(ByteOrder.LITTLE_ENDIAN);
+		
+		ByteBuffer texBuffer = ByteBuffer.wrap(texBytes);
+		texBuffer.order(ByteOrder.LITTLE_ENDIAN);
+		
+		byte[] style = new byte[4];
+		
+		for(int i = 0; i < numFaces; ++i) {			
+			int texInfo = Short.toUnsignedInt(faceBuffer.getShort(i * 56 + 10));
+			boolean bump = ((texBuffer.getInt(texInfo * 72 + 64)) & 0x0800) != 0;
+			
+			faceBuffer.position(i * 56 + 16);
+			faceBuffer.get(style);
+			
+			int numStyles = 0;
+			int lightsof = faceBuffer.getInt(i * 56 + 20);
+			int width = faceBuffer.getInt(i * 56 + 36) + 1;
+			int height = faceBuffer.getInt(i * 56 + 40) + 1;
+			int origFace = faceBuffer.getInt(i * 56 + 44);
+			
+			for(; numStyles < style.length && style[numStyles] != -1; ++numStyles);
+			
+			int samples = 1;
+			
+			if(bump)
+				samples = 4;
+			
+			if(numStyles == 0 || lightsof == -1)
+				continue;
+			
+			byte[] lightmapBytes = new byte[4 * width * height * numStyles * samples];
+			bspfile.seek(lumps[LIGHTINGLUMP].offset + lightsof);
+			bspfile.read(lightmapBytes);
+			
+			BufferedImage lightmap = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+			
+			for(int y = 0; y < height; ++y) {
+				for(int x = 0; x < width; ++x) {
+					int pixIndex = (y * width + x) * 4;
+					int pixel = (lightmapBytes[pixIndex]) | (lightmapBytes[pixIndex + 1] << 8)
+							| (lightmapBytes[pixIndex + 2] << 16) | (lightmapBytes[pixIndex + 3] << 24);
+					lightmap.setRGB(x, y, pixel);
+				}
+			}
+			
+			lightmaps.add(lightmap);
+			
+			System.out.println(origFace + " " + Arrays.toString(style) + numStyles + " " + bump + " lightsof: " + lightsof);
+		}
+		
+		return lightmaps;
 	}
 	
 	public String getOriginalName() {
@@ -1172,6 +1247,9 @@ public class SourceBSPFile extends BSPFile{
 	private static final int GLUMP_INDEX_OFF = 4096;
 	
 	private static final int ENTLUMP = 0;
+	private static final int TEXTURELUMP = 6;
+	private static final int FACELUMP = 7;
+	private static final int LIGHTINGLUMP = 8;
 	private static final int GAMELUMP = 35;
 	private static final int WORLDLIGHTLUMP_LDR = 15;
 	private static final int WORLDLIGHTLUMP_HDR = 54;
