@@ -6,8 +6,8 @@ import java.util.List;
 
 import javax.swing.AbstractListModel;
 
-@SuppressWarnings("serial")
 public class FilteredEntListModel extends AbstractListModel<Entity> {
+	private static final long serialVersionUID = 1L;
 	private IFilter filter;
 	private List<Entity> entities;
 	private List<Entity> original;

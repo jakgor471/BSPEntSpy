@@ -37,8 +37,8 @@ import bspentspy.Entity.KeyValue;
 import bspentspy.FGDEntry.Property;
 import bspentspy.Lexer.LexerException;
 
-@SuppressWarnings("serial")
 public class ClassPropertyPanel extends JPanel {
+	private static final long serialVersionUID = 1L;
 	private JTextField classTextField;
 	private JTextField originTextField;
 	private JTextField keyTextField;

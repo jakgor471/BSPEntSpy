@@ -8,6 +8,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JList;
 
 public class EntListRenderer extends DefaultListCellRenderer {
+	private static final long serialVersionUID = 1L;
 	static ImageIcon pointIcon;
 	static ImageIcon modelIcon;
 	static ImageIcon brushIcon;

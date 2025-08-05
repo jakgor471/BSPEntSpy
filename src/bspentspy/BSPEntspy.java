@@ -55,6 +55,8 @@ import java.util.ListIterator;
 import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
@@ -95,6 +97,7 @@ import org.json.JSONObject;
 import bspentspy.ClassPropertyPanel.GotoEvent;
 import bspentspy.Entity.KeyValue;
 import bspentspy.Lexer.LexerException;
+import bspentspy.SourceBSPFile.Lightmap;
 import bspentspy.Undo.Command;
 
 public class BSPEntspy {
@@ -523,7 +526,7 @@ public class BSPEntspy {
 		mapmenu.add(exportLightmaps);
 		exportLightmaps.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
-				if(map == null)
+				/*if(map == null)
 					return;
 				
 				if(!(map instanceof SourceBSPFile)) {
@@ -532,17 +535,44 @@ public class BSPEntspy {
 				SourceBSPFile bspmap = (SourceBSPFile)map;
 				
 				try {
-					ArrayList<BufferedImage> lightmaps = bspmap.getLightmaps();
+					ArrayList<Lightmap> lightmaps = bspmap.getLightmaps();
+					File zipOutput = new File(infile.getParent() + "/" + filename.substring(0, filename.lastIndexOf('.')) + "_lightmaps.zip");
+					ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipOutput));
 					
-					int i = 0; 
-					for(BufferedImage img : lightmaps) {
-						File output = new File(infile.getParent() + "/lightmaps/" + i++ + ".png");
-						ImageIO.write(img, "png", output);
+					for(Lightmap img : lightmaps) {
+						for(int i = 0; i < img.styles * img.axes; ++i) {
+							String lmName = img.faceId + "_" + i / img.axes + "_" + i % img.axes + ".png";
+							
+							ZipEntry entry = new ZipEntry(lmName);
+							zos.putNextEntry(entry);
+							ImageIO.write(img.images[i], "png", zos);
+							
+						}
 					}
+					zos.close();
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
+				}*/
+				
+				if(map == null)
+					return;
+				
+				if(!(map instanceof SourceBSPFile)) {
+					return;
 				}
+				SourceBSPFile bspmap = (SourceBSPFile)map;
+				
+				LightmapEditor lightmapEditor = new LightmapEditor(bspmap);
+				
+				JDialog dialog = new JDialog(frame);
+				dialog.getContentPane().add(lightmapEditor);
+				dialog.setTitle("Lightmap Editor v1.0");
+				dialog.setModalityType(Dialog.ModalityType.APPLICATION_MODAL);
+				dialog.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+				dialog.setSize(400, 520);
+				dialog.setLocation(frame.getLocation());
+				dialog.setVisible(true);
 			}
 		});
 		

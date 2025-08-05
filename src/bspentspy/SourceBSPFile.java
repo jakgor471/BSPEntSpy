@@ -1,6 +1,7 @@
 package bspentspy;
 
 import java.awt.image.BufferedImage;
+import java.awt.image.WritableRaster;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -59,6 +60,7 @@ public class SourceBSPFile extends BSPFile{
 	
 	private ArrayList<EntityCubemap> cubemaps = null;
 	private ArrayList<EntityStaticProp> staticProps = null;
+	ArrayList<Lightmap> lightmaps = null;
 	
 	public boolean read(RandomAccessFile file) throws IOException {
 		file.seek(0);
@@ -101,19 +103,23 @@ public class SourceBSPFile extends BSPFile{
 		return true;
 	}
 	
-	private static class ligthmapInfo{
-		int width;
-		int height;
+	public static class Lightmap{
 		int faceId;
-		boolean bump;
+		short styles;
+		short axes;
+		BufferedImage[] images;
+		
+		public String toString() {
+			return "Lightmapped faceID: " + faceId + ", styles: " + styles + ", axes: " + axes;
+		}
 	}
 	
-	public ArrayList<BufferedImage> getLightmaps() throws IOException {
+	public ArrayList<Lightmap> getLightmaps() throws IOException {
 		int numFaces = (int) (lumps[FACELUMP].length / 56);
 		byte[] faceBytes = new byte[(int)lumps[FACELUMP].length];
 		byte[] texBytes = new byte[(int)lumps[TEXTURELUMP].length];
 		
-		ArrayList<BufferedImage> lightmaps = new ArrayList<>();
+		lightmaps = new ArrayList<>(numFaces);
 
 		bspfile.seek(lumps[FACELUMP].offset);
 		bspfile.read(faceBytes);
@@ -128,7 +134,11 @@ public class SourceBSPFile extends BSPFile{
 		
 		byte[] style = new byte[4];
 		
-		for(int i = 0; i < numFaces; ++i) {			
+		byte[] lightmapBytes = new byte[(int)lumps[LIGHTINGLUMP].length];
+		bspfile.seek(lumps[LIGHTINGLUMP].offset);
+		bspfile.read(lightmapBytes);
+		
+		for(int i = 0; i < numFaces; ++i) {
 			int texInfo = Short.toUnsignedInt(faceBuffer.getShort(i * 56 + 10));
 			boolean bump = ((texBuffer.getInt(texInfo * 72 + 64)) & 0x0800) != 0;
 			
@@ -143,32 +153,47 @@ public class SourceBSPFile extends BSPFile{
 			
 			for(; numStyles < style.length && style[numStyles] != -1; ++numStyles);
 			
-			int samples = 1;
-			
+			int axes = 1;
 			if(bump)
-				samples = 4;
+				axes = 4;
 			
 			if(numStyles == 0 || lightsof == -1)
 				continue;
 			
-			byte[] lightmapBytes = new byte[4 * width * height * numStyles * samples];
-			bspfile.seek(lumps[LIGHTINGLUMP].offset + lightsof);
-			bspfile.read(lightmapBytes);
+			int numLuxels = width * height;
 			
-			BufferedImage lightmap = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+			Lightmap lightmapImg = new Lightmap();
+			lightmapImg.faceId = i;
+			lightmapImg.styles = (short)numStyles;
+			lightmapImg.axes = (short) axes;
+			lightmapImg.images = new BufferedImage[numStyles * axes];
 			
-			for(int y = 0; y < height; ++y) {
-				for(int x = 0; x < width; ++x) {
-					int pixIndex = (y * width + x) * 4;
-					int pixel = (lightmapBytes[pixIndex]) | (lightmapBytes[pixIndex + 1] << 8)
-							| (lightmapBytes[pixIndex + 2] << 16) | (lightmapBytes[pixIndex + 3] << 24);
-					lightmap.setRGB(x, y, pixel);
+			for(int j = 0; j < numStyles; ++j) {
+				for(int k = 0; k < axes; ++k) {
+					BufferedImage lightmap = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+					WritableRaster raster = lightmap.getRaster();
+					int styleOffset = lightsof + j * numLuxels * axes;
+					int[] pixel = new int[4];
+					
+					for(int y = 0; y < height; ++y) {
+						for(int x = 0; x < width; ++x) {
+							int pixIndex = styleOffset + (y * width + x) * 4;
+							
+							int exponent = (int)lightmapBytes[pixIndex + 3] + 128;
+							
+							pixel[0] = lightmapBytes[pixIndex];
+							pixel[1] = lightmapBytes[pixIndex + 1];
+							pixel[2] = lightmapBytes[pixIndex + 2];
+							pixel[3] = exponent;
+							raster.setPixel(x, y, pixel);
+						}
+					}
+					
+					lightmapImg.images[j * axes + k] = lightmap;
 				}
 			}
 			
-			lightmaps.add(lightmap);
-			
-			System.out.println(origFace + " " + Arrays.toString(style) + numStyles + " " + bump + " lightsof: " + lightsof);
+			lightmaps.add(lightmapImg);
 		}
 		
 		return lightmaps;
