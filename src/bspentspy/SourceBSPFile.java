@@ -8,7 +8,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
@@ -19,8 +18,8 @@ import java.nio.channels.Channels;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Random;
 import java.util.regex.Matcher;
@@ -37,12 +36,15 @@ import util.RandomAccessByteOutputStream;
 public class SourceBSPFile extends BSPFile{
 	public static final float MAPSIZE = 65536;
 	private static final Pattern VMTREPLACEPATTERN = Pattern.compile("[\\\"']?(?:\\$\\w+|include)\\b[\\\"']?\\s*[\\s\\\"'][\\/\\\\]?([\\w\\/\\d-]*maps/[\\w\\/\\d-]*)[\\n\\\"']?", Pattern.CASE_INSENSITIVE);
+	private static CRC32 crcAlgo = new CRC32();
 	
 	protected int bspVersion;
 	protected boolean writeLights = true;
 	protected boolean writePak = true;
 	protected boolean hasLights = true;
 	protected File embeddedPak = null;
+	
+	protected boolean forcePreserveChecksum = false;
 	
 	protected String newMapName = null;
 	protected boolean randomMats = false;
@@ -60,7 +62,9 @@ public class SourceBSPFile extends BSPFile{
 	
 	private ArrayList<EntityCubemap> cubemaps = null;
 	private ArrayList<EntityStaticProp> staticProps = null;
-	ArrayList<Lightmap> lightmaps = null;
+	private ArrayList<Lightmap> lightmaps = null;
+	
+	private Surfedge[] surfedges;
 	
 	public boolean read(RandomAccessFile file) throws IOException {
 		file.seek(0);
@@ -92,6 +96,9 @@ public class SourceBSPFile extends BSPFile{
 			lumps[i].length = Integer.toUnsignedLong(lumpBuffer.getInt());
 			lumps[i].version = lumpBuffer.getInt();
 			lumps[i].fourCC = lumpBuffer.getInt();
+			
+			if(lumps[i].fourCC != 0)
+				System.out.println("Lump " + i + " is LZMA compressed!");
 		}
 		
 		mapRev = Integer.reverseBytes(bspfile.readInt());
@@ -99,81 +106,236 @@ public class SourceBSPFile extends BSPFile{
 		loadMaterials();
 		loadGameLumps();
 		loadEntities();
+		loadEdges();
 		
 		return true;
 	}
 	
+	private static final int VERTEXLUMP = 3;
+	private static final int EDGELUMP = 12;
+	private static final int SURFEDGELUMP = 13;
+	
+	public static class Surfedge{
+		float[] start;
+		float[] end;
+		float[] center;
+		
+		public Surfedge() {
+			start = new float[3];
+			end = new float[3];
+		}
+		
+		public void swap() {
+			float[] t = start;
+			start = end;
+			end = t;
+		}
+		
+		public void calcCenter() {
+			center = new float[3];
+			
+			center[0] = (start[0] + end[0]) * 0.5f;
+			center[1] = (start[1] + end[1]) * 0.5f;
+			center[2] = (start[2] + end[2]) * 0.5f;
+		}
+		
+		public String toString() {
+			return "start: (" + start[0] + ", " + start[1] + ", " + start[2] + ")\tend: ("  + end[0] + ", " + end[1] + ", " + end[2] + ")";
+		}
+	}
+	
+	public void loadEdges() throws IOException {
+		if(surfedges != null)
+			return;
+		
+		surfedges = new Surfedge[(int)lumps[SURFEDGELUMP].length/4];
+		
+		byte[] vertexBytes = getLumpBytes(lumps[VERTEXLUMP]);
+		ByteBuffer vertexBuffer = ByteBuffer.wrap(vertexBytes);
+		vertexBuffer.order(ByteOrder.LITTLE_ENDIAN);
+		
+		byte[] edgeBytes = getLumpBytes(lumps[EDGELUMP]);
+		ByteBuffer edgeBuffer = ByteBuffer.wrap(edgeBytes);
+		edgeBuffer.order(ByteOrder.LITTLE_ENDIAN);
+		
+		byte[] surfedgeBytes = getLumpBytes(lumps[SURFEDGELUMP]);
+		ByteBuffer surfedgeBuffer = ByteBuffer.wrap(surfedgeBytes);
+		surfedgeBuffer.order(ByteOrder.LITTLE_ENDIAN);
+		
+		for(int i = 0; i < surfedges.length; ++i) {
+			int edge = surfedgeBuffer.getInt();
+			int index = Math.abs(edge);
+			
+			int v1index = edgeBuffer.getShort(index * 4);
+			int v2index = edgeBuffer.getShort(index * 4 + 2);
+			
+			Surfedge current = new Surfedge();
+			current.start[0] = vertexBuffer.getFloat(v1index * 12);
+			current.start[1] = vertexBuffer.getFloat(v1index * 12 + 4);
+			current.start[2] = vertexBuffer.getFloat(v1index * 12 + 8);
+			
+			current.end[0] = vertexBuffer.getFloat(v2index * 12);
+			current.end[1] = vertexBuffer.getFloat(v2index * 12 + 4);
+			current.end[2] = vertexBuffer.getFloat(v2index * 12 + 8);
+			
+			if(edge < 0)
+				current.swap();
+			
+			current.calcCenter();
+			surfedges[i] = current;
+		}
+	}
+	
 	public static class Lightmap{
+		float[] origin;
+		String underlyingMaterial;
+		int offset;
+		int numLuxels;
 		int faceId;
 		short styles;
 		short axes;
 		BufferedImage[] images;
+		boolean obscured;
+		boolean hdr = false;
+		boolean dirty = false;
 		
 		public String toString() {
 			return "Lightmapped faceID: " + faceId + ", styles: " + styles + ", axes: " + axes;
 		}
 	}
 	
+	public boolean setLightmap(BufferedImage img, int faceId, int style, int axis, boolean isHdr) throws IllegalArgumentException{
+		int left = 0;
+		int right = lightmaps.size() - 1;
+		int index = -1;
+		
+		while(left <= right && index == -1) {
+			int mid = left + (right - left) / 2;
+			if(lightmaps.get(mid).faceId == faceId && lightmaps.get(mid).hdr == isHdr)
+				index = mid;
+			
+			if(lightmaps.get(mid).faceId < faceId)
+				left = mid + 1;
+			else
+				right = mid - 1;
+		}
+		
+		if(index == -1)
+			return false;
+		
+		Lightmap l = lightmaps.get(index);
+		int imgIndex = style * l.axes + axis;
+		
+		if(imgIndex < 0 || imgIndex >= l.images.length)
+			throw new IllegalArgumentException("Image index invalid!");
+		
+		BufferedImage original = l.images[imgIndex];
+		
+		if(original.getWidth() * original.getHeight() != img.getWidth() * img.getHeight())
+			throw new IllegalArgumentException("New lightmap size does not match the old one!");
+		
+		l.images[imgIndex] = img;
+		l.dirty = true;
+		
+		return true;
+	}
+	
 	public ArrayList<Lightmap> getLightmaps() throws IOException {
-		int numFaces = (int) (lumps[FACELUMP].length / 56);
-		byte[] faceBytes = new byte[(int)lumps[FACELUMP].length];
-		byte[] texBytes = new byte[(int)lumps[TEXTURELUMP].length];
+		if(lightmaps != null)
+			return lightmaps;
 		
-		lightmaps = new ArrayList<>(numFaces);
-
-		bspfile.seek(lumps[FACELUMP].offset);
-		bspfile.read(faceBytes);
-		bspfile.seek(lumps[TEXTURELUMP].offset);
-		bspfile.read(texBytes);
+		lightmaps = new ArrayList<>();
 		
-		ByteBuffer faceBuffer = ByteBuffer.wrap(faceBytes);
-		faceBuffer.order(ByteOrder.LITTLE_ENDIAN);
+		int facelump = FACELUMP;
+		int lightinglump = LIGHTINGLUMP;
 		
+		byte[] texBytes = getLumpBytes(lumps[TEXTURELUMP]);
 		ByteBuffer texBuffer = ByteBuffer.wrap(texBytes);
 		texBuffer.order(ByteOrder.LITTLE_ENDIAN);
 		
-		byte[] style = new byte[4];
+		byte[] texDataBytes = getLumpBytes(lumps[TEXDATALUMP]);
+		ByteBuffer texDataBuffer = ByteBuffer.wrap(texDataBytes);
+		texDataBuffer.order(ByteOrder.LITTLE_ENDIAN);
 		
-		byte[] lightmapBytes = new byte[(int)lumps[LIGHTINGLUMP].length];
-		bspfile.seek(lumps[LIGHTINGLUMP].offset);
-		bspfile.read(lightmapBytes);
+		loadEdges();
 		
-		for(int i = 0; i < numFaces; ++i) {
-			int texInfo = Short.toUnsignedInt(faceBuffer.getShort(i * 56 + 10));
-			boolean bump = ((texBuffer.getInt(texInfo * 72 + 64)) & 0x0800) != 0;
+		for(int hdr = 0; hdr < 2; ++hdr) {
+			if(hdr == 1) {
+				facelump = FACELUMP_HDR;
+				lightinglump = LIGHTINGLUMP_HDR;
+			}
 			
-			faceBuffer.position(i * 56 + 16);
-			faceBuffer.get(style);
+			int numFaces = (int) (lumps[facelump].length / 56);
 			
-			int numStyles = 0;
-			int lightsof = faceBuffer.getInt(i * 56 + 20);
-			int width = faceBuffer.getInt(i * 56 + 36) + 1;
-			int height = faceBuffer.getInt(i * 56 + 40) + 1;
-			int origFace = faceBuffer.getInt(i * 56 + 44);
+			byte[] faceBytes = getLumpBytes(lumps[facelump]);
 			
-			for(; numStyles < style.length && style[numStyles] != -1; ++numStyles);
+			ByteBuffer faceBuffer = ByteBuffer.wrap(faceBytes);
+			faceBuffer.order(ByteOrder.LITTLE_ENDIAN);
 			
-			int axes = 1;
-			if(bump)
-				axes = 4;
+			byte[] style = new byte[4];
 			
-			if(numStyles == 0 || lightsof == -1)
+			byte[] lightmapBytes = getLumpBytes(lumps[lightinglump]);
+			
+			if(lightmapBytes.length <= 0)
 				continue;
 			
-			int numLuxels = width * height;
+			lightmaps.ensureCapacity(lightmaps.size() + numFaces);
 			
-			Lightmap lightmapImg = new Lightmap();
-			lightmapImg.faceId = i;
-			lightmapImg.styles = (short)numStyles;
-			lightmapImg.axes = (short) axes;
-			lightmapImg.images = new BufferedImage[numStyles * axes];
-			
-			for(int j = 0; j < numStyles; ++j) {
-				for(int k = 0; k < axes; ++k) {
+			for(int i = 0; i < numFaces; ++i) {
+				int texInfo = Short.toUnsignedInt(faceBuffer.getShort(i * 56 + 10));
+				boolean bump = ((texBuffer.getInt(texInfo * 72 + 64)) & 0x0800) != 0;
+				int texdata = texBuffer.getInt(texInfo * 72 + 68);
+				String material = materials.get(texDataBuffer.getInt(texdata * 32 + 12));
+				
+				faceBuffer.position(i * 56 + 16);
+				faceBuffer.get(style);
+				
+				int numStyles = 0;
+				int firstEdge = faceBuffer.getInt(i * 56 + 4);
+				int numEdges = Short.toUnsignedInt(faceBuffer.getShort(i * 56 + 8));
+				int lightsof = faceBuffer.getInt(i * 56 + 20);
+				int width = faceBuffer.getInt(i * 56 + 36) + 1;
+				int height = faceBuffer.getInt(i * 56 + 40) + 1;
+				
+				float[] center = new float[3];
+				for(int j = 0; j < numEdges; ++j) {
+					Surfedge edge = surfedges[firstEdge + j];
+					center[0] += edge.center[0];
+					center[1] += edge.center[1];
+					center[2] += edge.center[2];
+				}
+				center[0] /= numEdges;
+				center[1] /= numEdges;
+				center[2] /= numEdges;
+				
+				for(; numStyles < style.length && style[numStyles] != -1; ++numStyles);
+				
+				int axes = 1;
+				if(bump)
+					axes = 4;
+				
+				if(numStyles == 0 || lightsof == -1)
+					continue;
+				
+				int numLuxels = width * height;
+				
+				Lightmap lightmapImg = new Lightmap();
+				lightmapImg.origin = center;
+				lightmapImg.faceId = i;
+				lightmapImg.styles = (short)numStyles;
+				lightmapImg.axes = (short) axes;
+				lightmapImg.images = new BufferedImage[numStyles * axes];
+				lightmapImg.offset = lightsof;
+				lightmapImg.numLuxels = numLuxels;
+				lightmapImg.hdr = hdr == 1;
+				lightmapImg.underlyingMaterial = material;
+				
+				for(int j = 0; j < numStyles * axes; ++j) {
 					BufferedImage lightmap = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
 					WritableRaster raster = lightmap.getRaster();
-					int styleOffset = lightsof + j * numLuxels * axes;
+					int styleOffset = lightsof + j * numLuxels * 4;
 					int[] pixel = new int[4];
+					double obscuration = 0;
 					
 					for(int y = 0; y < height; ++y) {
 						for(int x = 0; x < width; ++x) {
@@ -185,16 +347,27 @@ public class SourceBSPFile extends BSPFile{
 							pixel[1] = lightmapBytes[pixIndex + 1];
 							pixel[2] = lightmapBytes[pixIndex + 2];
 							pixel[3] = exponent;
+							
+							obscuration += exponent;
 							raster.setPixel(x, y, pixel);
 						}
 					}
 					
-					lightmapImg.images[j * axes + k] = lightmap;
+					obscuration = obscuration / numLuxels;
+					lightmapImg.obscured = (int)obscuration % 2 == 0;
+					
+					lightmapImg.images[j] = lightmap;
 				}
+				
+				lightmaps.add(lightmapImg);
 			}
-			
-			lightmaps.add(lightmapImg);
 		}
+		
+		lightmaps.sort(new Comparator<Lightmap>() {
+			public int compare(Lightmap o1, Lightmap o2) {
+				return o1.faceId - o2.faceId;
+			}
+		}); //sorting for binary search
 		
 		return lightmaps;
 	}
@@ -574,11 +747,10 @@ public class SourceBSPFile extends BSPFile{
 		cubemaps = new ArrayList<EntityCubemap>(numCubemaps);
 		
 		bspfile.seek(lumps[CUBEMAPLUMP].offset);
-		byte[] cubemapData = new byte[(int)lumps[CUBEMAPLUMP].length];
+		byte[] cubemapData = getLumpBytes(lumps[CUBEMAPLUMP]);
 		ByteBuffer buff = ByteBuffer.wrap(cubemapData);
 		buff.order(ByteOrder.LITTLE_ENDIAN);
-		
-		bspfile.read(cubemapData);
+
 		for(int i = 0; i < numCubemaps; ++i) {
 			EntityCubemap cubemap = new EntityCubemap();		
 			int x = buff.getInt();
@@ -690,6 +862,10 @@ public class SourceBSPFile extends BSPFile{
 		out.write(headerBytes);
 	}
 	
+	public boolean canPreserveChecksum() {
+		return !writeLights && !writePak && embeddedPak == null && lightmaps == null;
+	}
+	
 	//if saving to the same file set updateSelf to true
 	public void save(RandomAccessFile out, boolean updateSelf) throws IOException{
 		if(bspfile == null || out == null)
@@ -697,12 +873,46 @@ public class SourceBSPFile extends BSPFile{
 		
 		BSPLump[] newLumps = new BSPLump[64];
 		GameLump[] newGlumps = new GameLump[glumps.length];
-		
-		ArrayList<GenericLump> sorted = new ArrayList<GenericLump>();
-		
 		int i = 0;
+		
+		boolean rename = false;
+		if(!forcePreserveChecksum) {
+			if(!writeLights) {
+				newLumps[WORLDLIGHTLUMP_HDR].length = 0;
+				newLumps[WORLDLIGHTLUMP_LDR].length = 0;
+			}
+			
+			if(!writePak) {
+				newLumps[PAKLUMP].length = 0;
+			}
+			
+			if(getOriginalName() != null && newMapName != null) {
+				renameMaterials();
+				rename = true;
+			}
+			
+			if(materials != null && !materials.isEmpty() && randomMats) {
+				Random rand = new Random(materials.get(0).hashCode());
+				
+				for(i = 0; i < materials.size(); ++i) {
+					int index = rand.nextInt(materials.size());
+					String mat = materials.get(index);
+					materials.set(index, materials.get(i));
+					materials.set(i, mat);
+				}
+			}
+			
+			if(embeddedPak != null)
+				newLumps[PAKLUMP].offset = Long.MAX_VALUE; //let the PAK lump be at the end so writing to it does not require shifting everything
+		}
+		
+		ArrayList<GenericLump> sorted = new ArrayList<GenericLump>(lumps.length);
+		
 		for(i = 0; i < lumps.length; ++i) {
 			newLumps[i] = (BSPLump)lumps[i].clone();
+			
+			if(i != ENTLUMP)
+				newLumps[i].lzma = false;
 			
 			sorted.add(newLumps[i]);
 		}
@@ -710,36 +920,35 @@ public class SourceBSPFile extends BSPFile{
 		for(i = 0; i < glumps.length; ++i) {
 			newGlumps[i] = (GameLump)glumps[i].clone();
 		}
-		
-		if(!writeLights) {
-			newLumps[WORLDLIGHTLUMP_HDR].length = 0;
-			newLumps[WORLDLIGHTLUMP_LDR].length = 0;
-		}
-		
-		if(!writePak) {
-			newLumps[PAKLUMP].length = 0;
-		}
-		
-		boolean rename = false;
-		if(getOriginalName() != null && newMapName != null) {
-			renameMaterials();
-			rename = true;
-		}
-		
-		if(materials != null && !materials.isEmpty() && randomMats) {
-			Random rand = new Random(materials.get(0).hashCode());
-			
-			for(i = 0; i < materials.size(); ++i) {
-				int index = rand.nextInt(materials.size());
-				String mat = materials.get(index);
-				materials.set(index, materials.get(i));
-				materials.set(i, mat);
-			}
-		}
-		
-		newLumps[PAKLUMP].offset = Long.MAX_VALUE; //let the PAK lump be at the end so writing to it does not require shifting everything
 		Collections.sort(sorted);
-
+		
+		byte[] entData = getEntityBytes((BSPLump) newLumps[ENTLUMP]);
+		newLumps[ENTLUMP].length = entData.length;
+		
+		if(forcePreserveChecksum) {			
+			long biggestGap = 0;
+			GenericLump beforeTheGap = null;
+			
+			for(i = 0; i < sorted.size() - 1; ++i) {
+				GenericLump current = sorted.get(i);
+				GenericLump next = sorted.get(i + 1);
+				
+				long gap = next.offset - current.offset - current.length;
+				
+				if(gap > biggestGap && gap >= entData.length) {
+					biggestGap = gap;
+					beforeTheGap = current;
+				}
+			}
+			
+			if(beforeTheGap == null)
+				beforeTheGap = sorted.get(sorted.size() - 1);
+			
+			newLumps[ENTLUMP].offset = alignToFour(beforeTheGap.offset + beforeTheGap.length);
+			sorted.remove(newLumps[ENTLUMP]);
+			sorted.add(sorted.indexOf(beforeTheGap) + 1, newLumps[ENTLUMP]);
+		}
+		
 		GenericLump cur = sorted.get(0);
 		cur.offset = Math.max(cur.offset, 1036);
 		
@@ -747,20 +956,26 @@ public class SourceBSPFile extends BSPFile{
 		
 		for(i = 0; i < sorted.size(); ++i) {
 			GenericLump to = sorted.get(i);
-			if(prev != null)
+			if(prev != null && !forcePreserveChecksum)
 				to.offset = alignToFour(prev.offset + prev.length);
 			prev = to;
 			
 			if(to.length == 0)
 				continue;
+			
+			/*
+			 * If we are to preserve the BSP Checksum we must not modify the structure of BSP file, not including entity lump,
+			 * so we just copy the lumps and write only the entlump.
+			 */
+			if(forcePreserveChecksum && to.index != ENTLUMP) {
+				copy(out, lumps[to.index], to);
+				continue;
+			}
 
 			if(to.index == GAMELUMP) {
 				saveGameLumps(out, newLumps[GAMELUMP], newGlumps);
 				continue;
 			} else if(to.index == ENTLUMP && entDirty) {
-				byte[] entData = getEntityBytes((BSPLump) to);
-				to.length = entData.length;
-				
 				out.seek(to.offset);
 				out.write(entData);
 				continue;
@@ -810,6 +1025,39 @@ public class SourceBSPFile extends BSPFile{
 				out.write(bytes);
 				
 				continue;
+			} else if((to.index == LIGHTINGLUMP || to.index == LIGHTINGLUMP_HDR) && lightmaps != null) {
+				copy(out, lumps[to.index], to);
+				
+				for(Lightmap l : lightmaps) {
+					if(!l.dirty)
+						continue;
+					
+					if((to.index == LIGHTINGLUMP_HDR) != l.hdr)
+						continue;
+					
+					byte[] imgBytes = new byte[l.numLuxels * l.styles * l.axes * 4];
+					int[] pixel = new int[4];
+					int boffset = 0;
+					for(int j = 0; j < l.images.length; ++j) {
+						BufferedImage img = l.images[j];
+						for(int y = 0; y < img.getHeight(); ++y) {
+							for(int x = 0; x < img.getWidth(); ++x) {
+								img.getRaster().getPixel(x, y, pixel);
+								imgBytes[boffset + (y * img.getWidth() + x) * 4 + 3] = (byte)(pixel[3] - 128);
+								imgBytes[boffset + (y * img.getWidth() + x) * 4] = (byte)pixel[0];
+								imgBytes[boffset + (y * img.getWidth() + x) * 4 + 1] = (byte)pixel[1];
+								imgBytes[boffset + (y * img.getWidth() + x) * 4 + 2] = (byte)pixel[2];
+							}
+						}
+						
+						boffset += l.numLuxels * 4;
+					}
+					
+					out.seek(newLumps[to.index].offset + l.offset);
+					out.write(imgBytes);
+				}
+				
+				continue;
 			}
 			
 			copy(out, lumps[to.index], to);
@@ -819,6 +1067,14 @@ public class SourceBSPFile extends BSPFile{
 		
 		cur = sorted.get(sorted.size() - 1);
 		out.setLength(cur.offset + cur.length);
+		
+		//DIFF
+		for(i = 0; i < lumps.length; ++i) {
+			if(lumps[i].offset == newLumps[i].offset && lumps[i].length == newLumps[i].length || lumps[i].length == 0)
+				continue;
+			
+			System.out.println("Lump " + i + " differs from the original lump. " + lumps[i] + " " + newLumps[i]);
+		}
 		
 		if(updateSelf) {
 			close();
@@ -836,6 +1092,29 @@ public class SourceBSPFile extends BSPFile{
 			newMapName = null;
 			originalMapName = null;
 		}
+	}
+	
+	public long computeChecksum() throws IOException {
+		crcAlgo.reset();
+		
+		byte[] block = new byte[10240];
+		for(GenericLump lump : lumps) {
+			if(lump.index == ENTLUMP)
+				continue;
+			
+			bspfile.seek(lump.offset);
+			
+			int toRead = (int)lump.length;
+			
+			while(toRead > 0) {
+				int read = bspfile.read(block, 0, (int)Math.min(toRead, block.length));
+				
+				crcAlgo.update(block, 0, read);
+				toRead -= read;
+			}
+		}
+		
+		return crcAlgo.getValue();
 	}
 	
 	private void savePak(RandomAccessFile out, GenericLump oldPakLump, GenericLump newPakLump, boolean rename) throws IOException {
@@ -1013,7 +1292,7 @@ public class SourceBSPFile extends BSPFile{
 	private void saveGameLumps(RandomAccessFile out, GenericLump newGamelump, GameLump[] newGlumps) throws IOException {
 		byte[] glumpHeaderBytes = new byte[4 + 16 * newGlumps.length];
 		
-		ArrayList<GameLump> sorted = new ArrayList<GameLump>();
+		ArrayList<GameLump> sorted = new ArrayList<GameLump>(glumps.length);
 		
 		for(int i = 0; i < newGlumps.length; ++i) {
 			sorted.add(newGlumps[i]);
@@ -1126,21 +1405,6 @@ public class SourceBSPFile extends BSPFile{
 		to.offset -= glumpOffset;
 	}
 	
-	private void copy(RandomAccessFile out, InputStream in, long maxLen) throws IOException {
-		int len = 0;
-		long totalLen = 0;
-		byte[] data = new byte[20480];
-		
-		int toRead = Math.min(data.length, (int)maxLen & 0x7FFFFFFF);
-		
-		while((len = in.read(data, 0, toRead)) > 0 && toRead > 0) {
-			out.write(data, 0, len);
-			
-			totalLen += len;
-			toRead = Math.min(data.length, (int)(maxLen - totalLen) & 0x7FFFFFFF);
-		}
-	}
-	
 	private byte[] getEntityBytes(BSPLump entLump) throws IOException {
 		byte[] uncompressed = getEntityBytes();
 		
@@ -1171,7 +1435,7 @@ public class SourceBSPFile extends BSPFile{
 		return out.toByteArray();
 	} 
 	
-	private byte[] decompress(BSPLump lump) throws IOException {
+	private byte[] getLumpBytes(BSPLump lump) throws IOException {
 		if(lump.offset == 0)
 			return null;
 		
@@ -1185,7 +1449,11 @@ public class SourceBSPFile extends BSPFile{
 		
 		if(id != ID_LZMA) {
 			bspfile.seek(bspfile.getFilePointer() - 17);
-			return null;
+			
+			byte[] raw = new byte[(int)lump.length];
+			bspfile.read(raw);
+			
+			return raw;
 		}
 		
 		byte[] contents = new byte[lzmaSize];
@@ -1206,19 +1474,9 @@ public class SourceBSPFile extends BSPFile{
 		if(entLump.offset == 0)
 			return;
 		
-		byte[] entData = null;
-		if(entLump.fourCC != 0) {
+		byte[] entData = getLumpBytes(entLump);
+		if(entLump.fourCC != 0)
 			entLump.lzma = true;
-			entData = decompress(entLump);
-		}
-		
-		bspfile.seek(entLump.offset);
-		
-		if (entData == null){
-			entLump.lzma = false;
-			entData = new byte[(int) entLump.length];
-			bspfile.read(entData);
-		}
 		
 		BufferedReader br = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(entData)));
 		readEntities(br);
@@ -1227,22 +1485,8 @@ public class SourceBSPFile extends BSPFile{
 	}
 	
 	private void loadMaterials() throws IOException {
-		byte[] stringData = null;
-		byte[] tableData = null;
-		
-		if(lumps[TEXSTRINGDATALUMP_DATA].fourCC == 0) {
-			stringData = new byte[(int)lumps[TEXSTRINGDATALUMP_DATA].length];
-			bspfile.seek(lumps[TEXSTRINGDATALUMP_DATA].offset);
-			bspfile.read(stringData);
-		}else 
-			stringData = decompress(lumps[TEXSTRINGDATALUMP_DATA]);
-		
-		if(lumps[TEXSTRINGDATALUMP_TABLE].fourCC == 0) {
-			tableData = new byte[(int)lumps[TEXSTRINGDATALUMP_TABLE].length];
-			bspfile.seek(lumps[TEXSTRINGDATALUMP_TABLE].offset);
-			bspfile.read(tableData);
-		}else 
-			tableData = decompress(lumps[TEXSTRINGDATALUMP_TABLE]);
+		byte[] stringData = getLumpBytes(lumps[TEXSTRINGDATALUMP_DATA]);
+		byte[] tableData = getLumpBytes(lumps[TEXSTRINGDATALUMP_TABLE]);
 		
 		if(stringData == null || tableData == null)
 			return;
@@ -1269,10 +1513,10 @@ public class SourceBSPFile extends BSPFile{
 	public static final int ID_BSP = 0x56425350; //big endian
 	public static final int ID_LZMA = 0x4C5A4D41; //big endian
 	
-	private static final int GLUMP_INDEX_OFF = 4096;
-	
 	private static final int ENTLUMP = 0;
 	private static final int TEXTURELUMP = 6;
+	private static final int FACELUMP_HDR = 58;
+	private static final int LIGHTINGLUMP_HDR = 53;
 	private static final int FACELUMP = 7;
 	private static final int LIGHTINGLUMP = 8;
 	private static final int GAMELUMP = 35;
@@ -1280,10 +1524,9 @@ public class SourceBSPFile extends BSPFile{
 	private static final int WORLDLIGHTLUMP_HDR = 54;
 	private static final int PAKLUMP = 40;
 	private static final int CUBEMAPLUMP = 42;
-	private static final int VERTEXLUMP = 3;
-	private static final int DISPVERTLUMP = 33;
 	private static final int TEXSTRINGDATALUMP_DATA = 43;
 	private static final int TEXSTRINGDATALUMP_TABLE = 44;
+	private static final int TEXDATALUMP = 2;
 	
 	private static final Charset utf8Charset = Charset.forName("UTF-8");
 	
@@ -1310,6 +1553,10 @@ public class SourceBSPFile extends BSPFile{
 			clone.lzma = lzma;
 			
 			return clone;
+		}
+		
+		public String toString() {
+			return "[offset: " + offset + ", length: " + length + "]";
 		}
 	}
 	

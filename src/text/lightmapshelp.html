@@ -1,0 +1,14 @@
+<h2>Browsing / editing lightmaps</h2>
+<hr>
+
+<p>Lightmaps are images "overlayed" on top of the world textures (brushes, displacements) displaying static, baked lighting. Those images 
+are not stored in the embedded Pak file as one might expect, instead are stored in separate Lump as raw data. Each face may contain 0 or up to 4 light styles, 
+each light style contains either 1 lightmap or 4 if the face's material is bumpmapped (1 "default" lightmap, 3 lightmaps for X, Y and Z axes). When exporting 
+the lightmaps are packed into a Zip file named '<i>&lt;map name&gt;</i>_lightmaps.zip' and the lightmap images are named 
+'<i>&lt;faceID&gt;</i>_s<i>&lt;styleID&gt;</i>_a<i>&lt;axisID&gt;</i>.png'.</p>
+
+<p>Exported lightmaps may be edited with the software of choice (preferably GIMP). The alpha channel plays important role - each luxel (pixel of a lightmap) contains 4 values: 
+RGBE - red, green, blue and exponent being the "brightness" of the luxel. When exporting the exponents are remaped from [-128, 127] to [0, 255] and stored in the image as 
+an alpha channel.</p>
+
+<p>In the Lightmap browser some lightmaps are overlayed with "OBSCURED", it does not mean anything.</p>

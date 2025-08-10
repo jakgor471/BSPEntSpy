@@ -90,6 +90,7 @@ import javax.swing.UIManager;
 import javax.swing.WindowConstants;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -116,7 +117,7 @@ public class BSPEntspy {
 	private ArrayList<ActionListener> onMapSaveInternal = new ArrayList<ActionListener>();
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String versionTag = "v1.5";
+	public static final String versionTag = "v1.67";
 	public static final String entspyTitle = "BSPEntSpy " + versionTag;
 	
 	public static JFrame frame = null;
@@ -177,7 +178,7 @@ public class BSPEntspy {
 				al.actionPerformed(new ActionEvent(this, 0, "mapload"));
 			
 		} catch (Exception e) {
-			unloadfile();
+			unloadFile();
 			
 			JOptionPane.showMessageDialog(frame, "Map " + infile.getName() + " couldn't be read!", "ERROR!",
 					JOptionPane.ERROR_MESSAGE);
@@ -270,10 +271,10 @@ public class BSPEntspy {
 		//TODO: uncomment
 		updateThread.start();
 		
-		this.frame = new JFrame(entspyTitle);
-		this.frame.setIconImage(esIcon.getImage());
+		BSPEntspy.frame = new JFrame(entspyTitle);
+		BSPEntspy.frame.setIconImage(esIcon.getImage());
 
-		if (loadfgdfiles(null)) {
+		if (loadFGDFiles(null)) {
 			System.out.println("FGD loaded: " + String.join(", ", fgdFile.loadedFgds));
 		} else {
 			preferences.remove("LastFGDFile");
@@ -310,6 +311,25 @@ public class BSPEntspy {
 		munload.setToolTipText("Unload the current map file");
 		//munload.setEnabled(false);
 		filemenu.add(munload);
+		
+		JMenuItem computeChecksum = new JMenuItem("Compute map Checksum");
+		computeChecksum.setToolTipText("Compute the checksum of currently loaded map");
+		filemenu.add(computeChecksum);
+		
+		computeChecksum.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				if(map == null || !(map instanceof SourceBSPFile))
+					return;
+				
+				SourceBSPFile bspmap = (SourceBSPFile)map;
+				try {
+					long checksum = bspmap.computeChecksum();
+					JOptionPane.showMessageDialog(frame, "The CRC32 checksum of the map is: 0x" + Long.toHexString(checksum).toUpperCase(), "ERROR!", JOptionPane.INFORMATION_MESSAGE);
+				} catch (IOException e) {
+					JOptionPane.showMessageDialog(frame, "An error occured...", "ERROR!", JOptionPane.ERROR_MESSAGE);
+				}
+			}
+		});
 
 		JMenuItem mpatchvmf = new JMenuItem("Patch from VMF");
 		mpatchvmf.setToolTipText("Update entity properties based on a VMF file (see more in Help)");
@@ -430,6 +450,11 @@ public class BSPEntspy {
 
 		lighthelp.addActionListener(new HelpActionListener("/text/lighthelp.html"));
 		
+		JMenuItem lightmaphelp = new JMenuItem("Browsing / editing lightmaps");
+		helpmenu.add(lightmaphelp);
+
+		lightmaphelp.addActionListener(new HelpActionListener("/text/lightmapshelp.html"));
+		
 		JMenuItem renaminghelp = new JMenuItem("Renaming the map");
 		helpmenu.add(renaminghelp);
 
@@ -485,9 +510,22 @@ public class BSPEntspy {
 				preferences.putBoolean("SmartEdit", msmartEditOption.isSelected());
 			}
 		});
+		
+		JCheckBoxMenuItem mPromptChecksum = new JCheckBoxMenuItem("Prompt checksum preservation on map save");
+		mPromptChecksum.setToolTipText(
+				"Only applicable for Source BSP!");
+		mPromptChecksum.setState(preferences.getBoolean("preserveChecksum", false));
+		
+		mPromptChecksum.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				preferences.putBoolean("preserveChecksum", mPromptChecksum.isSelected());
+			}
+		});
 
 		optionmenu.add(msmartEditOption);
 		optionmenu.add(maddDefaultOption);
+		optionmenu.addSeparator();
+		optionmenu.add(mPromptChecksum);
 		optionmenu.addSeparator();
 		optionmenu.add(mCheckForUpdates);
 
@@ -522,9 +560,9 @@ public class BSPEntspy {
 			}
 		});
 		
-		JMenuItem exportLightmaps = new JMenuItem("Export Lightmaps");
-		mapmenu.add(exportLightmaps);
-		exportLightmaps.addActionListener(new ActionListener() {
+		JMenuItem lightmapBrowser = new JMenuItem("Lightmap Browser");
+		mapmenu.add(lightmapBrowser);
+		lightmapBrowser.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent ae) {
 				/*if(map == null)
 					return;
@@ -566,8 +604,93 @@ public class BSPEntspy {
 				LightmapEditor lightmapEditor = new LightmapEditor(bspmap);
 				
 				JDialog dialog = new JDialog(frame);
+				
+				JMenuBar menuBar = new JMenuBar();
+				JMenu lightmapMenu = new JMenu("Lightmaps");
+				menuBar.add(lightmapMenu);
+				
+				JMenuItem exportLightmaps = new JMenuItem("Export selected lightmaps");
+				exportLightmaps.addActionListener(new ActionListener() {
+					public void actionPerformed(ActionEvent ae) {
+						try {
+							Lightmap[] lightmaps = lightmapEditor.getSelectedLightmaps();
+							File zipOutput = new File(infile.getParent() + "/" + filename.substring(0, filename.lastIndexOf('.')) + "_lightmaps.zip");
+							ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipOutput));
+							
+							for(Lightmap img : lightmaps) {
+								for(int i = 0; i < img.styles * img.axes; ++i) {
+									String lmName = img.faceId + "_s" + i / img.axes + "_a" + i % img.axes + (img.hdr ? "hdr" : "") + ".png";
+									
+									ZipEntry entry = new ZipEntry(lmName);
+									zos.putNextEntry(entry);
+									ImageIO.write(img.images[i], "png", zos);
+								}
+							}
+							zos.close();
+							
+							JOptionPane.showMessageDialog(dialog, lightmaps.length + " lightmap(s) exported to '" + zipOutput.toString() + "'.");
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+					}
+				});
+				
+				JMenuItem importLightmaps = new JMenuItem("Import selected lightmaps");
+				importLightmaps.addActionListener(new ActionListener() {
+					public void actionPerformed(ActionEvent ae) {
+						Pattern lightmapRegex = Pattern.compile("[/\\\\]*(\\d+)_s(\\d+)_a(\\d+)((?:hdr)*).png$");
+
+						JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
+						chooser.setMultiSelectionEnabled(true);
+						chooser.setFileFilter(new FileNameExtensionFilter("PNG files", "png"));
+
+						chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+
+						// Show the dialog
+						int result = chooser.showOpenDialog(null);
+						
+						if(result != JFileChooser.APPROVE_OPTION)
+							return;
+						
+						StringBuilder errors = new StringBuilder();
+						
+						File[] selected = chooser.getSelectedFiles();
+						int numImported = 0;
+						for(File f : selected) {
+							try {
+								BufferedImage img = ImageIO.read(f);
+								Matcher match = lightmapRegex.matcher(f.getName());
+								
+								if(!match.matches()) {
+									errors.append("'").append(f.getName()).append("' does not match the '<face id>_s<style>_a<axis>.png'!\n");
+									continue;
+								}
+								
+								boolean isHdr = match.group(4) != null;
+								if(bspmap.setLightmap(img, Integer.parseInt(match.group(1)), Integer.parseInt(match.group(2)), Integer.parseInt(match.group(3)), isHdr))
+									numImported++;
+							} catch (IOException e) {
+								errors.append("'").append(f.getName()).append("' - ").append(e.getMessage());
+								e.printStackTrace();
+							} catch(IllegalArgumentException e) {
+								errors.append("'").append(f.getName()).append("' - ").append(e.getMessage());
+							}
+						}
+						
+						if(errors.length() > 0)
+							JOptionPane.showMessageDialog(dialog, errors.toString(), "ERROR!", JOptionPane.ERROR_MESSAGE);
+						
+						JOptionPane.showMessageDialog(dialog, "Imported " + numImported + " lightmap(s)!", "Import success", JOptionPane.INFORMATION_MESSAGE);
+						lightmapEditor.refreshList();
+					}
+				});
+				
+				lightmapMenu.add(importLightmaps);
+				lightmapMenu.add(exportLightmaps);
+				dialog.setJMenuBar(menuBar);
+				
 				dialog.getContentPane().add(lightmapEditor);
-				dialog.setTitle("Lightmap Editor v1.0");
+				dialog.setTitle("Lightmap Browser v1.0");
 				dialog.setModalityType(Dialog.ModalityType.APPLICATION_MODAL);
 				dialog.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 				dialog.setSize(400, 520);
@@ -903,15 +1026,15 @@ public class BSPEntspy {
 		if(secret)
 			menubar.add(secretMenu);
 		
-		this.frame.setJMenuBar(menubar);
+		BSPEntspy.frame.setJMenuBar(menubar);
 
 		mload.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
-				if (BSPEntspy.this.checkchanged("Load BSP")) {
+				if (BSPEntspy.this.checkChanged("Load BSP")) {
 					return;
 				}
-				if (!BSPEntspy.this.loadfile(null)) {
+				if (!BSPEntspy.this.loadFile(null)) {
 					return;
 				}
 			}
@@ -919,7 +1042,7 @@ public class BSPEntspy {
 		msave.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent ev) {
-				savefile(true);
+				saveFile(true);
 			}
 
 		});
@@ -928,7 +1051,7 @@ public class BSPEntspy {
 
 			public void actionPerformed(ActionEvent ev) {
 				try {
-					unloadfile();
+					unloadFile();
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -939,7 +1062,7 @@ public class BSPEntspy {
 		msaveas.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent ev) {
-				savefile(false);
+				saveFile(false);
 			}
 
 		});
@@ -974,7 +1097,7 @@ public class BSPEntspy {
 		mquit.addActionListener(new ActionListener() {
 
 			public void actionPerformed(ActionEvent e) {
-				if (BSPEntspy.this.checkchanged("Quit Entspy")) {
+				if (BSPEntspy.this.checkChanged("Quit Entspy")) {
 					return;
 				}
 				frame.dispose();
@@ -1009,7 +1132,7 @@ public class BSPEntspy {
 					return;
 
 				File f = chooser.getSelectedFile();
-				if (loadfgdfiles(f)) {
+				if (loadFGDFiles(f)) {
 					preferences.put("LastFGDFile", f.toString());
 					preferences.put("LastFGDDir", f.getAbsolutePath());
 					JOptionPane.showMessageDialog(frame,
@@ -1436,7 +1559,7 @@ public class BSPEntspy {
 				rightEntPanel.gatherKeyValues();
 
 				if (selected.length == 1) {
-					setfindlist(entModel.getElementAt(selected[0]), findmodel);
+					setFindList(entModel.getElementAt(selected[0]), findmodel);
 				}
 			}
 
@@ -1505,7 +1628,7 @@ public class BSPEntspy {
 				exportPak.setEnabled(enable);
 				importPak.setEnabled(enable);
 				removePak.setEnabled(enable);
-				exportLightmaps.setEnabled(enable);
+				lightmapBrowser.setEnabled(enable);
 				editCubemaps.setEnabled(enable);
 				editStaticProps.setEnabled(enable);
 				
@@ -1513,6 +1636,7 @@ public class BSPEntspy {
 				editStaticProps.setSelected(false);
 				renameMap.setEnabled(enable);
 				randomizeMaterials.setEnabled(enable);
+				computeChecksum.setEnabled(enable);
 				
 				editMaterials.setEnabled(enable);
 			}
@@ -1542,14 +1666,15 @@ public class BSPEntspy {
 				pstFromClipEnt.setEnabled(false);
 				
 				rightEntPanel.clearEntities();
-				setfindlist(null, findmodel);
+				setFindList(null, findmodel);
 				findcombo.setEnabled(false);
 				findbutton.setEnabled(false);
 				
 				boolean enable = false;
 				
+				computeChecksum.setEnabled(false);
 				removeLightInfo.setEnabled(enable);
-				exportLightmaps.setEnabled(enable);
+				lightmapBrowser.setEnabled(enable);
 				exportPak.setEnabled(enable);
 				importPak.setSelected(false);
 				importPak.setEnabled(enable);
@@ -1585,7 +1710,7 @@ public class BSPEntspy {
 		frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		frame.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent ev) {
-				if (BSPEntspy.this.checkchanged("Quit Entspy :)")) {
+				if (BSPEntspy.this.checkChanged("Quit Entspy :)")) {
 					return;
 				}
 				frame.dispose();
@@ -1604,13 +1729,15 @@ public class BSPEntspy {
 		frame.setVisible(true);
 		
 		frame.setDropTarget(new DropTarget() {
+			private static final long serialVersionUID = 1L;
+
 			public synchronized void drop(DropTargetDropEvent evt) {
 				try {
 					evt.acceptDrop(DnDConstants.ACTION_COPY);
 					List<File> droppedFiles = (List<File>) evt.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);
 					
-					if(droppedFiles.size() > 0 && !BSPEntspy.this.checkchanged("Load BSP")) {
-						BSPEntspy.this.loadfile(droppedFiles.get(0));
+					if(droppedFiles.size() > 0 && !BSPEntspy.this.checkChanged("Load BSP")) {
+						BSPEntspy.this.loadFile(droppedFiles.get(0));
 					}
 					
 					evt.dropComplete(true);
@@ -1623,7 +1750,7 @@ public class BSPEntspy {
 		return 0;
 	}
 
-	public boolean setfindlist(Entity sel, DefaultComboBoxModel<Entity> model) {
+	public boolean setFindList(Entity sel, DefaultComboBoxModel<Entity> model) {
 		model.removeAllElements();
 		
 		if(sel == null)
@@ -1640,13 +1767,13 @@ public class BSPEntspy {
 		return true;
 	}
 
-	public boolean loadfile(File f) {
+	public boolean loadFile(File f) {
 		if(f == null) {
 			JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
 	
 			chooser.setDialogTitle(entspyTitle + " - Open a BSP file");
 			chooser.setFileFilter(new EntFileFilter());
-			int result = chooser.showOpenDialog(this.frame);
+			int result = chooser.showOpenDialog(BSPEntspy.frame);
 			if (result == JFileChooser.CANCEL_OPTION) {
 				return false;
 			}
@@ -1676,8 +1803,8 @@ public class BSPEntspy {
 		return true;
 	}
 	
-	private void unloadfile() throws IOException {
-		if(checkchanged("Unload BSP"))
+	private void unloadFile() throws IOException {
+		if(checkChanged("Unload BSP"))
 			return;
 		if(map != null)
 			map.close();
@@ -1689,7 +1816,7 @@ public class BSPEntspy {
 			al.actionPerformed(new ActionEvent(this, 0, "mapunload"));
 	}
 
-	private boolean savefile(boolean overwrite) {
+	private boolean saveFile(boolean overwrite) {
 		if(map == null)
 			return false;
 		
@@ -1699,9 +1826,10 @@ public class BSPEntspy {
 			out = this.infile;
 		} else {
 			JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
+			chooser.setFileFilter(new FileNameExtensionFilter("Binary Space Partitioned maps (.bsp)", "bsp"));
 			chooser.setDialogTitle(entspyTitle + " - Save a BSP file");
 
-			int result = chooser.showOpenDialog(this.frame);
+			int result = chooser.showOpenDialog(BSPEntspy.frame);
 			if (result == JFileChooser.CANCEL_OPTION) {
 				return false;
 			}
@@ -1723,6 +1851,15 @@ public class BSPEntspy {
 		
 		if(map instanceof SourceBSPFile) {
 			SourceBSPFile bspmap = (SourceBSPFile)map;
+			
+			bspmap.forcePreserveChecksum = false;
+			if(preferences.getBoolean("preserveChecksum", false)) {
+				int result = JOptionPane.showConfirmDialog(frame, 
+						"Do you want to preserve the map checksum?\n"+
+						"Proceeding with this option will modify ONLY the Entity lump and the storage may not be optimised."
+						, entspyTitle, JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+				bspmap.forcePreserveChecksum = result == JOptionPane.YES_OPTION;
+			}
 			
 			if(bspmap.isSpropLumpLoaded()) {
 				final String[] versions = {"v4", "v5", "v6"};
@@ -1784,7 +1921,7 @@ public class BSPEntspy {
 			} catch(IOException e) {
 				JOptionPane.showMessageDialog(frame, "Error while re-opening the file!\n" + e.getMessage(), "ERROR",
 						JOptionPane.ERROR_MESSAGE);
-				loadfile(null);
+				loadFile(null);
 			}
 		}
 		
@@ -1794,7 +1931,7 @@ public class BSPEntspy {
 		return true;
 	}
 
-	public boolean loadfgdfiles(File file) {
+	public boolean loadFGDFiles(File file) {
 		if (file == null) {
 			String lastFgd = preferences.get("LastFGDFile", null);
 			if (lastFgd == null)
@@ -1815,7 +1952,7 @@ public class BSPEntspy {
 			FGD.OnIncludeCallback callback = new FGD.OnIncludeCallback() {
 				public Boolean call() {
 					File f = new File(path + "/" + this.fileToLoad);
-					return loadfgdfiles(f);
+					return loadFGDFiles(f);
 				}
 			};
 
@@ -1831,7 +1968,7 @@ public class BSPEntspy {
 		return true;
 	}
 
-	public boolean checkchanged(String title) {
+	public boolean checkChanged(String title) {
 		if (map == null || !this.map.entDirty && Undo.isEmpty()) {
 			return false;
 		}

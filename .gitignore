@@ -7,3 +7,4 @@ releases/
 **/*.zip
 dependencies/
 secret.html
+*.log

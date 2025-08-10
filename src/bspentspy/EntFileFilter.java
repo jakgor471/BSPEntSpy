@@ -28,7 +28,7 @@ class EntFileFilter extends FileFilter {
 	public String getExtension(File f) {
 		int i;
 		String filename;
-		if (f != null && (i = (filename = f.getName()).lastIndexOf(46)) > 0 && i < filename.length() - 1) {
+		if (f != null && (i = (filename = f.getName()).lastIndexOf('.')) > 0 && i < filename.length() - 1) {
 			return filename.substring(i + 1).toLowerCase();
 		}
 		return null;
