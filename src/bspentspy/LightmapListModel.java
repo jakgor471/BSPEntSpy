@@ -13,6 +13,7 @@ public class LightmapListModel extends AbstractListModel<Lightmap> {
 	ArrayList<Lightmap> filtered;
 	float[] origin;
 	float radius;
+	String material;
 	
 	public LightmapListModel(SourceBSPFile bspmap) {
 		filtered = new ArrayList<>();
@@ -25,27 +26,47 @@ public class LightmapListModel extends AbstractListModel<Lightmap> {
 			e.printStackTrace();
 		}
 		
-		filter(0, 0, 0, -1);
+		filter(false, 0, 0, 0, -1, null);
 	}
 	
-	public void filter(float x, float y, float z, float radius) {
-		origin[0] = x;
-		origin[1] = y;
-		origin[2] = z;
-		
-		this.radius = radius;
-		
+	public void filter(boolean posFilter, float x, float y, float z, float radius, String material) {
 		filtered.clear();
 		
-		for(Lightmap l : lightmaps) {
-			float distX = l.origin[0] - x;
-			float distY = l.origin[1] - y;
-			float distZ = l.origin[2] - z;
+		if(posFilter) {
+			origin[0] = x;
+			origin[1] = y;
+			origin[2] = z;
 			
-			float dist = distX * distX + distY * distY + distZ * distZ;
+			this.radius = radius;
+		} else {
+			this.material = material;
 			
-			if(dist <= radius * radius || radius < 0)
+			if(this.material != null)
+				this.material = this.material.toLowerCase();
+		}
+		
+		if(this.radius < 0) {
+			for(Lightmap l : lightmaps) {
 				filtered.add(l);
+			}
+		} else {			
+			for(Lightmap l : lightmaps) {
+				float distX = l.origin[0] - origin[0];
+				float distY = l.origin[1] - origin[1];
+				float distZ = l.origin[2] - origin[2];
+				
+				float dist = distX * distX + distY * distY + distZ * distZ;
+				
+				if(dist <= this.radius * this.radius || this.radius < 0)
+					filtered.add(l);
+			}
+		}
+		
+		if(this.material != null) {
+			for(int i = filtered.size() - 1; i >= 0; --i) {
+				if(!filtered.get(i).underlyingMaterial.toLowerCase().contains(this.material))
+					filtered.remove(i);
+			}
 		}
 		
 		this.fireContentsChanged(this, 0, getSize());

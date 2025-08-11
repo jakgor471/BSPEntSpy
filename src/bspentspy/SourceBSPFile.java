@@ -269,6 +269,9 @@ public class SourceBSPFile extends BSPFile{
 			
 			byte[] faceBytes = getLumpBytes(lumps[facelump]);
 			
+			if(faceBytes == null)
+				continue;
+			
 			ByteBuffer faceBuffer = ByteBuffer.wrap(faceBytes);
 			faceBuffer.order(ByteOrder.LITTLE_ENDIAN);
 			
@@ -276,7 +279,7 @@ public class SourceBSPFile extends BSPFile{
 			
 			byte[] lightmapBytes = getLumpBytes(lumps[lightinglump]);
 			
-			if(lightmapBytes.length <= 0)
+			if(lightmapBytes == null || lightmapBytes.length <= 0)
 				continue;
 			
 			lightmaps.ensureCapacity(lightmaps.size() + numFaces);
@@ -911,8 +914,8 @@ public class SourceBSPFile extends BSPFile{
 		for(i = 0; i < lumps.length; ++i) {
 			newLumps[i] = (BSPLump)lumps[i].clone();
 			
-			if(i != ENTLUMP)
-				newLumps[i].lzma = false;
+			if(newLumps[i].length == 0)
+				newLumps[i].offset = 0;
 			
 			sorted.add(newLumps[i]);
 		}
@@ -932,6 +935,9 @@ public class SourceBSPFile extends BSPFile{
 			for(i = 0; i < sorted.size() - 1; ++i) {
 				GenericLump current = sorted.get(i);
 				GenericLump next = sorted.get(i + 1);
+				
+				if(next.index == ENTLUMP && i + 2 < sorted.size())
+					next = sorted.get(i + 2);
 				
 				long gap = next.offset - current.offset - current.length;
 				
@@ -973,6 +979,7 @@ public class SourceBSPFile extends BSPFile{
 			}
 
 			if(to.index == GAMELUMP) {
+				newLumps[to.index].fourCC = 0; //No LZMA
 				saveGameLumps(out, newLumps[GAMELUMP], newGlumps);
 				continue;
 			} else if(to.index == ENTLUMP && entDirty) {
@@ -980,9 +987,11 @@ public class SourceBSPFile extends BSPFile{
 				out.write(entData);
 				continue;
 			} else if(to.index == PAKLUMP) {
+				newLumps[to.index].fourCC = 0; //No LZMA
 				savePak(out, lumps[PAKLUMP], newLumps[PAKLUMP], rename);
 				continue;
 			} else if(to.index == CUBEMAPLUMP && cubemaps != null) {
+				newLumps[to.index].fourCC = 0; //No LZMA
 				updateCubemaps();
 				byte[] cubemapData = getCubemapBytes();
 				to.length = cubemapData.length;
@@ -990,6 +999,7 @@ public class SourceBSPFile extends BSPFile{
 				out.write(cubemapData);
 				continue;
 			} else if(to.index == TEXSTRINGDATALUMP_DATA && materials != null) {
+				newLumps[to.index].fourCC = 0; //No LZMA
 				ByteArrayOutputStream bytes = new ByteArrayOutputStream(materials.size() * 128);
 				
 				((BSPLump)to).fourCC = 0; //no compression at the moment
@@ -1006,6 +1016,7 @@ public class SourceBSPFile extends BSPFile{
 				
 				continue;
 			} else if(to.index == TEXSTRINGDATALUMP_TABLE && materials != null) {
+				newLumps[to.index].fourCC = 0; //No LZMA
 				byte[] bytes = new byte[materials.size() * 4];
 				int offset = 0;
 				
@@ -1026,6 +1037,7 @@ public class SourceBSPFile extends BSPFile{
 				
 				continue;
 			} else if((to.index == LIGHTINGLUMP || to.index == LIGHTINGLUMP_HDR) && lightmaps != null) {
+				newLumps[to.index].fourCC = 0; //No LZMA
 				copy(out, lumps[to.index], to);
 				
 				for(Lightmap l : lightmaps) {
@@ -1039,14 +1051,15 @@ public class SourceBSPFile extends BSPFile{
 					int[] pixel = new int[4];
 					int boffset = 0;
 					for(int j = 0; j < l.images.length; ++j) {
-						BufferedImage img = l.images[j];
-						for(int y = 0; y < img.getHeight(); ++y) {
-							for(int x = 0; x < img.getWidth(); ++x) {
-								img.getRaster().getPixel(x, y, pixel);
-								imgBytes[boffset + (y * img.getWidth() + x) * 4 + 3] = (byte)(pixel[3] - 128);
-								imgBytes[boffset + (y * img.getWidth() + x) * 4] = (byte)pixel[0];
-								imgBytes[boffset + (y * img.getWidth() + x) * 4 + 1] = (byte)pixel[1];
-								imgBytes[boffset + (y * img.getWidth() + x) * 4 + 2] = (byte)pixel[2];
+						WritableRaster raster = l.images[j].getRaster();
+						
+						for(int y = 0; y < raster.getHeight(); ++y) {
+							for(int x = 0; x < raster.getWidth(); ++x) {
+								raster.getPixel(x, y, pixel);
+								imgBytes[boffset + (y * raster.getWidth() + x) * 4 + 3] = (byte)(pixel[3] - 128);
+								imgBytes[boffset + (y * raster.getWidth() + x) * 4] = (byte)pixel[0];
+								imgBytes[boffset + (y * raster.getWidth() + x) * 4 + 1] = (byte)pixel[1];
+								imgBytes[boffset + (y * raster.getWidth() + x) * 4 + 2] = (byte)pixel[2];
 							}
 						}
 						

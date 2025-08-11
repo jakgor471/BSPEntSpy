@@ -61,6 +61,7 @@ import java.util.zip.ZipOutputStream;
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 import javax.imageio.ImageIO;
+import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultComboBoxModel;
@@ -81,13 +82,19 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JSlider;
+import javax.swing.JSpinner;
 import javax.swing.JSplitPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
+import javax.swing.SpinnerNumberModel;
+import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.WindowConstants;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -563,36 +570,7 @@ public class BSPEntspy {
 		JMenuItem lightmapBrowser = new JMenuItem("Lightmap Browser");
 		mapmenu.add(lightmapBrowser);
 		lightmapBrowser.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent ae) {
-				/*if(map == null)
-					return;
-				
-				if(!(map instanceof SourceBSPFile)) {
-					return;
-				}
-				SourceBSPFile bspmap = (SourceBSPFile)map;
-				
-				try {
-					ArrayList<Lightmap> lightmaps = bspmap.getLightmaps();
-					File zipOutput = new File(infile.getParent() + "/" + filename.substring(0, filename.lastIndexOf('.')) + "_lightmaps.zip");
-					ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipOutput));
-					
-					for(Lightmap img : lightmaps) {
-						for(int i = 0; i < img.styles * img.axes; ++i) {
-							String lmName = img.faceId + "_" + i / img.axes + "_" + i % img.axes + ".png";
-							
-							ZipEntry entry = new ZipEntry(lmName);
-							zos.putNextEntry(entry);
-							ImageIO.write(img.images[i], "png", zos);
-							
-						}
-					}
-					zos.close();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}*/
-				
+			public void actionPerformed(ActionEvent ae) {				
 				if(map == null)
 					return;
 				
@@ -601,7 +579,7 @@ public class BSPEntspy {
 				}
 				SourceBSPFile bspmap = (SourceBSPFile)map;
 				
-				LightmapEditor lightmapEditor = new LightmapEditor(bspmap);
+				LightmapBrowser lightmapEditor = new LightmapBrowser(bspmap);
 				
 				JDialog dialog = new JDialog(frame);
 				
@@ -689,11 +667,108 @@ public class BSPEntspy {
 				lightmapMenu.add(exportLightmaps);
 				dialog.setJMenuBar(menuBar);
 				
-				dialog.getContentPane().add(lightmapEditor);
+				LightmapViewer lmviewer = new LightmapViewer();
+				JPanel right = new JPanel(new BorderLayout());
+				right.add(lmviewer, BorderLayout.CENTER);
+				
+				JPanel viewerOptions = new JPanel();
+				BoxLayout bl = new BoxLayout(viewerOptions, BoxLayout.Y_AXIS);
+				viewerOptions.setLayout(bl);
+				
+				JSlider exposureSlider = new JSlider();
+				exposureSlider.setMaximum(1000);
+				exposureSlider.setMinimum(-1000);
+				
+				exposureSlider.addChangeListener(new ChangeListener() {
+					public void stateChanged(ChangeEvent e) {
+						lmviewer.setExposure(exposureSlider.getValue() * 0.1);
+					}
+				});
+				
+				Box fbox = Box.createHorizontalBox();
+				fbox.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+				fbox.add(new JLabel("Exposure: "));
+				fbox.add(exposureSlider);
+				
+				viewerOptions.add(fbox);
+				
+				SpinnerNumberModel styleModel = new SpinnerNumberModel();
+				SpinnerNumberModel dirModel = new SpinnerNumberModel();
+				
+				JSpinner styleSpinner = new JSpinner();
+				JSpinner dirSpinner = new JSpinner();
+				styleSpinner.setEditor(new JSpinner.NumberEditor(styleSpinner));
+				dirSpinner.setEditor(new JSpinner.NumberEditor(dirSpinner));
+				
+				Box fbox2 = Box.createHorizontalBox();
+				fbox2.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+				JLabel lightStyleLabel = new JLabel("light style: ");
+				fbox2.add(lightStyleLabel);
+				fbox2.add(styleSpinner);
+				JLabel dirLabel = new JLabel(" direction: ");
+				fbox2.add(dirLabel);
+				fbox2.add(dirSpinner);
+				
+				viewerOptions.add(fbox2);
+				
+				right.add(viewerOptions, BorderLayout.SOUTH);
+				
+				lightmapEditor.addActionListener(new ActionListener() {
+					public void actionPerformed(ActionEvent ae) {
+						Lightmap[] selected = lightmapEditor.getSelectedLightmaps();
+						exposureSlider.setValue(0);
+						
+						if(selected.length < 1)
+							return;
+						Lightmap sel = selected[0];
+						
+						styleModel.setMinimum(0);
+						styleModel.setMaximum(Integer.valueOf(sel.styles - 1));
+						styleModel.setStepSize(1);
+						
+						lightStyleLabel.setText("light style (" + sel.styles + "): ");
+						dirLabel.setText(" direction (" + sel.axes + "): ");
+						
+						dirModel.setMinimum(0);
+						dirModel.setMaximum(Integer.valueOf(sel.axes - 1));
+						dirModel.setStepSize(1);
+						
+						styleSpinner.setModel(styleModel);
+						dirSpinner.setModel(dirModel);
+						styleSpinner.setValue(0);
+						dirSpinner.setValue(0);
+						lmviewer.setLightmap(sel.images[0]);
+					}
+				});
+				
+				styleSpinner.addChangeListener(new ChangeListener() {
+					public void stateChanged(ChangeEvent e) {
+						Lightmap[] selected = lightmapEditor.getSelectedLightmaps();
+						
+						if(selected.length < 1)
+							return;
+						lmviewer.setLightmap(selected[0].images[(Integer)styleModel.getValue() * selected[0].axes]);
+					}
+				});
+				
+				dirSpinner.addChangeListener(new ChangeListener() {
+					public void stateChanged(ChangeEvent e) {
+						Lightmap[] selected = lightmapEditor.getSelectedLightmaps();
+						
+						if(selected.length < 1)
+							return;
+						lmviewer.setLightmap(selected[0].images[(Integer)styleModel.getValue() * selected[0].axes + (Integer)dirModel.getValue()]);
+					}
+				});
+				
+				JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, lightmapEditor, right);
+				split.setDividerLocation(275);
+				
+				dialog.getContentPane().add(split);
 				dialog.setTitle("Lightmap Browser v1.0");
 				dialog.setModalityType(Dialog.ModalityType.APPLICATION_MODAL);
 				dialog.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-				dialog.setSize(400, 520);
+				dialog.setSize(800, 520);
 				dialog.setLocation(frame.getLocation());
 				dialog.setVisible(true);
 			}
@@ -1375,8 +1450,9 @@ public class BSPEntspy {
 					Undo.finish();
 
 					updateEntList(map.getEntities());
-
-					entList.setSelectedIndices(selectedIndices);
+					
+					if(ents.size() < 32)
+						entList.setSelectedIndices(selectedIndices);
 				} catch (Exception | LexerException e) {
 					JOptionPane.showMessageDialog(frame, "Could not parse data from clipboard!\n" + e.getMessage(),
 							"ERROR!", JOptionPane.ERROR_MESSAGE);
@@ -1604,7 +1680,7 @@ public class BSPEntspy {
 		rightPanel.add((Component) findpanel, "South");
 		rightPanel.add((Component) rightEntPanel, "Center");
 
-		JSplitPane mainSplit = new JSplitPane(1, leftPanel, rightPanel);
+		JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftPanel, rightPanel);
 		mainSplit.setDividerLocation(275);
 		
 		onMapLoadInternal.add(new ActionListener() {
