@@ -209,11 +209,18 @@ public class SourceBSPFile extends BSPFile{
 		int right = lightmaps.size() - 1;
 		int index = -1;
 		
-		while(left <= right && index == -1) {
+		while(left <= right) {
 			int mid = left + (right - left) / 2;
-			if(lightmaps.get(mid).faceId == faceId && lightmaps.get(mid).hdr == isHdr)
-				index = mid;
-			
+			if(lightmaps.get(mid).faceId == faceId) {
+				for(; mid < lightmaps.size() && lightmaps.get(mid).faceId == faceId; ++mid) {
+					if(lightmaps.get(mid).hdr == isHdr) {
+						index = mid;
+						break;
+					}
+				}
+				break;
+			}
+				
 			if(lightmaps.get(mid).faceId < faceId)
 				left = mid + 1;
 			else

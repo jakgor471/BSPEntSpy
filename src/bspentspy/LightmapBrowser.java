@@ -165,6 +165,14 @@ public class LightmapBrowser extends JPanel {
 		return lightmaps;
 	}
 	
+	public Lightmap getSelectedLightmap() {
+		int index = lightmapList.getMaxSelectionIndex();
+		if(index < 0 || index >= listModel.getSize())
+			return null;
+		
+		return listModel.getElementAt(index);
+	}
+	
 	public void refreshList() {
 		listModel.reload();
 	}

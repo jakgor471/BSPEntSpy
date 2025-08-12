@@ -127,6 +127,8 @@ public class BSPEntspy {
 	public static final String versionTag = "v1.67";
 	public static final String entspyTitle = "BSPEntSpy " + versionTag;
 	
+	private static final Pattern LIGHTMAP_REGEX = Pattern.compile("[/\\\\]*(\\d+)_s(\\d+)_a(\\d+)((?:hdr)*).png$");
+	
 	public static JFrame frame = null;
 	
 	private static void checkForUpdate() throws UnsupportedEncodingException, IOException {
@@ -613,18 +615,16 @@ public class BSPEntspy {
 					}
 				});
 				
+				LightmapViewer lmviewer = new LightmapViewer();
 				JMenuItem importLightmaps = new JMenuItem("Import selected lightmaps");
 				importLightmaps.addActionListener(new ActionListener() {
 					public void actionPerformed(ActionEvent ae) {
-						Pattern lightmapRegex = Pattern.compile("[/\\\\]*(\\d+)_s(\\d+)_a(\\d+)((?:hdr)*).png$");
-
 						JFileChooser chooser = new JFileChooser(preferences.get("LastFolder", System.getProperty("user.dir")));
 						chooser.setMultiSelectionEnabled(true);
 						chooser.setFileFilter(new FileNameExtensionFilter("PNG files", "png"));
 
 						chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
 
-						// Show the dialog
 						int result = chooser.showOpenDialog(null);
 						
 						if(result != JFileChooser.APPROVE_OPTION)
@@ -637,7 +637,7 @@ public class BSPEntspy {
 						for(File f : selected) {
 							try {
 								BufferedImage img = ImageIO.read(f);
-								Matcher match = lightmapRegex.matcher(f.getName());
+								Matcher match = LIGHTMAP_REGEX.matcher(f.getName());
 								
 								if(!match.matches()) {
 									errors.append("'").append(f.getName()).append("' does not match the '<face id>_s<style>_a<axis>.png'!\n");
@@ -660,6 +660,10 @@ public class BSPEntspy {
 						
 						JOptionPane.showMessageDialog(dialog, "Imported " + numImported + " lightmap(s)!", "Import success", JOptionPane.INFORMATION_MESSAGE);
 						lightmapEditor.refreshList();
+						
+						if(lightmapEditor.getSelectedLightmap() == null)
+							return;
+						lmviewer.setLightmap(lightmapEditor.getSelectedLightmap().images[0]);
 					}
 				});
 				
@@ -667,7 +671,6 @@ public class BSPEntspy {
 				lightmapMenu.add(exportLightmaps);
 				dialog.setJMenuBar(menuBar);
 				
-				LightmapViewer lmviewer = new LightmapViewer();
 				JPanel right = new JPanel(new BorderLayout());
 				right.add(lmviewer, BorderLayout.CENTER);
 				
@@ -715,12 +718,10 @@ public class BSPEntspy {
 				
 				lightmapEditor.addActionListener(new ActionListener() {
 					public void actionPerformed(ActionEvent ae) {
-						Lightmap[] selected = lightmapEditor.getSelectedLightmaps();
-						exposureSlider.setValue(0);
+						Lightmap sel = lightmapEditor.getSelectedLightmap();
 						
-						if(selected.length < 1)
+						if(sel == null)
 							return;
-						Lightmap sel = selected[0];
 						
 						styleModel.setMinimum(0);
 						styleModel.setMaximum(Integer.valueOf(sel.styles - 1));
@@ -743,21 +744,21 @@ public class BSPEntspy {
 				
 				styleSpinner.addChangeListener(new ChangeListener() {
 					public void stateChanged(ChangeEvent e) {
-						Lightmap[] selected = lightmapEditor.getSelectedLightmaps();
+						Lightmap sel = lightmapEditor.getSelectedLightmap();
 						
-						if(selected.length < 1)
+						if(sel == null)
 							return;
-						lmviewer.setLightmap(selected[0].images[(Integer)styleModel.getValue() * selected[0].axes]);
+						lmviewer.setLightmap(sel.images[(Integer)styleModel.getValue() * sel.axes]);
 					}
 				});
 				
 				dirSpinner.addChangeListener(new ChangeListener() {
 					public void stateChanged(ChangeEvent e) {
-						Lightmap[] selected = lightmapEditor.getSelectedLightmaps();
+						Lightmap sel = lightmapEditor.getSelectedLightmap();
 						
-						if(selected.length < 1)
+						if(sel == null)
 							return;
-						lmviewer.setLightmap(selected[0].images[(Integer)styleModel.getValue() * selected[0].axes + (Integer)dirModel.getValue()]);
+						lmviewer.setLightmap(sel.images[(Integer)styleModel.getValue() * sel.axes + (Integer)dirModel.getValue()]);
 					}
 				});
 				
