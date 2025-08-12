@@ -63,7 +63,7 @@ public class LightmapViewer extends JPanel{
 		if(canvas == null)
 			return;
 		
-		double scale = (double) Math.min((double)getWidth() / (double)canvas.getWidth(), (double)getHeight() / (double)canvas.getHeight());
+		double scale = Math.min((double)getWidth() / (double)canvas.getWidth(), (double)getHeight() / (double)canvas.getHeight());
 		
 		int realWidth = (int) (canvas.getWidth() * scale);
 		int realHeight = (int) (canvas.getHeight() * scale);

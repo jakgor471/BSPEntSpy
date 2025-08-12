@@ -364,7 +364,7 @@ public class SourceBSPFile extends BSPFile{
 					}
 					
 					obscuration = obscuration / numLuxels;
-					lightmapImg.obscured = (int)obscuration % 2 == 0;
+					lightmapImg.obscured = (int)obscuration < 127;
 					
 					lightmapImg.images[j] = lightmap;
 				}

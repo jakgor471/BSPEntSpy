@@ -35,10 +35,10 @@ public class LightmapListRenderer extends JPanel implements ListCellRenderer<Lig
 		super.paintComponent(g);
 		BufferedImage image = lightmap.images[0];
 		if (image != null) {
-			double scale = (double) Math.min((double)getWidth() / (double)image.getWidth(), (double)getHeight() / (double)image.getHeight());
+			double scale = Math.min((double)getWidth() / (double)image.getWidth(), (double)getHeight() / (double)image.getHeight());
 			
-			int realWidth = (int) (image.getWidth() * scale) - 20;
-			int realHeight = (int) (image.getHeight() * scale) - 20;
+			int realWidth = (int) (image.getWidth() * scale);
+			int realHeight = (int) (image.getHeight() * scale);
 			g.drawImage(image, (getWidth() - realWidth) / 2, (getHeight() - realHeight) / 2, realWidth, realHeight, this);
 			g.drawString(lightmap.toString() + ", total images: " + lightmap.images.length, 20, 20);
 			

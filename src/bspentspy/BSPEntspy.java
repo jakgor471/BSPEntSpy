@@ -681,19 +681,27 @@ public class BSPEntspy {
 				JSlider exposureSlider = new JSlider();
 				exposureSlider.setMaximum(1000);
 				exposureSlider.setMinimum(-1000);
+				exposureSlider.setValue(0);
 				
 				exposureSlider.addChangeListener(new ChangeListener() {
 					public void stateChanged(ChangeEvent e) {
-						lmviewer.setExposure(exposureSlider.getValue() * 0.1);
+						lmviewer.setExposure(exposureSlider.getValue() * 0.25);
 					}
 				});
 				
 				Box fbox = Box.createHorizontalBox();
 				fbox.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
-				fbox.add(new JLabel("Exposure: "));
+				fbox.add(new JLabel("Brightness: "));
 				fbox.add(exposureSlider);
 				
 				viewerOptions.add(fbox);
+				
+				/*Box fbox15 = Box.createHorizontalBox();
+				fbox15.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+				fbox15.add(new JLabel("Contrast: "));
+				fbox15.add(exposureSlider);
+				
+				viewerOptions.add(fbox15);*/
 				
 				SpinnerNumberModel styleModel = new SpinnerNumberModel();
 				SpinnerNumberModel dirModel = new SpinnerNumberModel();
@@ -736,8 +744,9 @@ public class BSPEntspy {
 						
 						styleSpinner.setModel(styleModel);
 						dirSpinner.setModel(dirModel);
-						styleSpinner.setValue(0);
-						dirSpinner.setValue(0);
+						styleModel.setValue(0);
+						styleModel.setValue(0);
+						exposureSlider.setValue(0);
 						lmviewer.setLightmap(sel.images[0]);
 					}
 				});
