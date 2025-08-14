@@ -192,6 +192,8 @@ public class SourceBSPFile extends BSPFile{
 		int offset;
 		int numLuxels;
 		int faceId;
+		int[] size;
+		int[] mins;
 		short styles;
 		short axes;
 		BufferedImage[] images;
@@ -236,9 +238,7 @@ public class SourceBSPFile extends BSPFile{
 		if(imgIndex < 0 || imgIndex >= l.images.length)
 			throw new IllegalArgumentException("Image index invalid!");
 		
-		BufferedImage original = l.images[imgIndex];
-		
-		if(original.getWidth() * original.getHeight() != img.getWidth() * img.getHeight())
+		if(l.size[0] * l.size[1] != img.getWidth() * img.getHeight())
 			throw new IllegalArgumentException("New lightmap size does not match the old one!");
 		
 		l.images[imgIndex] = img;
@@ -304,6 +304,10 @@ public class SourceBSPFile extends BSPFile{
 				int firstEdge = faceBuffer.getInt(i * 56 + 4);
 				int numEdges = Short.toUnsignedInt(faceBuffer.getShort(i * 56 + 8));
 				int lightsof = faceBuffer.getInt(i * 56 + 20);
+				
+				int min1 = faceBuffer.getInt(i * 56 + 28);
+				int min2 = faceBuffer.getInt(i * 56 + 32);
+				
 				int width = faceBuffer.getInt(i * 56 + 36) + 1;
 				int height = faceBuffer.getInt(i * 56 + 40) + 1;
 				
@@ -331,6 +335,14 @@ public class SourceBSPFile extends BSPFile{
 				
 				Lightmap lightmapImg = new Lightmap();
 				lightmapImg.origin = center;
+				lightmapImg.size = new int[2];
+				lightmapImg.mins = new int[2];
+				
+				lightmapImg.size[0] = width;
+				lightmapImg.size[1] = height;
+				lightmapImg.mins[0] = min1;
+				lightmapImg.mins[1] = min2;
+				
 				lightmapImg.faceId = i;
 				lightmapImg.styles = (short)numStyles;
 				lightmapImg.axes = (short) axes;
@@ -1154,6 +1166,7 @@ public class SourceBSPFile extends BSPFile{
 				pakIs = null;
 			} else {
 				bspfile.seek(oldPakLump.offset);
+				System.out.println(isLZMACompressed(oldPakLump));
 				zis = new ZipInputStream(Channels.newInputStream(bspfile.getChannel()));
 				copyRenamePak(out, zis, oldPakLump, newPakLump, rename);
 			}
@@ -1453,7 +1466,25 @@ public class SourceBSPFile extends BSPFile{
 		}
 		
 		return out.toByteArray();
-	} 
+	}
+	
+	private boolean isLZMACompressed(GenericLump oldPakLump) throws IOException {
+		bspfile.seek(oldPakLump.offset);
+		
+		int id = bspfile.readInt();
+		int actualSize = Integer.reverseBytes(bspfile.readInt());
+		int lzmaSize = Integer.reverseBytes(bspfile.readInt());
+		byte[] properties = new byte[5];
+		bspfile.read(properties);
+		
+		if(id != ID_LZMA) {
+			bspfile.seek(bspfile.getFilePointer() - 17);
+			
+			return false;
+		}
+		
+		return true;
+	}
 	
 	private byte[] getLumpBytes(BSPLump lump) throws IOException {
 		if(lump.offset == 0)
