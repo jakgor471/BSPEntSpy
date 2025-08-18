@@ -15,16 +15,7 @@ BSPEntSpy is an updated version of **EntSpy** originaly made by Rof (http://www.
 * **Exporting / Importing embedded files** facilitating removal of broken cubemaps or packing files into the map file
 * **Removing light information** for rebuilding the lighting using VRAD
 * **Re-saving Static prop lump with different version** to fix 'stale map version' error
-
-## Changes compared to the original version :recycle:
-Apart from features listed above the UI has been updated to use system
-*Look and Feel*, instead of Java's default, dated and ugly *Metal* theme.  
-Other changes include:
-* switch from Tree entity display to a flat List
-* complete overhaul of entity parameters edit panel (including separate tab for
-editing flags)
-
-Detailed description and instructions are included in **Help** menu tab in BSPEntSpy.
+* **Browsing, exporting and importing lightmaps**
 
 **Old version** to the left, **new version** to the right  
 ![comparison](https://github.com/jakgor471/BSPEntSpy/blob/main/images/image1.jpg?raw=true)
@@ -35,6 +26,13 @@ Detailed description and instructions are included in **Help** menu tab in BSPEn
 **Java Runtime Environment** is required to run the application.
 
 ## Changelog :fire:
+### BSPEntSpy v1.67 BETA :exclamation: :exclamation: :exclamation:
+* Option to save map without changing the CRC checksum
+* Lightmap browsing, exporting and importing
+* Option to calculate map checksum
+* !!! PAK Export/import does not work for LZMA compressed PAK Lumps (TF2)
+* !!! Importing lightmaps for LZMA compressed Lighting lumps does not work properly and WILL corrupt the map!
+* !!!FIX ME FIX ME FIX ME (- Fix me... - Later (Meet the medic))
 ### BSPEntSpy v1.5 release 17/05/2025 ANNIVERSARY EDITION :birthday:
 * Material edititing functionality
 * Enhanced cubemap editing
