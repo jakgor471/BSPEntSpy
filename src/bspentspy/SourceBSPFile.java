@@ -206,7 +206,9 @@ public class SourceBSPFile extends BSPFile{
 		}
 	}
 	
-	public boolean setLightmap(BufferedImage img, int faceId, int style, int axis, boolean isHdr) throws IllegalArgumentException{
+	public boolean setLightmap(BufferedImage img, int faceId, int style, int axis, boolean isHdr) throws Exception{
+		if(lumps[LIGHTINGLUMP].fourCC != 0 || lumps[LIGHTINGLUMP_HDR].fourCC != 0)
+			throw new Exception("LZMA Compressed lighting lump not supported!");
 		int left = 0;
 		int right = lightmaps.size() - 1;
 		int index = -1;
@@ -898,6 +900,18 @@ public class SourceBSPFile extends BSPFile{
 		int i = 0;
 		
 		boolean rename = false;
+		
+		ArrayList<GenericLump> sorted = new ArrayList<GenericLump>(lumps.length);
+		
+		for(i = 0; i < lumps.length; ++i) {
+			newLumps[i] = (BSPLump)lumps[i].clone();
+			
+			if(newLumps[i].length == 0)
+				newLumps[i].offset = 0;
+			
+			sorted.add(newLumps[i]);
+		}
+		
 		if(!forcePreserveChecksum) {
 			if(!writeLights) {
 				newLumps[WORLDLIGHTLUMP_HDR].length = 0;
@@ -926,17 +940,6 @@ public class SourceBSPFile extends BSPFile{
 			
 			if(embeddedPak != null)
 				newLumps[PAKLUMP].offset = Long.MAX_VALUE; //let the PAK lump be at the end so writing to it does not require shifting everything
-		}
-		
-		ArrayList<GenericLump> sorted = new ArrayList<GenericLump>(lumps.length);
-		
-		for(i = 0; i < lumps.length; ++i) {
-			newLumps[i] = (BSPLump)lumps[i].clone();
-			
-			if(newLumps[i].length == 0)
-				newLumps[i].offset = 0;
-			
-			sorted.add(newLumps[i]);
 		}
 		
 		for(i = 0; i < glumps.length; ++i) {

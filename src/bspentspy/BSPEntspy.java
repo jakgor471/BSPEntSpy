@@ -124,7 +124,7 @@ public class BSPEntspy {
 	private ArrayList<ActionListener> onMapSaveInternal = new ArrayList<ActionListener>();
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String versionTag = "v1.67 Beta";
+	public static final String versionTag = "v1.67";
 	public static final String entspyTitle = "BSPEntSpy " + versionTag;
 	
 	private static final Pattern LIGHTMAP_REGEX = Pattern.compile("[/\\\\]*(\\d+)_s(\\d+)_a(\\d+)((?:hdr)*).png$");
@@ -650,7 +650,7 @@ public class BSPEntspy {
 							} catch (IOException e) {
 								errors.append("'").append(f.getName()).append("' - ").append(e.getMessage());
 								e.printStackTrace();
-							} catch(IllegalArgumentException e) {
+							} catch(Exception e) {
 								errors.append("'").append(f.getName()).append("' - ").append(e.getMessage());
 							}
 						}
