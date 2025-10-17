@@ -644,7 +644,7 @@ public class BSPEntspy {
 									continue;
 								}
 								
-								boolean isHdr = match.group(4) != null;
+								boolean isHdr = match.group(4) != null && match.group(4).length() > 0;
 								if(bspmap.setLightmap(img, Integer.parseInt(match.group(1)), Integer.parseInt(match.group(2)), Integer.parseInt(match.group(3)), isHdr))
 									numImported++;
 							} catch (IOException e) {
@@ -680,12 +680,12 @@ public class BSPEntspy {
 				
 				JSlider exposureSlider = new JSlider();
 				exposureSlider.setMaximum(1000);
-				exposureSlider.setMinimum(-1000);
+				exposureSlider.setMinimum(-100);
 				exposureSlider.setValue(0);
 				
 				exposureSlider.addChangeListener(new ChangeListener() {
 					public void stateChanged(ChangeEvent e) {
-						lmviewer.setExposure(exposureSlider.getValue() * 0.25);
+						lmviewer.setExposure(exposureSlider.getValue() * 0.01);
 					}
 				});
 				
