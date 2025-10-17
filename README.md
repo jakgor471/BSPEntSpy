@@ -26,7 +26,7 @@ BSPEntSpy is an updated version of **EntSpy** originaly made by Rof (http://www.
 **Java Runtime Environment** is required to run the application.
 
 ## Changelog :fire:
-### BSPEntSpy v1.67 release 17/10/2025
+### BSPEntSpy v1.671 release 17/10/2025
 * Option to save map without changing the CRC checksum
 * Lightmap browsing, exporting and importing
 * Option to calculate map checksum
