@@ -26,13 +26,12 @@ BSPEntSpy is an updated version of **EntSpy** originaly made by Rof (http://www.
 **Java Runtime Environment** is required to run the application.
 
 ## Changelog :fire:
-### BSPEntSpy v1.67 BETA :exclamation: :exclamation: :exclamation:
+### BSPEntSpy v1.67 release 17/10/2025
 * Option to save map without changing the CRC checksum
 * Lightmap browsing, exporting and importing
 * Option to calculate map checksum
-* !!! PAK Export/import does not work for LZMA compressed PAK Lumps (TF2)
-* !!! Importing lightmaps for LZMA compressed Lighting lumps does not work properly and WILL corrupt the map!
-* !!!FIX ME FIX ME FIX ME (- Fix me... - Later (Meet the medic))
+* Added safeguards
+* Removed "unable to shade polygon normal ..." error
 ### BSPEntSpy v1.5 release 17/05/2025 ANNIVERSARY EDITION :birthday:
 * Material edititing functionality
 * Enhanced cubemap editing
