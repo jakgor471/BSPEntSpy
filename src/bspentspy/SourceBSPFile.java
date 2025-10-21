@@ -981,6 +981,7 @@ public class SourceBSPFile extends BSPFile{
 		cur.offset = Math.max(cur.offset, 1036);
 		
 		GenericLump prev = null;
+		boolean writeLightmaps = newLumps[LIGHTINGLUMP].fourCC == 0 && newLumps[LIGHTINGLUMP_HDR].fourCC == 0;
 		
 		for(i = 0; i < sorted.size(); ++i) {
 			GenericLump to = sorted.get(i);
@@ -1061,6 +1062,9 @@ public class SourceBSPFile extends BSPFile{
 			} else if((to.index == LIGHTINGLUMP || to.index == LIGHTINGLUMP_HDR) && lightmaps != null) {
 				newLumps[to.index].fourCC = 0; //No LZMA
 				copy(out, lumps[to.index], to);
+				
+				if(!writeLightmaps)
+					continue;
 				
 				for(Lightmap l : lightmaps) {
 					if(!l.dirty)

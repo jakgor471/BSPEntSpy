@@ -22,7 +22,7 @@ public class SimpleFilter implements IFilter {
 	private static Pattern inp = Pattern.compile("\\\"([^\\\"]*?)\\\"\\s*[,\\)]");
 	private static Pattern stripQuotes = Pattern.compile("\\\"*(.*?)\\\"*$");
 	private static Pattern repP = Pattern.compile("\\%\\[(.*?)\\]");
-	private static Pattern radiusP = Pattern.compile("@([-\\d\\.]+)\\s+([-\\d\\.]+)\\s+([-\\d\\.]+)\\s*,\\s*([\\d\\.]+)");
+	private static Pattern radiusP = Pattern.compile("@([-\\d\\.]+)\\s+([-\\d\\.]+)\\s+([-\\d\\.]+)\\s*,\\s*([\\d\\.]+);");
 	
 	private static LinkedList<SimpleFilter> recent = new LinkedList<SimpleFilter>();
 	

@@ -124,8 +124,9 @@ public class BSPEntspy {
 	private ArrayList<ActionListener> onMapSaveInternal = new ArrayList<ActionListener>();
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String versionTag = "v1.671";
+	public static final String versionTag = "v1.672";
 	public static final String entspyTitle = "BSPEntSpy " + versionTag;
+	public static final String lightmapBrowserVersion = "v1.2";
 	
 	private static final Pattern LIGHTMAP_REGEX = Pattern.compile("[/\\\\]*(\\d+)_s(\\d+)_a(\\d+)((?:hdr)*).png$");
 	
@@ -680,12 +681,17 @@ public class BSPEntspy {
 				
 				JSlider exposureSlider = new JSlider();
 				exposureSlider.setMaximum(1000);
-				exposureSlider.setMinimum(-100);
+				exposureSlider.setMinimum(-1000);
 				exposureSlider.setValue(0);
 				
 				exposureSlider.addChangeListener(new ChangeListener() {
 					public void stateChanged(ChangeEvent e) {
-						lmviewer.setExposure(exposureSlider.getValue() * 0.01);
+						double finalExposure = exposureSlider.getValue() * 0.001;
+
+						if(finalExposure > 0)
+							finalExposure = Math.pow(2.0D, finalExposure * 6) - 1.0;//Math.tan(finalExposure * Math.PI * 0.5);
+						
+						lmviewer.setExposure(finalExposure);
 					}
 				});
 				
@@ -775,7 +781,7 @@ public class BSPEntspy {
 				split.setDividerLocation(275);
 				
 				dialog.getContentPane().add(split);
-				dialog.setTitle("Lightmap Browser v1.0");
+				dialog.setTitle("Lightmap Browser " + lightmapBrowserVersion);
 				dialog.setModalityType(Dialog.ModalityType.APPLICATION_MODAL);
 				dialog.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 				dialog.setSize(800, 520);
