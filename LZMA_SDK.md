@@ -1,5 +1,5 @@
 ## BSPEntSpy uses LZMA SDK by Igor Pavlov
 **LZMA SDK is placed in the public domain.**
 
-Anyone is free to copy, modify, publish, use, compile, sell, or distribute the original LZMA SDK code, either in source code form or as a compiled binary, for any purpose, commercial or non-commercial, and by any means.
+Anyone is free to copy, modify, publish, use, compile, sell, or distribute the original LZMA SDK code, either in source code form or as a compiled binary, for any purpose, commercial or non-commercial, and by any means. 
 
