@@ -564,9 +564,28 @@ public class SourceBSPFile extends BSPFile{
 					lumpBytes.writeFloat(parseFloat(prop.getKeyValue("fadescale"), 0));
 				}
 				
-				if(targetSpropVersion == SPROPLUMP_V6) {
+				if(targetSpropVersion == SPROPLUMP_V6 || curSpropVersion == SPROPLUMP_V7) {
 					lumpBytes.writeShort((short)parseInt(prop.getKeyValue("mindxlevel"), 0));
 					lumpBytes.writeShort((short)parseInt(prop.getKeyValue("maxdxlevel"), 0));
+				}
+				
+				if(targetSpropVersion >= SPROPLUMP_V8) {
+					lumpBytes.write((int)parseByte(prop.getKeyValue("mincpulevel"), 0));
+					lumpBytes.write((int)parseByte(prop.getKeyValue("maxcpulevel"), 0));
+					lumpBytes.write((int)parseByte(prop.getKeyValue("mingpulevel"), 0));
+					lumpBytes.write((int)parseByte(prop.getKeyValue("maxgpulevel"), 0));
+				}
+				
+				if(targetSpropVersion >= SPROPLUMP_V7) {
+					lumpBytes.writeInt(parseInt(prop.getKeyValue("diffuseModulation"), 0));
+				}
+				
+				if(targetSpropVersion == SPROPLUMP_V9 && targetSpropVersion == SPROPLUMP_V10) {
+					lumpBytes.writeInt(parseInt(prop.getKeyValue("disablex360"), 0));
+				}
+				
+				if(targetSpropVersion >= SPROPLUMP_V10) {
+					lumpBytes.writeInt(parseInt(prop.getKeyValue("flagsEx"), 0));
 				}
 			}
 			
@@ -610,16 +629,13 @@ public class SourceBSPFile extends BSPFile{
 			targetSpropVersion = SPROPLUMP_V5;
 		else if(ver.equals("v6"))
 			targetSpropVersion = SPROPLUMP_V6;
+		else if(ver.equals("v10"))
+			targetSpropVersion = SPROPLUMP_V10;
 		else
 			targetSpropVersion = -1; //-1 to save with original sprop version
 	}
 	
 	public String getStaticPropVersion() {
-		final String[] lookup = {"v4", "v5", "v6"};
-		
-		if(curSpropVersion > -1 && curSpropVersion < lookup.length)
-			return lookup[curSpropVersion];
-		
 		if(staticPropLump != null)
 			return "v" + Integer.toString(staticPropLump.version);
 		
@@ -632,13 +648,10 @@ public class SourceBSPFile extends BSPFile{
 		
 		switch(staticPropLump.version) {
 		case 4:
-			curSpropVersion = SPROPLUMP_V4;
-			break;
 		case 5:
-			curSpropVersion = SPROPLUMP_V5;
-			break;
 		case 6:
-			curSpropVersion = SPROPLUMP_V6;
+		case 10:
+			curSpropVersion = staticPropLump.version;
 			break;
 		default:
 			curSpropVersion = SPROPLUMP_INVALIDVERSION;
@@ -730,9 +743,28 @@ public class SourceBSPFile extends BSPFile{
 				prop.setKeyVal("fadescale", Float.toString(buff.getFloat()));
 			}
 			
-			if(curSpropVersion == SPROPLUMP_V6) {
+			if(curSpropVersion == SPROPLUMP_V6 || curSpropVersion == SPROPLUMP_V7) {
 				prop.setKeyVal("mindxlevel", Integer.toUnsignedString(buff.getShort()));
 				prop.setKeyVal("maxdxlevel", Integer.toUnsignedString(buff.getShort()));
+			}
+			
+			if(curSpropVersion >= SPROPLUMP_V8) {
+				prop.setKeyVal("mincpulevel", Integer.toUnsignedString(buff.get()));
+				prop.setKeyVal("maxcpulevel", Integer.toUnsignedString(buff.get()));
+				prop.setKeyVal("mingpulevel", Integer.toUnsignedString(buff.get()));
+				prop.setKeyVal("maxgpulevel", Integer.toUnsignedString(buff.get()));
+			}
+			
+			if(curSpropVersion >= SPROPLUMP_V7) {
+				prop.setKeyVal("diffuseModulation", Integer.toUnsignedString(buff.getInt()));
+			}
+			
+			if(curSpropVersion == SPROPLUMP_V9 && curSpropVersion == SPROPLUMP_V10) {
+				prop.setKeyVal("disablex360", Integer.toUnsignedString(buff.getInt()));
+			}
+			
+			if(curSpropVersion >= SPROPLUMP_V10) {
+				prop.setKeyVal("flagsEx", Integer.toUnsignedString(buff.getInt()));
 			}
 			
 			staticProps.add(prop);
@@ -1588,12 +1620,16 @@ public class SourceBSPFile extends BSPFile{
 	
 	private static final Charset utf8Charset = Charset.forName("UTF-8");
 	
-	private static final int[] SPROPLUMP_SIZE = {60, 60, 64};
-	private static final int[] SPROPLUMP_VERSIONLOOKUP = {4, 5, 6};
+	private static final int[] SPROPLUMP_SIZE = {-1, -1, -1, -1, 60, 60, 64, -1, -1, -1, 72};
+	private static final int[] SPROPLUMP_VERSIONLOOKUP = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 	
-	private static final int SPROPLUMP_V4 = 0;
-	private static final int SPROPLUMP_V5 = 1;
-	private static final int SPROPLUMP_V6 = 2;
+	private static final int SPROPLUMP_V4 = 4;
+	private static final int SPROPLUMP_V5 = 5;
+	private static final int SPROPLUMP_V6 = 6;
+	private static final int SPROPLUMP_V7 = 7;
+	private static final int SPROPLUMP_V8 = 8;
+	private static final int SPROPLUMP_V9 = 9;
+	private static final int SPROPLUMP_V10 = 10;
 	private static final int SPROPLUMP_INVALIDVERSION = -1;
 	
 	public static class BSPLump extends GenericLump{

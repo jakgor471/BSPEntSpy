@@ -1954,7 +1954,7 @@ public class BSPEntspy {
 			}
 			
 			if(bspmap.isSpropLumpLoaded()) {
-				final String[] versions = {"v4", "v5", "v6"};
+				final String[] versions = {"v4", "v5", "v6", "v10"};
 				JPanel panel = new JPanel(new GridLayout(0, 1));
 				JComboBox<String> combo = new JComboBox<String>(versions);
 				combo.setSelectedIndex(2);
