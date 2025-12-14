@@ -1,5 +1,5 @@
 ## Changelog :fire:
-### BSPEntSpy v1.673 release 21/10/2025
+### BSPEntSpy v1.673 release 14/12/2025
 * Added support for v10 Static prop lump (latest Garry's Mod map compiler)
 ### BSPEntSpy v1.672 release 21/10/2025
 * Fixed radius search filtering

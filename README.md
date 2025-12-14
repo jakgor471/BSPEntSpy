@@ -26,7 +26,7 @@ BSPEntSpy is an updated version of **EntSpy** originaly made by Rof (http://www.
 **Java Runtime Environment** is required to run the application.
 
 ## Latest changes :fire:
-### BSPEntSpy v1.673 release 21/10/2025
+### BSPEntSpy v1.673 release 14/12/2025
 * Added support for v10 Static prop lump (latest Garry's Mod map compiler)
 
 # Dependencies
