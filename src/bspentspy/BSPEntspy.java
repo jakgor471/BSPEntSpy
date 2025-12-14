@@ -124,7 +124,7 @@ public class BSPEntspy {
 	private ArrayList<ActionListener> onMapSaveInternal = new ArrayList<ActionListener>();
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String versionTag = "v1.672";
+	public static final String versionTag = "v1.673";
 	public static final String entspyTitle = "BSPEntSpy " + versionTag;
 	public static final String lightmapBrowserVersion = "v1.2";
 	
