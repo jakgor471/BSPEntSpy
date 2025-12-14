@@ -954,6 +954,7 @@ public class BSPEntspy {
 					JOptionPane.showMessageDialog(frame, "Could not load Static props!\n" + e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 					e.printStackTrace();
 					editStaticProps.setSelected(!editStaticProps.isSelected());
+					bspmap.unloadCubemaps();
 				}
 				
 				updateEntList(map.entities);

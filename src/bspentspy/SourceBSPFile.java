@@ -646,16 +646,10 @@ public class SourceBSPFile extends BSPFile{
 		if(staticPropLump == null)
 			return;
 		
-		switch(staticPropLump.version) {
-		case 4:
-		case 5:
-		case 6:
-		case 10:
-			curSpropVersion = staticPropLump.version;
-			break;
-		default:
+		curSpropVersion = staticPropLump.version;
+		
+		if(curSpropVersion < 0 || curSpropVersion > 10 || SPROPLUMP_SIZE[curSpropVersion] == -1)
 			curSpropVersion = SPROPLUMP_INVALIDVERSION;
-		}
 		
 		if(curSpropVersion == SPROPLUMP_INVALIDVERSION) {
 			throw new Exception("Not supported Static prop lump version (" + getStaticPropVersion() + ")!");
