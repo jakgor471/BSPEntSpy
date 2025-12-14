@@ -26,10 +26,8 @@ BSPEntSpy is an updated version of **EntSpy** originaly made by Rof (http://www.
 **Java Runtime Environment** is required to run the application.
 
 ## Latest changes :fire:
-### BSPEntSpy v1.672 release 21/10/2025
-* Fixed radius search filtering
-* Enhanced exposure setting in Lightmap browser
-* Minor bug fixes
+### BSPEntSpy v1.673 release 21/10/2025
+* Added support for v10 Static prop lump (latest Garry's Mod map compiler)
 
 # Dependencies
 * LZMA SDK (included in the source code) https://7-zip.org/sdk.html
