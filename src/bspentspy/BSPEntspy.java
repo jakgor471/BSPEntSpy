@@ -123,9 +123,9 @@ public class BSPEntspy {
 	private ArrayList<ActionListener> onMapSaveInternal = new ArrayList<ActionListener>();
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String versionTag = "v1.673";
+	public static final String versionTag = "v1.674";
 	public static final String entspyTitle = "BSPEntSpy " + versionTag;
-	public static final String lightmapBrowserVersion = "v1.2";
+	public static final String lightmapBrowserVersion = "v1.3";
 	
 	private static final Pattern LIGHTMAP_REGEX = Pattern.compile("[/\\\\]*(\\d+)_s(\\d+)_a(\\d+)((?:hdr)*).png$");
 	
@@ -2533,6 +2533,10 @@ public class BSPEntspy {
 			try (BufferedReader rd = new BufferedReader(
 					new InputStreamReader(BSPEntspy.class.getResourceAsStream(file)))) {
 				StringBuilder sb = new StringBuilder();
+				
+				if(file.endsWith("credits.html")) {
+					sb.append("<h2>CREDITS - ").append(BSPEntspy.entspyTitle).append("</h2>");
+				}
 
 				String line = null;
 				while ((line = rd.readLine()) != null) {

@@ -166,8 +166,8 @@ public class SourceBSPFile extends BSPFile{
 			int edge = surfedgeBuffer.getInt();
 			int index = Math.abs(edge);
 			
-			int v1index = edgeBuffer.getShort(index * 4);
-			int v2index = edgeBuffer.getShort(index * 4 + 2);
+			int v1index = Short.toUnsignedInt( edgeBuffer.getShort(index * 4) );
+			int v2index = Short.toUnsignedInt( edgeBuffer.getShort(index * 4 + 2) );
 			
 			Surfedge current = new Surfedge();
 			current.start[0] = vertexBuffer.getFloat(v1index * 12);
@@ -543,7 +543,7 @@ public class SourceBSPFile extends BSPFile{
 				lumpBytes.writeShort(leafCounts[i]);
 				
 				lumpBytes.write(parseByte(prop.getKeyValue("solid"), 0));
-				lumpBytes.write(prop.flags);
+				lumpBytes.write(prop.getFlags());
 				lumpBytes.writeInt(parseInt(prop.getKeyValue("skin"), 0));
 				lumpBytes.writeFloat(parseFloat(prop.getKeyValue("fademindist"), 0));
 				lumpBytes.writeFloat(parseFloat(prop.getKeyValue("fademaxdist"), 0));
@@ -722,7 +722,7 @@ public class SourceBSPFile extends BSPFile{
 			
 			prop.setKeyVal("leaves", leaves.toString());
 			prop.setKeyVal("solid", Integer.toString(buff.get()));
-			prop.flags = buff.get();
+			prop.setFlags(buff.get());
 			prop.setKeyVal("skin", Integer.toString(buff.getInt()));
 			prop.setKeyVal("fademindist", Float.toString(buff.getFloat()));
 			prop.setKeyVal("fademaxdist", Float.toString(buff.getFloat()));
