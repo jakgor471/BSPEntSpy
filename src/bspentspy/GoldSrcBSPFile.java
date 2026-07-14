@@ -122,4 +122,26 @@ public class GoldSrcBSPFile extends BSPFile{
 	}
 	
 	public static final int ENTLUMP = 0;
+
+	@Override
+	public String getInfo() {
+		StringBuilder sb = new StringBuilder();
+		
+		sb.append( "BSP version: " ).append( this.bspVersion ).append( "\n" );
+		sb.append( "Lumps:\n" );
+		
+		for(int i = 0; i < lumps.length; ++i) {
+			GenericLump l = lumps[i];
+			sb.append( i ).append( ". \t" ).append( l ).append( "\n" );
+		}
+		
+		try {
+			sb.append( "Total size: " ).append( (double)this.bspfile.length() / 1000.0D ).append( "KB\n" );
+		} catch( IOException e ) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return sb.toString();
+	}
 }

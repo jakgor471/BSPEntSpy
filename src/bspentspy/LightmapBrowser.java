@@ -173,6 +173,10 @@ public class LightmapBrowser extends JPanel {
 		return listModel.getElementAt(index);
 	}
 	
+	public void setSort(LightmapListModel.LightmapSortType sortType) {
+		listModel.resort( sortType );
+	}
+	
 	public void refreshList() {
 		listModel.reload();
 	}

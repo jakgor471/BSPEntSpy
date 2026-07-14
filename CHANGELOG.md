@@ -1,4 +1,8 @@
 ## Changelog :fire:
+### BSPEntSpy v1.7 release 14/07/2026
+* Added console window
+* Added option to sort lightmaps by size, material (alphabetically) and number of styles
+* Map info is printed to the console on map load
 ### BSPEntSpy v1.674 release 05/06/2026
 * Fixed negative index error when loading lightmaps (for *gm_citygateway.bsp*)
 ### BSPEntSpy v1.673 release 14/12/2025

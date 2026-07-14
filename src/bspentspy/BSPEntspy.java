@@ -17,6 +17,8 @@ import java.awt.dnd.DropTarget;
 import java.awt.dnd.DropTargetDropEvent;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -32,6 +34,8 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.RandomAccessFile;
 import java.io.Reader;
@@ -64,6 +68,7 @@ import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.ButtonGroup;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListModel;
 import javax.swing.DefaultListSelectionModel;
@@ -81,11 +86,13 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
 import javax.swing.JSpinner;
 import javax.swing.JSplitPane;
 import javax.swing.JTable;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
@@ -117,15 +124,31 @@ public class BSPEntspy {
 	Preferences preferences;
 	FGD fgdFile = null;
 	HashSet<Entity> previouslySelected = new HashSet<Entity>();
+	JTextArea entspyConsole;
+	JDialog entspyConsoleFrame;
+	
+	private BSPEntspy() {
+		
+	}
+	
+	public static BSPEntspy getInstance() {
+		if(theInstance == null) {
+			BSPEntspy inst = new BSPEntspy();
+			BSPEntspy.theInstance = inst;
+		}
+		
+		return BSPEntspy.theInstance;
+	}
 	
 	private ArrayList<ActionListener> onMapLoadInternal = new ArrayList<ActionListener>();
 	private ArrayList<ActionListener> onMapUnloadInternal = new ArrayList<ActionListener>();
 	private ArrayList<ActionListener> onMapSaveInternal = new ArrayList<ActionListener>();
 
 	static ImageIcon esIcon = new ImageIcon(BSPEntspy.class.getResource("/images/newicons/entspy.png"));
-	public static final String versionTag = "v1.674";
+	public static final String versionTag = "v1.7";
 	public static final String entspyTitle = "BSPEntSpy " + versionTag;
-	public static final String lightmapBrowserVersion = "v1.3";
+	public static final String lightmapBrowserVersion = "v1.4";
+	private static BSPEntspy theInstance;
 	
 	private static final Pattern LIGHTMAP_REGEX = Pattern.compile("[/\\\\]*(\\d+)_s(\\d+)_a(\\d+)((?:hdr)*).png$");
 	
@@ -188,10 +211,9 @@ public class BSPEntspy {
 			
 		} catch (Exception e) {
 			unloadFile();
-			
+			e.printStackTrace();
 			JOptionPane.showMessageDialog(frame, "Map " + infile.getName() + " couldn't be read!", "ERROR!",
 					JOptionPane.ERROR_MESSAGE);
-			e.printStackTrace();
 
 			return false;
 		}
@@ -282,6 +304,28 @@ public class BSPEntspy {
 		
 		BSPEntspy.frame = new JFrame(entspyTitle);
 		BSPEntspy.frame.setIconImage(esIcon.getImage());
+		
+		entspyConsole = new JTextArea();
+		entspyConsoleFrame = new JDialog(BSPEntspy.frame);
+		{
+			CustomOutputStream consoleOut = new CustomOutputStream(entspyConsole, System.out);
+			CustomOutputStream errorOut = new CustomOutputStream(entspyConsole, System.err);
+			
+			System.setOut( new PrintStream(consoleOut) );
+			System.setErr( new PrintStream(errorOut) );
+			
+			Font f = new Font( "Consolas", Font.PLAIN, 14 );
+			entspyConsole.setFont( f );
+			
+			entspyConsole.setEditable( false );
+			
+			JScrollPane conscroll = new JScrollPane(entspyConsole);
+			
+			entspyConsoleFrame.getContentPane().add(conscroll);
+			entspyConsoleFrame.setTitle("BSPEntspy console");
+			entspyConsoleFrame.setSize(800, 520);
+			entspyConsoleFrame.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
+		}
 
 		if (loadFGDFiles(null)) {
 			System.out.println("FGD loaded: " + String.join(", ", fgdFile.loadedFgds));
@@ -333,8 +377,9 @@ public class BSPEntspy {
 				SourceBSPFile bspmap = (SourceBSPFile)map;
 				try {
 					long checksum = bspmap.computeChecksum();
-					JOptionPane.showMessageDialog(frame, "The CRC32 checksum of the map is: 0x" + Long.toHexString(checksum).toUpperCase(), "ERROR!", JOptionPane.INFORMATION_MESSAGE);
+					JOptionPane.showMessageDialog(frame, "The CRC32 checksum of the map is: 0x" + Long.toHexString(checksum).toUpperCase(), "Info", JOptionPane.INFORMATION_MESSAGE);
 				} catch (IOException e) {
+					e.printStackTrace();
 					JOptionPane.showMessageDialog(frame, "An error occured...", "ERROR!", JOptionPane.ERROR_MESSAGE);
 				}
 			}
@@ -362,11 +407,9 @@ public class BSPEntspy {
 		JMenu editmenu = new JMenu("Edit");
 		JMenuItem mUndo = new JMenuItem("Undo");
 		mUndo.setToolTipText("Undo last edit");
-		//mUndo.setEnabled(false);
 		mUndo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, KeyEvent.CTRL_DOWN_MASK));
 
 		JMenuItem mRedo = new JMenuItem("Redo");
-		//mRedo.setEnabled(false);
 		mRedo.setToolTipText("Redo last edit");
 		mRedo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Y, KeyEvent.CTRL_DOWN_MASK));
 
@@ -397,7 +440,6 @@ public class BSPEntspy {
 		});
 
 		JMenuItem mInvertSel = new JMenuItem("Invert selection");
-		//mInvertSel.setEnabled(true);
 		mInvertSel.setToolTipText("Invert the selection");
 		mInvertSel.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_I, KeyEvent.CTRL_DOWN_MASK));
 		editmenu.addSeparator();
@@ -530,6 +572,14 @@ public class BSPEntspy {
 				preferences.putBoolean("preserveChecksum", mPromptChecksum.isSelected());
 			}
 		});
+		
+		JMenuItem showConsole = new JMenuItem("Show console");
+		showConsole.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent ae) {
+				entspyConsoleFrame.setLocation(frame.getLocation());
+				entspyConsoleFrame.setVisible( true );
+			}
+		});
 
 		optionmenu.add(msmartEditOption);
 		optionmenu.add(maddDefaultOption);
@@ -537,6 +587,8 @@ public class BSPEntspy {
 		optionmenu.add(mPromptChecksum);
 		optionmenu.addSeparator();
 		optionmenu.add(mCheckForUpdates);
+		optionmenu.addSeparator();
+		optionmenu.add(showConsole);
 
 		JMenu entitymenu = new JMenu("Entity");
 		final JMenuItem importEntity = new JMenuItem("Import");
@@ -667,8 +719,42 @@ public class BSPEntspy {
 					}
 				});
 				
+				ButtonGroup sortGroup = new ButtonGroup();
+				JRadioButtonMenuItem sortBySize = new JRadioButtonMenuItem("Sort by size");
+				JRadioButtonMenuItem sortByMaterial = new JRadioButtonMenuItem("Sort by material");
+				JRadioButtonMenuItem sortByStyles = new JRadioButtonMenuItem("Sort by styles");
+				JRadioButtonMenuItem sortByNone = new JRadioButtonMenuItem("Natural order");
+				sortBySize.putClientProperty( "sortType", LightmapListModel.LightmapSortType.BySize );
+				sortByMaterial.putClientProperty( "sortType", LightmapListModel.LightmapSortType.ByMaterial );
+				sortByNone.putClientProperty( "sortType", LightmapListModel.LightmapSortType.ByNone );
+				sortByStyles.putClientProperty( "sortType", LightmapListModel.LightmapSortType.ByStyles );
+				
+				sortGroup.add( sortBySize );
+				sortGroup.add( sortByMaterial );
+				sortGroup.add( sortByStyles );
+				sortGroup.add( sortByNone );
+				
+				sortByNone.setSelected( true );
+				ItemListener radioListen = new ItemListener() {
+					public void itemStateChanged( ItemEvent e ) {
+						LightmapListModel.LightmapSortType type = (LightmapListModel.LightmapSortType)((JRadioButtonMenuItem)e.getSource()).getClientProperty( "sortType" );
+						
+						lightmapEditor.setSort(type);
+					}
+				};
+				
+				sortBySize.addItemListener( radioListen );
+				sortByMaterial.addItemListener( radioListen );
+				sortByStyles.addItemListener( radioListen );
+				sortByNone.addItemListener( radioListen );
+				
 				lightmapMenu.add(importLightmaps);
 				lightmapMenu.add(exportLightmaps);
+				lightmapMenu.addSeparator();
+				lightmapMenu.add(sortBySize);
+				lightmapMenu.add(sortByStyles);
+				lightmapMenu.add(sortByMaterial);
+				lightmapMenu.add(sortByNone);
 				dialog.setJMenuBar(menuBar);
 				
 				JPanel right = new JPanel(new BorderLayout());
@@ -874,8 +960,8 @@ public class BSPEntspy {
 				try(FileOutputStream os = new FileOutputStream(zipo)) {
 					bspmap.writePakToStream(os);
 				} catch (IOException e) {
-					JOptionPane.showMessageDialog(frame, "IO Error has occurred: " + e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 					e.printStackTrace();
+					JOptionPane.showMessageDialog(frame, "IO Error has occurred: " + e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 					return;
 				}
 				
@@ -950,10 +1036,10 @@ public class BSPEntspy {
 						bspmap.unloadStaticProps();
 					}
 				} catch(Exception e) {
-					JOptionPane.showMessageDialog(frame, "Could not load Static props!\n" + e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 					e.printStackTrace();
 					editStaticProps.setSelected(!editStaticProps.isSelected());
 					bspmap.unloadCubemaps();
+					JOptionPane.showMessageDialog(frame, "Could not load Static props!\n" + e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 				}
 				
 				updateEntList(map.entities);
@@ -1174,9 +1260,9 @@ public class BSPEntspy {
 				try {
 					patchFromVMF(f);
 				} catch (FileNotFoundException | LexerException e1) {
+					e1.printStackTrace();
 					JOptionPane.showMessageDialog(frame, "Error while loading VMF: " + e1.getMessage(), "ERROR!",
 							JOptionPane.ERROR_MESSAGE);
-					e1.printStackTrace();
 				}
 
 				preferences.put("LastVMFFolder", f.getParent());
@@ -1337,8 +1423,8 @@ public class BSPEntspy {
 					JOptionPane.showMessageDialog(frame, ents.size() + " entities successfuly exported to " + f, "Info",
 							JOptionPane.INFORMATION_MESSAGE);
 				} catch (IOException e) {
-					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 					e.printStackTrace();
+					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 				}
 
 				return;
@@ -1382,8 +1468,8 @@ public class BSPEntspy {
 					JOptionPane.showMessageDialog(frame, ents.size() + " entities successfuly imported from " + f,
 							"Info", JOptionPane.INFORMATION_MESSAGE);
 				} catch (Exception | LexerException e) {
-					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 					e.printStackTrace();
+					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 				}
 
 				return;
@@ -1415,8 +1501,8 @@ public class BSPEntspy {
 					Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
 					cb.setContents(new StringSelection(sw.toString()), null);
 				} catch (IOException e) {
-					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 					e.printStackTrace();
+					JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 				}
 
 				return;
@@ -1470,9 +1556,9 @@ public class BSPEntspy {
 					if(ents.size() < 32)
 						entList.setSelectedIndices(selectedIndices);
 				} catch (Exception | LexerException e) {
+					e.printStackTrace();
 					JOptionPane.showMessageDialog(frame, "Could not parse data from clipboard!\n" + e.getMessage(),
 							"ERROR!", JOptionPane.ERROR_MESSAGE);
-					e.printStackTrace();
 				}
 
 				return;
@@ -1841,6 +1927,36 @@ public class BSPEntspy {
 
 		return 0;
 	}
+	
+	public static class CustomOutputStream extends OutputStream {
+		private JTextArea textArea;
+		private OutputStream original;
+		private StringBuilder sb;
+
+		public CustomOutputStream( JTextArea textArea, OutputStream original ) {
+			this.textArea = textArea;
+			this.original = original;
+			sb = new StringBuilder();
+		}
+
+		@Override
+		public void write( int b ) throws IOException {
+			// redirects data to the text area
+			sb.append( (char) b );
+
+			if( b == '\n' )
+				flush();
+
+			original.write( b );
+		}
+
+		public void flush() {
+			textArea.append( sb.toString() );
+			textArea.update( textArea.getGraphics() );
+			textArea.setCaretPosition( textArea.getDocument().getLength() );
+			sb.setLength( 0 );
+		}
+	}
 
 	public boolean setFindList(Entity sel, DefaultComboBoxModel<Entity> model) {
 		model.removeAllElements();
@@ -1881,7 +1997,7 @@ public class BSPEntspy {
 			System.out.println("Can't read " + this.filename + "!");
 			return false;
 		}
-		System.out.println("Reading map file " + this.filename);
+		System.out.println("========== Reading map file " + this.filename + " ==========");
 
 		preferences.put("LastFolder", this.infile.getParent());
 		
@@ -1891,6 +2007,8 @@ public class BSPEntspy {
 			e1.printStackTrace();
 			return false;
 		}
+		
+		System.out.println(map.getInfo());
 
 		return true;
 	}
@@ -1991,8 +2109,6 @@ public class BSPEntspy {
 				}
 			}
 		} catch (IOException e) {
-			JOptionPane.showMessageDialog(frame, "Error while saving the file!\n" + e.getMessage() + "\nMake sure the file is not open in other software.", "ERROR",
-					JOptionPane.ERROR_MESSAGE);
 			e.printStackTrace();
 			
 			if(output != null) {
@@ -2002,6 +2118,9 @@ public class BSPEntspy {
 				}
 			}
 			
+			JOptionPane.showMessageDialog(frame, "Error while saving the file!\n" + e.getMessage() + "\nMake sure the file is not open in other software.", "ERROR",
+					JOptionPane.ERROR_MESSAGE);
+			
 			return false;
 		} finally {
 			try {
@@ -2010,10 +2129,13 @@ public class BSPEntspy {
 				map.bspfile = new RandomAccessFile(out, "rw");
 				this.filename = infile.getName();
 				frame.setTitle(entspyTitle + " - " + this.filename);
+				
+				System.out.println("========== File saved! ==========");
+				System.out.println(map.getInfo());
 			} catch(IOException e) {
+				loadFile(null);
 				JOptionPane.showMessageDialog(frame, "Error while re-opening the file!\n" + e.getMessage(), "ERROR",
 						JOptionPane.ERROR_MESSAGE);
-				loadFile(null);
 			}
 		}
 		
@@ -2051,9 +2173,9 @@ public class BSPEntspy {
 			fgdFile.loadFromReader(fr, file.getName(), callback);
 			fr.close();
 		} catch (Exception | LexerException e) {
-			JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 			e.printStackTrace();
 			fgdFile = null;
+			JOptionPane.showMessageDialog(frame, e.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
 			return false;
 		}
 
@@ -2293,7 +2415,7 @@ public class BSPEntspy {
 		
 		if(runGui && !failed) {
 			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-			BSPEntspy inst = new BSPEntspy();
+			BSPEntspy inst = BSPEntspy.getInstance();
 			inst.exec(secret);
 		}
 	}
@@ -2460,6 +2582,7 @@ public class BSPEntspy {
 			try {
 				entModel.setFilter(SimpleFilter.create(ftext));
 			} catch (Exception e) {
+				e.printStackTrace();
 				JOptionPane.showMessageDialog(frame, "Invalid filter format!", "ERROR", JOptionPane.ERROR_MESSAGE);
 			}
 		}
@@ -2482,6 +2605,7 @@ public class BSPEntspy {
 			try {
 				filter = SimpleFilter.create(ftext);
 			} catch (Exception e) {
+				e.printStackTrace();
 				JOptionPane.showMessageDialog(frame, "Invalid filter format!", "ERROR", JOptionPane.ERROR_MESSAGE);
 				return;
 			}

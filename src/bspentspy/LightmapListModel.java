@@ -2,6 +2,7 @@ package bspentspy;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 
 import javax.swing.AbstractListModel;
 
@@ -14,6 +15,7 @@ public class LightmapListModel extends AbstractListModel<Lightmap> {
 	float[] origin;
 	float radius;
 	String material;
+	LightmapSortType sortType;
 	
 	public LightmapListModel(SourceBSPFile bspmap) {
 		filtered = new ArrayList<>();
@@ -26,7 +28,12 @@ public class LightmapListModel extends AbstractListModel<Lightmap> {
 			e.printStackTrace();
 		}
 		
+		sortType = LightmapSortType.ByNone;
 		filter(false, 0, 0, 0, -1, null);
+	}
+	
+	public void filter() {
+		filter(false, 0, 0, 0, 0, material);
 	}
 	
 	public void filter(boolean posFilter, float x, float y, float z, float radius, String material) {
@@ -69,6 +76,11 @@ public class LightmapListModel extends AbstractListModel<Lightmap> {
 			}
 		}
 		
+		Comparator<Lightmap> sortBy = sortType.getComparator();
+		
+		if(sortBy != null)
+			filtered.sort( sortBy );
+		
 		this.fireContentsChanged(this, 0, getSize());
 	}
 
@@ -85,5 +97,47 @@ public class LightmapListModel extends AbstractListModel<Lightmap> {
 	public void reload() {
 		this.fireContentsChanged(this, 0, getSize());
 	}
-
+	
+	public void resort(LightmapSortType type) {
+		if(type.equals( sortType ))
+			return;
+		
+		sortType = type;
+		filter();
+	}
+	
+	public static enum LightmapSortType{
+		BySize,
+		ByMaterial,
+		ByStyles,
+		ByNone;
+		
+		public Comparator<Lightmap> getComparator(){
+			switch(this) {
+			case BySize:
+				return new Comparator<Lightmap>() {
+					public int compare( Lightmap o1, Lightmap o2 ) {
+						return o2.area - o1.area;
+					}
+					
+				};
+			case ByMaterial:
+				return new Comparator<Lightmap>() {
+					public int compare( Lightmap o1, Lightmap o2 ) {
+						return o1.underlyingMaterial.compareTo( o2.underlyingMaterial );
+					}
+					
+				};
+			case ByStyles:
+				return new Comparator<Lightmap>() {
+					public int compare( Lightmap o1, Lightmap o2 ) {
+						return o2.styles - o1.styles;
+					}
+					
+				};
+			default:
+				return null;
+			}
+		}
+	}
 }

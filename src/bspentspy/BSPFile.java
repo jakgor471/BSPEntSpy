@@ -175,6 +175,8 @@ public abstract class BSPFile implements AutoCloseable{
 		}
 	}
 	
+	public abstract String getInfo();
+	
 	public static class GenericLump implements Comparable<GenericLump>, Cloneable{
 		int index;
 		long offset;
@@ -194,7 +196,7 @@ public abstract class BSPFile implements AutoCloseable{
 		}
 		
 		public String toString() {
-			return "index: " + index + String.format("\toffset: %,d\tlen: %,d", offset, length);
+			return String.format("\tOffset: %,d\tLength: %,d", offset, length);
 		}
 	}
 }

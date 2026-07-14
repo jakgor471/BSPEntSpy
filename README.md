@@ -17,17 +17,19 @@ BSPEntSpy is an updated version of **EntSpy** originaly made by Rof (http://www.
 * **Re-saving Static prop lump with different version** to fix 'stale map version' error
 * **Browsing, exporting and importing lightmaps**
 
-**Old version** to the left, **new version** to the right  
-![comparison](https://github.com/jakgor471/BSPEntSpy/blob/main/images/image1.jpg?raw=true)
-
-**Help panel**  
-![comparison](https://github.com/jakgor471/BSPEntSpy/blob/main/images/image2.jpg?raw=true)
+## Showcase
+![image2](./images/image1.jpg?raw=true)
+| Console                                 | Lightmap viewer                         |
+|-----------------------------------------|-----------------------------------------|
+| ![image1](./images/image2.jpg?raw=true) | ![image3](./images/image3.jpg?raw=true) |
 
 **Java Runtime Environment** is required to run the application.
 
 ## Latest changes :fire:
-### BSPEntSpy v1.674 release 05/06/2026
-* Fixed negative index error when loading lightmaps (for *gm_citygateway.bsp*)
+### BSPEntSpy v1.7 release 14/07/2026
+* Added console window
+* Added option to sort lightmaps by size, material (alphabetically) and number of styles
+* Map info is printed to the console on map load
 
 # Dependencies
 * LZMA SDK (included in the source code) https://7-zip.org/sdk.html

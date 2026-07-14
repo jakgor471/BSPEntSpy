@@ -20,6 +20,7 @@ import java.nio.charset.CharsetDecoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Random;
 import java.util.regex.Matcher;
@@ -31,6 +32,7 @@ import java.util.zip.ZipOutputStream;
 
 import SevenZip.Compression.LZMA.Decoder;
 import SevenZip.Compression.LZMA.Encoder;
+import bspentspy.BSPFile.GenericLump;
 import util.RandomAccessByteOutputStream;
 
 public class SourceBSPFile extends BSPFile{
@@ -197,6 +199,7 @@ public class SourceBSPFile extends BSPFile{
 		short styles;
 		short axes;
 		BufferedImage[] images;
+		int area;
 		boolean obscured;
 		boolean hdr = false;
 		boolean dirty = false;
@@ -344,6 +347,8 @@ public class SourceBSPFile extends BSPFile{
 				lightmapImg.size[1] = height;
 				lightmapImg.mins[0] = min1;
 				lightmapImg.mins[1] = min2;
+				
+				lightmapImg.area = width * height;
 				
 				lightmapImg.faceId = i;
 				lightmapImg.styles = (short)numStyles;
@@ -1644,8 +1649,38 @@ public class SourceBSPFile extends BSPFile{
 		}
 		
 		public String toString() {
-			return "[offset: " + offset + ", length: " + length + "]";
+			return "\n\tOffset: " + offset + ",\n\tLength: " + length + ",\n\tVersion: " + version + ", \n\tLZMA: " + lzma;
 		}
+	}
+	
+	public String getInfo() {
+		StringBuilder sb = new StringBuilder();
+		
+		sb.append( "BSP version: " ).append( this.bspVersion ).append( "\n" );
+		try {
+			sb.append( "Checksum: 0x" ).append( Long.toHexString(this.computeChecksum()).toUpperCase() ).append( "\n" );
+		} catch( IOException e ) {
+			e.printStackTrace();
+		}
+		sb.append( "Lumps:\n" );
+		
+		for(int i = 0; i < lumps.length; ++i) {
+			GenericLump l = lumps[i];
+			
+			if(l.length == 0)
+				continue;
+			
+			sb.append( i ).append( ": " ).append(Lumps.values()[i]).append( l ).append( "\n" );
+		}
+		
+		try {
+			sb.append( "Total size: " ).append( (double)this.bspfile.length() / 1000.0D ).append( "KB\n" );
+		} catch( IOException e ) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return sb.toString();
 	}
 	
 	private static class GameLump extends GenericLump{
@@ -1666,6 +1701,86 @@ public class SourceBSPFile extends BSPFile{
 			
 			return clone;
 		}
+	}
+	
+	enum Lumps{
+		LUMP_ENTITIES,
+		LUMP_PLANES,
+		LUMP_TEXDATA,
+		LUMP_VERTEXES,
+		LUMP_VISIBILITY,
+		LUMP_NODES,
+		LUMP_TEXINFO,
+		LUMP_FACES,
+		LUMP_LIGHTING,
+		LUMP_OCCLUSION,
+		LUMP_LEAFS,
+		LUMP_FACEIDS,
+		LUMP_EDGES,
+		LUMP_SURFEDGES,
+		LUMP_MODELS,
+		LUMP_WORLDLIGHTS,
+		LUMP_LEAFFACES,
+		LUMP_LEAFBRUSHES,
+		LUMP_BRUSHES,
+		LUMP_BRUSHSIDES,
+		LUMP_AREAS,
+		LUMP_AREAPORTALS,
+		LUMP_PORTALS,
+		LUMP_UNUSED0,
+		LUMP_PROPCOLLISION,
+		LUMP_CLUSTERS,
+		LUMP_UNUSED1,
+		LUMP_PROPHULLS,
+		LUMP_PORTALVERTS,
+		LUMP_UNUSED2,
+		LUMP_FAKEENTITIES,
+		LUMP_PROPHULLVERTS,
+		LUMP_CLUSTERPORTALS,
+		LUMP_UNUSED3,
+		LUMP_PROPTRIS,
+		LUMP_DISPINFO,
+		LUMP_ORIGINALFACES,
+		LUMP_PHYSDISP,
+		LUMP_PHYSCOLLIDE,
+		LUMP_VERTNORMALS,
+		LUMP_VERTNORMALINDICES,
+		LUMP_DISP_LIGHTMAP_ALPHAS,
+		LUMP_DISP_VERTS,
+		LUMP_DISP_LIGHTMAP_SAMPLE_POSITIONS,
+		LUMP_GAME_LUMP,
+		LUMP_LEAFWATERDATA,
+		LUMP_PRIMITIVES,
+		LUMP_PRIMVERTS,
+		LUMP_PRIMINDICES,
+		LUMP_PAKFILE,
+		LUMP_CLIPPORTALVERTS,
+		LUMP_CUBEMAPS,
+		LUMP_TEXDATA_STRING_DATA,
+		LUMP_TEXDATA_STRING_TABLE,
+		LUMP_OVERLAYS,
+		LUMP_LEAFMINDISTTOWATER,
+		LUMP_FACE_MACRO_TEXTURE_INFO,
+		LUMP_DISP_TRIS,
+		LUMP_PHYSCOLLIDESURFACE,
+		LUMP_PROP_BLOB,
+		LUMP_WATEROVERLAYS,
+		LUMP_LIGHTMAPPAGES,
+		LUMP_LEAF_AMBIENT_INDEX_HDR,
+		LUMP_LIGHTMAPPAGEINFOS,
+		LUMP_LEAF_AMBIENT_INDEX,
+		LUMP_LIGHTING_HDR,
+		LUMP_WORLDLIGHTS_HDR,
+		LUMP_LEAF_AMBIENT_LIGHTING_HDR,
+		LUMP_LEAF_AMBIENT_LIGHTING,
+		LUMP_XZIPPAKFILE,
+		LUMP_FACES_HDR,
+		LUMP_MAP_FLAGS,
+		LUMP_OVERLAY_FADES,
+		LUMP_OVERLAY_SYSTEM_LEVELS,
+		LUMP_PHYSLEVEL,
+		LUMP_DISP_MULTIBLEND,
+
 	}
 	
 }
