@@ -21,7 +21,7 @@ BSPEntSpy is an updated version of **EntSpy** originaly made by Rof (http://www.
 ![image2](./images/image1.jpg?raw=true)
 | Console                                 | Lightmap viewer                         |
 |-----------------------------------------|-----------------------------------------|
-| ![image1](./images/image2.jpg?raw=true) | ![image3](./images/image3.jpg?raw=true) |
+| ![image1](./images/image2.jpg?raw=true) | ![image3](./images/image3.JPG?raw=true) |
 
 **Java Runtime Environment** is required to run the application.
 
